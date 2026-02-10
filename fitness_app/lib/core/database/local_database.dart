@@ -1,0 +1,69 @@
+import 'dart:io';
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+
+import '../../features/workout/data/workout_tables.dart';
+
+part 'local_database.g.dart'; 
+
+@DriftDatabase(tables: [
+  Exercises, 
+  WorkoutSplits, 
+  WorkoutRoutines, 
+  WorkoutSessions, 
+  WorkoutSets
+])
+class AppDatabase extends _$AppDatabase {
+  AppDatabase() : super(_openConnection());
+
+  @override
+  int get schemaVersion => 1;
+
+  // --- ADD THIS BLOCK START ---
+  @override
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onCreate: (Migrator m) async {
+        // First, create all the tables defined in @DriftDatabase
+        await m.createAll();
+
+        // Now, seed the initial data
+        await batch((batch) {
+          batch.insertAll(exercises, [
+            ExercisesCompanion.insert(
+              name: 'Bench Press',
+              bodyPart: 'Chest',
+              equipmentType: 'Barbell',
+            ),
+            ExercisesCompanion.insert(
+              name: 'Squat',
+              bodyPart: 'Legs',
+              equipmentType: 'Barbell',
+            ),
+            ExercisesCompanion.insert(
+              name: 'Deadlift',
+              bodyPart: 'Back',
+              equipmentType: 'Barbell',
+            ),
+            ExercisesCompanion.insert(
+              name: 'Shoulder Press',
+              bodyPart: 'Shoulders',
+              equipmentType: 'Dumbbell',
+            ),
+          ]);
+        });
+      },
+    );
+  }
+  // --- ADD THIS BLOCK END ---
+}
+
+LazyDatabase _openConnection() {
+  return LazyDatabase(() async {
+    final dbFolder = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dbFolder.path, 'fitness_db.sqlite'));
+    return NativeDatabase.createInBackground(file);
+  });
+}
