@@ -45,3 +45,13 @@ class WorkoutSets extends Table {
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
 }
+
+// 6. THE LINK: Which exercises belong to a routine template
+class RoutineExercises extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get routineId => integer().references(WorkoutRoutines, #id)();
+  IntColumn get exerciseId => integer().references(Exercises, #id)();
+  IntColumn get orderIndex => integer()();
+  IntColumn get targetSets => integer().withDefault(const Constant(3))();
+  IntColumn get targetReps => integer().withDefault(const Constant(10))();
+}

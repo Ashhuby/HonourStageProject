@@ -6,29 +6,27 @@ import 'package:path/path.dart' as p;
 
 import '../../features/workout/data/workout_tables.dart';
 
-part 'local_database.g.dart'; 
+part 'local_database.g.dart';
 
 @DriftDatabase(tables: [
-  Exercises, 
-  WorkoutSplits, 
-  WorkoutRoutines, 
-  WorkoutSessions, 
-  WorkoutSets
+  Exercises,
+  WorkoutSplits,
+  WorkoutRoutines,
+  RoutineExercises,
+  WorkoutSessions,
+  WorkoutSets,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
-        // First, create all the tables defined in @DriftDatabase
         await m.createAll();
-
-        // Now, seed the initial data
         await batch((batch) {
           batch.insertAll(exercises, [
             ExercisesCompanion.insert(
@@ -54,9 +52,16 @@ class AppDatabase extends _$AppDatabase {
           ]);
         });
       },
+      onUpgrade: (Migrator m, int from, int to) async {
+        if (from < 2) {
+          await m.createTable(routineExercises);
+        }
+      },
+      beforeOpen: (details) async {
+        await customStatement('PRAGMA foreign_keys = ON');
+      },
     );
   }
-  
 }
 
 LazyDatabase _openConnection() {
