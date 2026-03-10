@@ -1,0 +1,13 @@
+# OS stuffs
+.DS_Store
+Thumbs.db
+
+# Editor config
+.vscode/
+.idea/
+
+# Word temporary files
+~$*.docx
+~$*.doc
+*.tmp
+
