@@ -21,7 +21,6 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 1;
 
-  // --- ADD THIS BLOCK START ---
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
@@ -57,7 +56,7 @@ class AppDatabase extends _$AppDatabase {
       },
     );
   }
-  // --- ADD THIS BLOCK END ---
+  
 }
 
 LazyDatabase _openConnection() {

@@ -6,7 +6,7 @@ part of 'exercise_repository.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$watchExercisesHash() => r'7996c50d964a6ee036191e1dd080e96ccabb51c1';
+String _$watchExercisesHash() => r'2ddb8979c49a81aa4f09697acf635a9c293c828e';
 
 /// See also [watchExercises].
 @ProviderFor(watchExercises)
@@ -24,5 +24,22 @@ final watchExercisesProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef WatchExercisesRef = AutoDisposeStreamProviderRef<List<Exercise>>;
+String _$exerciseRepositoryHash() =>
+    r'a4aeba52ab35a0d362b1de118bab2bc7073c784b';
+
+/// See also [ExerciseRepository].
+@ProviderFor(ExerciseRepository)
+final exerciseRepositoryProvider =
+    AutoDisposeNotifierProvider<ExerciseRepository, void>.internal(
+      ExerciseRepository.new,
+      name: r'exerciseRepositoryProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$exerciseRepositoryHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+typedef _$ExerciseRepository = AutoDisposeNotifier<void>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
