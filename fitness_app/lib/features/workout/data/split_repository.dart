@@ -5,7 +5,51 @@ import 'package:fitness_app/core/database/database_provider.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 
 part 'split_repository.g.dart';
+
+class RoutineExerciseWithName {
+  final RoutineExercise routineExercise;
+  final String exerciseName;
+  final String bodyPart;
+  final String equipmentType;
+
+  const RoutineExerciseWithName({
+    required this.routineExercise,
+    required this.exerciseName,
+    required this.bodyPart,
+    required this.equipmentType,
+  });
+}
+
 // --- STREAMS ---
+@riverpod
+Stream<List<RoutineExerciseWithName>> watchExercisesForRoutineWithNames(
+  Ref ref,
+  int routineId,
+) {
+  final db = ref.watch(databaseProvider);
+
+  final query = db.select(db.routineExercises).join([
+    innerJoin(
+      db.exercises,
+      db.exercises.id.equalsExp(db.routineExercises.exerciseId),
+    ),
+  ])
+    ..where(db.routineExercises.routineId.equals(routineId))
+    ..orderBy([OrderingTerm.asc(db.routineExercises.orderIndex)]);
+
+  return query.watch().map(
+        (rows) => rows
+            .map(
+              (row) => RoutineExerciseWithName(
+                routineExercise: row.readTable(db.routineExercises),
+                exerciseName: row.readTable(db.exercises).name,
+                bodyPart: row.readTable(db.exercises).bodyPart,
+                equipmentType: row.readTable(db.exercises).equipmentType,
+              ),
+            )
+            .toList(),
+      );
+}
 
 @riverpod
 Stream<List<WorkoutSplit>> watchSplits(Ref ref) {

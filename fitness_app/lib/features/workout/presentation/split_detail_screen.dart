@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 import '../data/split_repository.dart';
+import '../data/exercise_repository.dart';
 
 class SplitDetailScreen extends ConsumerWidget {
   final WorkoutSplit split;
@@ -111,7 +112,10 @@ class SplitDetailScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => RoutineExercisesSheet(routine: routine),
+      builder: (_) => ProviderScope(
+        parent: ProviderScope.containerOf(context),
+        child: RoutineExercisesSheet(routine: routine),
+      ),
     );
   }
 }
@@ -125,8 +129,9 @@ class RoutineExercisesSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final routineExercisesAsync =
-        ref.watch(watchExercisesForRoutineProvider(routine.id));
+    final routineExercisesAsync = ref.watch(
+      watchExercisesForRoutineWithNamesProvider(routine.id),
+    );
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
@@ -149,7 +154,7 @@ class RoutineExercisesSheet extends ConsumerWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.add),
-                  onPressed: () => _showAddExerciseDialog(context, ref),
+                  onPressed: () => _showExercisePicker(context, ref),
                 ),
               ],
             ),
@@ -167,7 +172,7 @@ class RoutineExercisesSheet extends ConsumerWidget {
                       itemBuilder: (context, index) {
                         final re = routineExercises[index];
                         return Dismissible(
-                          key: ValueKey(re.id),
+                          key: ValueKey(re.routineExercise.id),
                           direction: DismissDirection.endToStart,
                           background: Container(
                             color: Colors.red,
@@ -180,12 +185,15 @@ class RoutineExercisesSheet extends ConsumerWidget {
                           onDismissed: (_) {
                             ref
                                 .read(splitRepositoryProvider.notifier)
-                                .removeExerciseFromRoutine(re.id);
+                                .removeExerciseFromRoutine(
+                                    re.routineExercise.id);
                           },
                           child: ListTile(
-                            title: Text('Exercise #${re.exerciseId}'),
+                            title: Text(re.exerciseName),
                             subtitle: Text(
-                              '${re.targetSets} sets × ${re.targetReps} reps',
+                              '${re.bodyPart} • ${re.equipmentType} — '
+                              '${re.routineExercise.targetSets} sets × '
+                              '${re.routineExercise.targetReps} reps',
                             ),
                             leading: const CircleAvatar(
                               child: Icon(Icons.fitness_center),
@@ -204,23 +212,61 @@ class RoutineExercisesSheet extends ConsumerWidget {
     );
   }
 
-  void _showAddExerciseDialog(BuildContext context, WidgetRef ref) {
-    // Placeholder — we will replace this with a proper
-    // exercise picker in the next step
+  void _showExercisePicker(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Exercise'),
-        content: const Text(
-          'Exercise picker coming next.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+      builder: (context) => ExercisePickerDialog(routineId: routine.id),
+    );
+  }
+}
+
+// --- Exercise picker dialog ---
+
+class ExercisePickerDialog extends ConsumerWidget {
+  final int routineId;
+
+  const ExercisePickerDialog({super.key, required this.routineId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final exercisesAsync = ref.watch(watchExercisesProvider);
+
+    return AlertDialog(
+      title: const Text('Add Exercise'),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: exercisesAsync.when(
+          data: (exercises) => ListView.builder(
+            itemCount: exercises.length,
+            itemBuilder: (context, index) {
+              final exercise = exercises[index];
+              return ListTile(
+                title: Text(exercise.name),
+                subtitle:
+                    Text('${exercise.bodyPart} • ${exercise.equipmentType}'),
+                onTap: () {
+                  ref
+                      .read(splitRepositoryProvider.notifier)
+                      .addExerciseToRoutine(
+                        routineId: routineId,
+                        exerciseId: exercise.id,
+                      );
+                  Navigator.pop(context);
+                },
+              );
+            },
           ),
-        ],
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Center(child: Text('Error: $err')),
+        ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ],
     );
   }
 }

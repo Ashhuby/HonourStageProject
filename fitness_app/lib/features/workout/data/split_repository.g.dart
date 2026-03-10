@@ -6,26 +6,8 @@ part of 'split_repository.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$watchSplitsHash() => r'f045877d95ff972b0d48ab919fc33b6e7aa010ef';
-
-/// See also [watchSplits].
-@ProviderFor(watchSplits)
-final watchSplitsProvider =
-    AutoDisposeStreamProvider<List<WorkoutSplit>>.internal(
-      watchSplits,
-      name: r'watchSplitsProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$watchSplitsHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef WatchSplitsRef = AutoDisposeStreamProviderRef<List<WorkoutSplit>>;
-String _$watchRoutinesForSplitHash() =>
-    r'd9685db4c0f7e2d0a34464a342643074e8872cd2';
+String _$watchExercisesForRoutineWithNamesHash() =>
+    r'd6e0aab8a15ed49e5a9ad3dd49e465682eb3567f';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -47,6 +29,158 @@ class _SystemHash {
     return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
   }
 }
+
+/// See also [watchExercisesForRoutineWithNames].
+@ProviderFor(watchExercisesForRoutineWithNames)
+const watchExercisesForRoutineWithNamesProvider =
+    WatchExercisesForRoutineWithNamesFamily();
+
+/// See also [watchExercisesForRoutineWithNames].
+class WatchExercisesForRoutineWithNamesFamily
+    extends Family<AsyncValue<List<RoutineExerciseWithName>>> {
+  /// See also [watchExercisesForRoutineWithNames].
+  const WatchExercisesForRoutineWithNamesFamily();
+
+  /// See also [watchExercisesForRoutineWithNames].
+  WatchExercisesForRoutineWithNamesProvider call(int routineId) {
+    return WatchExercisesForRoutineWithNamesProvider(routineId);
+  }
+
+  @override
+  WatchExercisesForRoutineWithNamesProvider getProviderOverride(
+    covariant WatchExercisesForRoutineWithNamesProvider provider,
+  ) {
+    return call(provider.routineId);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'watchExercisesForRoutineWithNamesProvider';
+}
+
+/// See also [watchExercisesForRoutineWithNames].
+class WatchExercisesForRoutineWithNamesProvider
+    extends AutoDisposeStreamProvider<List<RoutineExerciseWithName>> {
+  /// See also [watchExercisesForRoutineWithNames].
+  WatchExercisesForRoutineWithNamesProvider(int routineId)
+    : this._internal(
+        (ref) => watchExercisesForRoutineWithNames(
+          ref as WatchExercisesForRoutineWithNamesRef,
+          routineId,
+        ),
+        from: watchExercisesForRoutineWithNamesProvider,
+        name: r'watchExercisesForRoutineWithNamesProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$watchExercisesForRoutineWithNamesHash,
+        dependencies: WatchExercisesForRoutineWithNamesFamily._dependencies,
+        allTransitiveDependencies:
+            WatchExercisesForRoutineWithNamesFamily._allTransitiveDependencies,
+        routineId: routineId,
+      );
+
+  WatchExercisesForRoutineWithNamesProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.routineId,
+  }) : super.internal();
+
+  final int routineId;
+
+  @override
+  Override overrideWith(
+    Stream<List<RoutineExerciseWithName>> Function(
+      WatchExercisesForRoutineWithNamesRef provider,
+    )
+    create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: WatchExercisesForRoutineWithNamesProvider._internal(
+        (ref) => create(ref as WatchExercisesForRoutineWithNamesRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        routineId: routineId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeStreamProviderElement<List<RoutineExerciseWithName>>
+  createElement() {
+    return _WatchExercisesForRoutineWithNamesProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is WatchExercisesForRoutineWithNamesProvider &&
+        other.routineId == routineId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, routineId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin WatchExercisesForRoutineWithNamesRef
+    on AutoDisposeStreamProviderRef<List<RoutineExerciseWithName>> {
+  /// The parameter `routineId` of this provider.
+  int get routineId;
+}
+
+class _WatchExercisesForRoutineWithNamesProviderElement
+    extends AutoDisposeStreamProviderElement<List<RoutineExerciseWithName>>
+    with WatchExercisesForRoutineWithNamesRef {
+  _WatchExercisesForRoutineWithNamesProviderElement(super.provider);
+
+  @override
+  int get routineId =>
+      (origin as WatchExercisesForRoutineWithNamesProvider).routineId;
+}
+
+String _$watchSplitsHash() => r'f045877d95ff972b0d48ab919fc33b6e7aa010ef';
+
+/// See also [watchSplits].
+@ProviderFor(watchSplits)
+final watchSplitsProvider =
+    AutoDisposeStreamProvider<List<WorkoutSplit>>.internal(
+      watchSplits,
+      name: r'watchSplitsProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$watchSplitsHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef WatchSplitsRef = AutoDisposeStreamProviderRef<List<WorkoutSplit>>;
+String _$watchRoutinesForSplitHash() =>
+    r'd9685db4c0f7e2d0a34464a342643074e8872cd2';
 
 /// See also [watchRoutinesForSplit].
 @ProviderFor(watchRoutinesForSplit)
