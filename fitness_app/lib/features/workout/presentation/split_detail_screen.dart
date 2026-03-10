@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 import '../data/split_repository.dart';
 import '../data/exercise_repository.dart';
+import '../data/session_repository.dart';
+import 'active_session_screen.dart';
 
 class SplitDetailScreen extends ConsumerWidget {
   final WorkoutSplit split;
@@ -141,20 +143,27 @@ class RoutineExercisesSheet extends ConsumerWidget {
       builder: (context, scrollController) => Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  routine.name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    routine.name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.add),
+                  tooltip: 'Add exercise to plan',
                   onPressed: () => _showExercisePicker(context, ref),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Start'),
+                  onPressed: () => _startSession(context, ref),
                 ),
               ],
             ),
@@ -179,8 +188,7 @@ class RoutineExercisesSheet extends ConsumerWidget {
                             alignment: Alignment.centerRight,
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 20),
-                            child:
-                                const Icon(Icons.delete, color: Colors.white),
+                            child: const Icon(Icons.delete, color: Colors.white),
                           ),
                           onDismissed: (_) {
                             ref
@@ -217,6 +225,28 @@ class RoutineExercisesSheet extends ConsumerWidget {
       context: context,
       builder: (context) => ExercisePickerDialog(routineId: routine.id),
     );
+  }
+
+  Future<void> _startSession(BuildContext context, WidgetRef ref) async {
+    // Close the bottom sheet first
+    Navigator.pop(context);
+
+    // Create the session row immediately
+    final sessionId = await ref
+        .read(sessionRepositoryProvider.notifier)
+        .startSession(routineId: routine.id);
+
+    if (context.mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ActiveSessionScreen(
+            sessionId: sessionId,
+            sessionTitle: routine.name,
+          ),
+        ),
+      );
+    }
   }
 }
 
