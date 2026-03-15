@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
+import 'package:fitness_app/core/notifications/notification_service.dart';
 import '../data/session_repository.dart';
 import '../data/exercise_repository.dart';
 
@@ -20,17 +23,48 @@ class ActiveSessionScreen extends ConsumerStatefulWidget {
 }
 
 class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
-  // Tracks which exercise is currently selected for logging
   Exercise? _selectedExercise;
-
   final _weightController = TextEditingController();
   final _repsController = TextEditingController();
+
+  // Rest timer state
+  static const int _defaultRestSeconds = 90;
+  int _restDuration = _defaultRestSeconds;
+  int _remainingSeconds = 0;
+  Timer? _timer;
+  bool get _isTimerRunning => _timer != null && _timer!.isActive;
 
   @override
   void dispose() {
     _weightController.dispose();
     _repsController.dispose();
+    _timer?.cancel();
     super.dispose();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    setState(() => _remainingSeconds = _restDuration);
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds <= 0) {
+        timer.cancel();
+        _onTimerComplete();
+      } else {
+        setState(() => _remainingSeconds--);
+      }
+    });
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
+    setState(() => _remainingSeconds = 0);
+  }
+
+  void _onTimerComplete() {
+    HapticFeedback.vibrate();
+    NotificationService().showRestCompleteNotification();
+    setState(() => _remainingSeconds = 0);
   }
 
   @override
@@ -66,13 +100,13 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
         ),
         body: Column(
           children: [
-            // Exercise selector
             _buildExerciseSelector(),
             const Divider(height: 1),
-            // Set logger
             if (_selectedExercise != null) _buildSetLogger(),
             const Divider(height: 1),
-            // Logged sets list
+            if (_remainingSeconds > 0 || _isTimerRunning)
+              _buildRestTimer(),
+            const Divider(height: 1),
             Expanded(
               child: setsAsync.when(
                 data: (sets) => sets.isEmpty
@@ -90,6 +124,98 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRestTimer() {
+    final progress = _remainingSeconds / _restDuration;
+    final minutes = _remainingSeconds ~/ 60;
+    final seconds = _remainingSeconds % 60;
+    final timeString =
+        '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+
+    return Container(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 56,
+            height: 56,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 5,
+                  backgroundColor:
+                      Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.2),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                Center(
+                  child: Text(
+                    timeString,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Rest Timer',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Row(
+                  children: [
+                    const Text('Duration: '),
+                    DropdownButton<int>(
+                      value: _restDuration,
+                      isDense: true,
+                      underline: const SizedBox(),
+                      items: const [
+                        DropdownMenuItem(value: 30, child: Text('30s')),
+                        DropdownMenuItem(value: 60, child: Text('60s')),
+                        DropdownMenuItem(value: 90, child: Text('90s')),
+                        DropdownMenuItem(value: 120, child: Text('2min')),
+                        DropdownMenuItem(value: 180, child: Text('3min')),
+                        DropdownMenuItem(value: 300, child: Text('5min')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            _restDuration = value;
+                            if (_isTimerRunning) _startTimer();
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.skip_next),
+            tooltip: 'Skip rest',
+            onPressed: _stopTimer,
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Restart timer',
+            onPressed: _startTimer,
+          ),
+        ],
       ),
     );
   }
@@ -172,7 +298,6 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   }
 
   Widget _buildSetsList(List<WorkoutSetWithExercise> sets) {
-    // Group sets by exercise name for cleaner display
     final Map<String, List<WorkoutSetWithExercise>> grouped = {};
     for (final s in sets) {
       grouped.putIfAbsent(s.exerciseName, () => []).add(s);
@@ -226,7 +351,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                           Text(
                             'Set $setNum',
                             style: const TextStyle(
-                                fontWeight: FontWeight.w500),
+                                fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(width: 16),
                           Text('${s.set.weight}kg × ${s.set.reps} reps'),
@@ -263,11 +388,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
           reps: reps,
         );
 
+    // Start rest timer automatically after logging a set
+    _startTimer();
+
     // Clear reps only — weight likely stays the same for next set
     _repsController.clear();
   }
 
   void _confirmEndSession(BuildContext context) {
+    _timer?.cancel();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -277,7 +406,11 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(context);
+              // Restart timer if it was running
+              if (_remainingSeconds > 0) _startTimer();
+            },
             child: const Text('Keep Going'),
           ),
           ElevatedButton(
@@ -285,9 +418,10 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
               await ref
                   .read(sessionRepositoryProvider.notifier)
                   .endSession(widget.sessionId);
+              await NotificationService().cancelAll();
               if (context.mounted) {
-                Navigator.pop(context); // close dialog
-                Navigator.pop(context); // exit session screen
+                Navigator.pop(context);
+                Navigator.pop(context);
               }
             },
             child: const Text('Finish'),

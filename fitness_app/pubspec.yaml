@@ -13,7 +13,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   ffi: ^2.1.2
 
-  # Logic & State Management (Stable Versions)
+  # Logic & State Management
   flutter_riverpod: ^2.5.1
   riverpod_annotation: ^2.3.5
 
@@ -26,14 +26,17 @@ dependencies:
   # Data Modeling & UI Utilities
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
-  fl_chart: ^0.66.2            
+  fl_chart: ^0.66.2
+
+  # Notifications & Feedback
+  flutter_local_notifications: ^18.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
 
-  # Code Generation Tools - Aligned for compatibility
+  # Code Generation Tools
   build_runner: ^2.4.13
   riverpod_generator: ^2.4.4
   riverpod_analyzer_utils: ^0.5.5
