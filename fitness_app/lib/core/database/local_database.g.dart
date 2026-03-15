@@ -687,7 +687,7 @@ class $WorkoutRoutinesTable extends WorkoutRoutines
     type: DriftSqlType.int,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES workout_splits (id)',
+      'REFERENCES workout_splits (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
@@ -990,7 +990,7 @@ class $RoutineExercisesTable extends RoutineExercises
     type: DriftSqlType.int,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES workout_routines (id)',
+      'REFERENCES workout_routines (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _exerciseIdMeta = const VerificationMeta(
@@ -1770,7 +1770,7 @@ class $WorkoutSetsTable extends WorkoutSets
     type: DriftSqlType.int,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES workout_sessions (id)',
+      'REFERENCES workout_sessions (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _exerciseIdMeta = const VerificationMeta(
@@ -2229,6 +2229,30 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     workoutSessions,
     workoutSets,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'workout_splits',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('workout_routines', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'workout_routines',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('routine_exercises', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'workout_sessions',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('workout_sets', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$ExercisesTableCreateCompanionBuilder =

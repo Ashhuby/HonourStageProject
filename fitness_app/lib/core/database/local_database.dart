@@ -17,7 +17,12 @@ part 'local_database.g.dart';
   WorkoutSets,
 ])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase() : _isTesting = false, super(_openConnection());
+  AppDatabase.forTesting(QueryExecutor executor)
+      : _isTesting = true,
+        super(executor);
+
+  final bool _isTesting;
 
   @override
   int get schemaVersion => 2;
@@ -27,30 +32,32 @@ class AppDatabase extends _$AppDatabase {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
-        await batch((batch) {
-          batch.insertAll(exercises, [
-            ExercisesCompanion.insert(
-              name: 'Bench Press',
-              bodyPart: 'Chest',
-              equipmentType: 'Barbell',
-            ),
-            ExercisesCompanion.insert(
-              name: 'Squat',
-              bodyPart: 'Legs',
-              equipmentType: 'Barbell',
-            ),
-            ExercisesCompanion.insert(
-              name: 'Deadlift',
-              bodyPart: 'Back',
-              equipmentType: 'Barbell',
-            ),
-            ExercisesCompanion.insert(
-              name: 'Shoulder Press',
-              bodyPart: 'Shoulders',
-              equipmentType: 'Dumbbell',
-            ),
-          ]);
-        });
+        if (!_isTesting) {
+          await batch((batch) {
+            batch.insertAll(exercises, [
+              ExercisesCompanion.insert(
+                name: 'Bench Press',
+                bodyPart: 'Chest',
+                equipmentType: 'Barbell',
+              ),
+              ExercisesCompanion.insert(
+                name: 'Squat',
+                bodyPart: 'Legs',
+                equipmentType: 'Barbell',
+              ),
+              ExercisesCompanion.insert(
+                name: 'Deadlift',
+                bodyPart: 'Back',
+                equipmentType: 'Barbell',
+              ),
+              ExercisesCompanion.insert(
+                name: 'Shoulder Press',
+                bodyPart: 'Shoulders',
+                equipmentType: 'Dumbbell',
+              ),
+            ]);
+          });
+        }
       },
       onUpgrade: (Migrator m, int from, int to) async {
         if (from < 2) {
