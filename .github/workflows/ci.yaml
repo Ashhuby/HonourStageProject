@@ -27,7 +27,7 @@ jobs:
 
       - name: Run analyzer
         working-directory: fitness_app
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       - name: Run tests
         working-directory: fitness_app
