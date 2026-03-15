@@ -114,8 +114,8 @@ class SplitDetailScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => ProviderScope(
-        parent: ProviderScope.containerOf(context),
+      builder: (_) => UncontrolledProviderScope(
+        container: ProviderScope.containerOf(context),
         child: RoutineExercisesSheet(routine: routine),
       ),
     );
@@ -188,7 +188,8 @@ class RoutineExercisesSheet extends ConsumerWidget {
                             alignment: Alignment.centerRight,
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 20),
-                            child: const Icon(Icons.delete, color: Colors.white),
+                            child:
+                                const Icon(Icons.delete, color: Colors.white),
                           ),
                           onDismissed: (_) {
                             ref
@@ -228,10 +229,8 @@ class RoutineExercisesSheet extends ConsumerWidget {
   }
 
   Future<void> _startSession(BuildContext context, WidgetRef ref) async {
-    // Close the bottom sheet first
     Navigator.pop(context);
 
-    // Create the session row immediately
     final sessionId = await ref
         .read(sessionRepositoryProvider.notifier)
         .startSession(routineId: routine.id);

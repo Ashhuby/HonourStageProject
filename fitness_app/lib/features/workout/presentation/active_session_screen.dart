@@ -150,7 +150,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   value: progress,
                   strokeWidth: 5,
                   backgroundColor:
-                      Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.2),
+                      Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.2),
                   valueColor: AlwaysStoppedAnimation<Color>(
                     Theme.of(context).colorScheme.primary,
                   ),
@@ -227,7 +227,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
       padding: const EdgeInsets.all(12),
       child: exercisesAsync.when(
         data: (exercises) => DropdownButtonFormField<Exercise>(
-          value: _selectedExercise,
+          initialValue: _selectedExercise,
           decoration: const InputDecoration(
             labelText: 'Select Exercise',
             border: OutlineInputBorder(),
