@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-// 1. THE DICTIONARY: What is a "Bench Press"?
+// THE DICTIONARY: What is a "Bench Press"?
 class Exercises extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 50)();
@@ -10,14 +10,14 @@ class Exercises extends Table {
   TextColumn get notes => text().nullable()();
 }
 
-// 2. THE PLAN: The PPL Split
+// THE PLAN: The PPL Split
 class WorkoutSplits extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
-// 3. THE BLUEPRINT: The "Day" template
+// THE BLUEPRINT: The "Day" template
 class WorkoutRoutines extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get splitId => integer().references(WorkoutSplits, #id, onDelete: KeyAction.cascade)();
@@ -25,7 +25,7 @@ class WorkoutRoutines extends Table {
   IntColumn get orderIndex => integer()();
 }
 
-// 4. THE EVENT: A specific trip to the gym
+// THE EVENT: A specific trip to the gym
 class WorkoutSessions extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get routineId => integer().nullable().references(WorkoutRoutines, #id)();
@@ -34,7 +34,7 @@ class WorkoutSessions extends Table {
   TextColumn get sessionNote => text().nullable()();
 }
 
-// 5. THE DATA: The actual weight and reps
+// THE DATA: The actual weight and reps
 class WorkoutSets extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get sessionId => integer().references(WorkoutSessions, #id, onDelete: KeyAction.cascade)();
@@ -45,7 +45,7 @@ class WorkoutSets extends Table {
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
 }
 
-// 6. THE LINK: Which exercises belong to a routine template
+// THE LINK: Which exercises belong to a routine template
 class RoutineExercises extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get routineId => integer().references(WorkoutRoutines, #id, onDelete: KeyAction.cascade)();
