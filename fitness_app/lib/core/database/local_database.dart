@@ -18,9 +18,7 @@ part 'local_database.g.dart';
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : _isTesting = false, super(_openConnection());
-  AppDatabase.forTesting(QueryExecutor executor)
-      : _isTesting = true,
-        super(executor);
+  AppDatabase.forTesting(super.executor) : _isTesting = true;
 
   final bool _isTesting;
 
