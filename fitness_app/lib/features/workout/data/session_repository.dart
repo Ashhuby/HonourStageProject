@@ -15,6 +15,7 @@ class WorkoutSetWithExercise {
     required this.exerciseName,
   });
 }
+
 // Watches all completed sessions, most recent first
 @riverpod
 Stream<List<WorkoutSession>> watchCompletedSessions(Ref ref) {
@@ -46,7 +47,6 @@ Future<List<VolumeDataPoint>> getVolumeForExercise(
 
   final rows = await query.get();
 
-  // Group by session and sum volume per session
   final Map<int, VolumeDataPoint> sessionVolume = {};
   for (final row in rows) {
     final set = row.readTable(db.workoutSets);
@@ -82,6 +82,60 @@ class VolumeDataPoint {
     required this.totalVolume,
   });
 }
+
+// Returns a map of dates to session count for the attendance heatmap
+@riverpod
+Future<Map<DateTime, int>> getAttendanceData(Ref ref) async {
+  final db = ref.read(databaseProvider);
+
+  final sessions = await (db.select(db.workoutSessions)
+        ..where((s) => s.endTime.isNotNull()))
+      .get();
+
+  final Map<DateTime, int> attendanceMap = {};
+  for (final session in sessions) {
+    final date = DateTime(
+      session.startTime.year,
+      session.startTime.month,
+      session.startTime.day,
+    );
+    attendanceMap[date] = (attendanceMap[date] ?? 0) + 1;
+  }
+
+  return attendanceMap;
+}
+
+// Returns current weekly streak — consecutive weeks with at least one session
+@riverpod
+Future<int> getWeeklyStreak(Ref ref) async {
+  final attendanceData = await ref.watch(getAttendanceDataProvider.future);
+
+  if (attendanceData.isEmpty) return 0;
+
+  final today = DateTime.now();
+  int streak = 0;
+
+  for (int weeksBack = 0; weeksBack < 52; weeksBack++) {
+    final weekStart = today
+        .subtract(Duration(days: today.weekday - 1 + (weeksBack * 7)));
+    final weekEnd = weekStart.add(const Duration(days: 6));
+
+    final hasSession = attendanceData.keys.any((date) =>
+        !date.isBefore(
+            DateTime(weekStart.year, weekStart.month, weekStart.day)) &&
+        !date.isAfter(
+            DateTime(weekEnd.year, weekEnd.month, weekEnd.day)));
+
+    if (hasSession) {
+      streak++;
+    } else if (weeksBack > 0) {
+      break;
+    }
+  }
+
+  return streak;
+}
+
 // Watches all sets for a session, joined with exercise names
 @riverpod
 Stream<List<WorkoutSetWithExercise>> watchSetsForSession(
@@ -116,7 +170,6 @@ class SessionRepository extends _$SessionRepository {
   @override
   void build() {}
 
-  // Creates a new session and returns its ID
   Future<int> startSession({int? routineId}) async {
     final db = ref.read(databaseProvider);
     return db.into(db.workoutSessions).insert(
@@ -127,7 +180,6 @@ class SessionRepository extends _$SessionRepository {
         );
   }
 
-  // Writes endTime to close the session
   Future<void> endSession(int sessionId) async {
     final db = ref.read(databaseProvider);
     await (db.update(db.workoutSessions)
@@ -139,7 +191,6 @@ class SessionRepository extends _$SessionRepository {
     );
   }
 
-  // Logs a single set — written to DB immediately
   Future<void> logSet({
     required int sessionId,
     required int exerciseId,
@@ -157,7 +208,6 @@ class SessionRepository extends _$SessionRepository {
         );
   }
 
-  // Deletes a logged set
   Future<void> deleteSet(int setId) async {
     final db = ref.read(databaseProvider);
     await (db.delete(db.workoutSets)..where((s) => s.id.equals(setId))).go();
