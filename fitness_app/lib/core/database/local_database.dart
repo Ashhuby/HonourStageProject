@@ -23,7 +23,7 @@ class AppDatabase extends _$AppDatabase {
   final bool _isTesting;
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -60,6 +60,33 @@ class AppDatabase extends _$AppDatabase {
       onUpgrade: (Migrator m, int from, int to) async {
         if (from < 2) {
           await m.createTable(routineExercises);
+        }
+        if (from < 3) {
+          // WorkoutSplits
+          await m.addColumn(workoutSplits, workoutSplits.remoteId);
+          await m.addColumn(workoutSplits, workoutSplits.userId);
+          await m.addColumn(workoutSplits, workoutSplits.syncedAt);
+          await m.addColumn(workoutSplits, workoutSplits.deletedAt);
+          // WorkoutRoutines
+          await m.addColumn(workoutRoutines, workoutRoutines.remoteId);
+          await m.addColumn(workoutRoutines, workoutRoutines.userId);
+          await m.addColumn(workoutRoutines, workoutRoutines.syncedAt);
+          await m.addColumn(workoutRoutines, workoutRoutines.deletedAt);
+          // RoutineExercises
+          await m.addColumn(routineExercises, routineExercises.remoteId);
+          await m.addColumn(routineExercises, routineExercises.userId);
+          await m.addColumn(routineExercises, routineExercises.syncedAt);
+          await m.addColumn(routineExercises, routineExercises.deletedAt);
+          // WorkoutSessions
+          await m.addColumn(workoutSessions, workoutSessions.remoteId);
+          await m.addColumn(workoutSessions, workoutSessions.userId);
+          await m.addColumn(workoutSessions, workoutSessions.syncedAt);
+          await m.addColumn(workoutSessions, workoutSessions.deletedAt);
+          // WorkoutSets
+          await m.addColumn(workoutSets, workoutSets.remoteId);
+          await m.addColumn(workoutSets, workoutSets.userId);
+          await m.addColumn(workoutSets, workoutSets.syncedAt);
+          await m.addColumn(workoutSets, workoutSets.deletedAt);
         }
       },
       beforeOpen: (details) async {
