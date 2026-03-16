@@ -23,6 +23,11 @@ class ExerciseRepository extends _$ExerciseRepository {
       ),
     );
   }
+
+  Future<void> deleteExercise(int id) async {
+    final db = ref.read(databaseProvider);
+    await (db.delete(db.exercises)..where((e) => e.id.equals(id))).go();
+  }
 }
 
 // Keep your existing stream provider below if it's in this same file

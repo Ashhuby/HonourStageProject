@@ -10,7 +10,7 @@ class ExerciseLibraryScreen extends ConsumerWidget {
     final exercisesAsync = ref.watch(watchExercisesProvider);
 
     return Scaffold(
-      appBar: AppBar( // Fixed typo here
+      appBar: AppBar(
         title: const Text('Exercise Library'),
         centerTitle: true,
       ),
@@ -21,11 +21,27 @@ class ExerciseLibraryScreen extends ConsumerWidget {
                 itemCount: exercises.length,
                 itemBuilder: (context, index) {
                   final exercise = exercises[index];
-                  return ListTile(
-                    title: Text(exercise.name),
-                    subtitle: Text('${exercise.bodyPart} • ${exercise.equipmentType}'),
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.fitness_center),
+                  return Dismissible(
+                    key: ValueKey(exercise.id),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      color: Colors.red,
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: const Icon(Icons.delete, color: Colors.white),
+                    ),
+                    onDismissed: (_) {
+                      ref
+                          .read(exerciseRepositoryProvider.notifier)
+                          .deleteExercise(exercise.id);
+                    },
+                    child: ListTile(
+                      title: Text(exercise.name),
+                      subtitle: Text(
+                          '${exercise.bodyPart} • ${exercise.equipmentType}'),
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.fitness_center),
+                      ),
                     ),
                   );
                 },
