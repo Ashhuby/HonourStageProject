@@ -35,6 +35,7 @@ Stream<List<RoutineExerciseWithName>> watchExercisesForRoutineWithNames(
     ),
   ])
     ..where(db.routineExercises.routineId.equals(routineId))
+    ..where(db.routineExercises.deletedAt.isNull())
     ..orderBy([OrderingTerm.asc(db.routineExercises.orderIndex)]);
 
   return query.watch().map(
@@ -54,7 +55,10 @@ Stream<List<RoutineExerciseWithName>> watchExercisesForRoutineWithNames(
 @riverpod
 Stream<List<WorkoutSplit>> watchSplits(Ref ref) {
   final db = ref.watch(databaseProvider);
-  return db.select(db.workoutSplits).watch();
+  // Exclude soft-deleted splits from UI
+  return (db.select(db.workoutSplits)
+        ..where((s) => s.deletedAt.isNull()))
+      .watch();
 }
 
 @riverpod
@@ -62,6 +66,7 @@ Stream<List<WorkoutRoutine>> watchRoutinesForSplit(Ref ref, int splitId) {
   final db = ref.watch(databaseProvider);
   return (db.select(db.workoutRoutines)
         ..where((r) => r.splitId.equals(splitId))
+        ..where((r) => r.deletedAt.isNull())
         ..orderBy([(r) => OrderingTerm.asc(r.orderIndex)]))
       .watch();
 }
@@ -71,6 +76,7 @@ Stream<List<RoutineExercise>> watchExercisesForRoutine(Ref ref, int routineId) {
   final db = ref.watch(databaseProvider);
   return (db.select(db.routineExercises)
         ..where((re) => re.routineId.equals(routineId))
+        ..where((re) => re.deletedAt.isNull())
         ..orderBy([(re) => OrderingTerm.asc(re.orderIndex)]))
       .watch();
 }
@@ -82,7 +88,6 @@ class SplitRepository extends _$SplitRepository {
   @override
   void build() {}
 
-  // Creates a new split with a given name
   Future<int> createSplit(String name) async {
     final db = ref.read(databaseProvider);
     return db.into(db.workoutSplits).insert(
@@ -90,21 +95,51 @@ class SplitRepository extends _$SplitRepository {
         );
   }
 
-  // Deletes a split — cascade will handle routines and routine exercises
+  /// Soft-deletes a split and all its child routines and routine exercises.
+  /// Clears syncedAt on all records so the sync service propagates deletes.
   Future<void> deleteSplit(int splitId) async {
     final db = ref.read(databaseProvider);
-    await (db.delete(db.workoutSplits)
-          ..where((s) => s.id.equals(splitId)))
-        .go();
+    final now = DateTime.now();
+
+    await db.transaction(() async {
+      // Soft-delete all routine exercises under this split
+      final routines = await (db.select(db.workoutRoutines)
+            ..where((r) => r.splitId.equals(splitId)))
+          .get();
+
+      for (final routine in routines) {
+        await (db.update(db.routineExercises)
+              ..where((re) => re.routineId.equals(routine.id)))
+            .write(WorkoutRoutinesCompanion(
+          deletedAt: Value(now),
+          syncedAt: const Value(null),
+        ));
+      }
+
+      // Soft-delete all routines under this split
+      await (db.update(db.workoutRoutines)
+            ..where((r) => r.splitId.equals(splitId)))
+          .write(WorkoutRoutinesCompanion(
+        deletedAt: Value(now),
+        syncedAt: const Value(null),
+      ));
+
+      // Soft-delete the split itself
+      await (db.update(db.workoutSplits)
+            ..where((s) => s.id.equals(splitId)))
+          .write(WorkoutSplitsCompanion(
+        deletedAt: Value(now),
+        syncedAt: const Value(null),
+      ));
+    });
   }
 
-  // Adds a named day (routine) to a split
   Future<int> addRoutineToSplit(String name, int splitId) async {
     final db = ref.read(databaseProvider);
 
-    // Get current max orderIndex for this split so we append to the end
     final existing = await (db.select(db.workoutRoutines)
-          ..where((r) => r.splitId.equals(splitId)))
+          ..where((r) => r.splitId.equals(splitId))
+          ..where((r) => r.deletedAt.isNull()))
         .get();
     final nextIndex = existing.length;
 
@@ -117,7 +152,6 @@ class SplitRepository extends _$SplitRepository {
         );
   }
 
-  // Adds an exercise to a routine template with optional target sets/reps
   Future<void> addExerciseToRoutine({
     required int routineId,
     required int exerciseId,
@@ -127,7 +161,8 @@ class SplitRepository extends _$SplitRepository {
     final db = ref.read(databaseProvider);
 
     final existing = await (db.select(db.routineExercises)
-          ..where((re) => re.routineId.equals(routineId)))
+          ..where((re) => re.routineId.equals(routineId))
+          ..where((re) => re.deletedAt.isNull()))
         .get();
     final nextIndex = existing.length;
 
@@ -142,19 +177,36 @@ class SplitRepository extends _$SplitRepository {
         );
   }
 
-  // Removes an exercise from a routine template
+  /// Soft-deletes a single routine exercise.
   Future<void> removeExerciseFromRoutine(int routineExerciseId) async {
     final db = ref.read(databaseProvider);
-    await (db.delete(db.routineExercises)
+    await (db.update(db.routineExercises)
           ..where((re) => re.id.equals(routineExerciseId)))
-        .go();
+        .write(RoutineExercisesCompanion(
+      deletedAt: Value(DateTime.now()),
+      syncedAt: const Value(null),
+    ));
   }
 
-  // Deletes a routine and all its exercises
+  /// Soft-deletes a routine and all its exercises.
   Future<void> deleteRoutine(int routineId) async {
     final db = ref.read(databaseProvider);
-    await (db.delete(db.workoutRoutines)
-          ..where((r) => r.id.equals(routineId)))
-        .go();
+    final now = DateTime.now();
+
+    await db.transaction(() async {
+      await (db.update(db.routineExercises)
+            ..where((re) => re.routineId.equals(routineId)))
+          .write(RoutineExercisesCompanion(
+        deletedAt: Value(now),
+        syncedAt: const Value(null),
+      ));
+
+      await (db.update(db.workoutRoutines)
+            ..where((r) => r.id.equals(routineId)))
+          .write(WorkoutRoutinesCompanion(
+        deletedAt: Value(now),
+        syncedAt: const Value(null),
+      ));
+    });
   }
 }

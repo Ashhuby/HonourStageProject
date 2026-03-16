@@ -7,7 +7,7 @@ part of 'split_repository.dart';
 // **************************************************************************
 
 String _$watchExercisesForRoutineWithNamesHash() =>
-    r'd6e0aab8a15ed49e5a9ad3dd49e465682eb3567f';
+    r'9eb07be70362f3e222faf10fc8012ccb3a0919bb';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -161,7 +161,7 @@ class _WatchExercisesForRoutineWithNamesProviderElement
       (origin as WatchExercisesForRoutineWithNamesProvider).routineId;
 }
 
-String _$watchSplitsHash() => r'f045877d95ff972b0d48ab919fc33b6e7aa010ef';
+String _$watchSplitsHash() => r'567bacaac09fe32a96899e70e1a38b538df089fc';
 
 /// See also [watchSplits].
 @ProviderFor(watchSplits)
@@ -180,7 +180,7 @@ final watchSplitsProvider =
 // ignore: unused_element
 typedef WatchSplitsRef = AutoDisposeStreamProviderRef<List<WorkoutSplit>>;
 String _$watchRoutinesForSplitHash() =>
-    r'd9685db4c0f7e2d0a34464a342643074e8872cd2';
+    r'd7be526c3da44aa01966463ab2d297e0094a3db7';
 
 /// See also [watchRoutinesForSplit].
 @ProviderFor(watchRoutinesForSplit)
@@ -306,7 +306,7 @@ class _WatchRoutinesForSplitProviderElement
 }
 
 String _$watchExercisesForRoutineHash() =>
-    r'6836c42b5f007c58024a1b6bfcf4a8f919105d74';
+    r'e141615fc974f7acd807e62f0e8c0e59f0fe4e6f';
 
 /// See also [watchExercisesForRoutine].
 @ProviderFor(watchExercisesForRoutine)
@@ -434,7 +434,7 @@ class _WatchExercisesForRoutineProviderElement
   int get routineId => (origin as WatchExercisesForRoutineProvider).routineId;
 }
 
-String _$splitRepositoryHash() => r'589909d2545e7c5ee395f1556a32bf7a23d9e018';
+String _$splitRepositoryHash() => r'fbd46b99923972243183078759552c48fc508039';
 
 /// See also [SplitRepository].
 @ProviderFor(SplitRepository)
