@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/providers/auth_providers.dart';
 import '../data/session_repository.dart';
 import 'split_list_screen.dart';
 import 'exercise_library_screen.dart';
@@ -17,6 +18,15 @@ class HomeScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('Honour Stage Fitness'),
           centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'Sign out',
+              onPressed: () async {
+                await ref.read(authRepositoryProvider).signOut();
+              },
+            ),
+          ],
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.calendar_view_week), text: 'Splits'),
@@ -38,8 +48,7 @@ class HomeScreen extends ConsumerWidget {
           label: const Text('Freestyle'),
           onPressed: () => _startFreestyleSession(context, ref),
         ),
-        floatingActionButtonLocation:
-            FloatingActionButtonLocation.centerFloat,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       ),
     );
   }
