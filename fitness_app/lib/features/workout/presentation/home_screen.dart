@@ -4,6 +4,7 @@ import '../data/session_repository.dart';
 import 'split_list_screen.dart';
 import 'exercise_library_screen.dart';
 import 'active_session_screen.dart';
+import 'progress_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -11,7 +12,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Honour Stage Fitness'),
@@ -20,13 +21,15 @@ class HomeScreen extends ConsumerWidget {
             tabs: [
               Tab(icon: Icon(Icons.calendar_view_week), text: 'Splits'),
               Tab(icon: Icon(Icons.fitness_center), text: 'Exercises'),
+              Tab(icon: Icon(Icons.bar_chart), text: 'Progress'),
             ],
           ),
         ),
-        body: const TabBarView(
+        body: TabBarView(
           children: [
-            SplitListScreen(),
-            ExerciseLibraryScreen(),
+            const SplitListScreen(),
+            const ExerciseLibraryScreen(),
+            ProgressScreen(),
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
@@ -35,7 +38,8 @@ class HomeScreen extends ConsumerWidget {
           label: const Text('Freestyle'),
           onPressed: () => _startFreestyleSession(context, ref),
         ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+        floatingActionButtonLocation:
+            FloatingActionButtonLocation.centerFloat,
       ),
     );
   }
