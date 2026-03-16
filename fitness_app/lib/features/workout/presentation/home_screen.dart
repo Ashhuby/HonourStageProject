@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_providers.dart';
+import '../../../core/sync/sync_provider.dart';
 import '../data/session_repository.dart';
 import 'split_list_screen.dart';
 import 'exercise_library_screen.dart';
@@ -12,6 +13,26 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final syncState = ref.watch(syncNotifierProvider);
+
+    // Show snackbar on sync completion or failure
+    ref.listen(syncNotifierProvider, (_, next) {
+      next.whenOrNull(
+        data: (result) {
+          if (result.unauthenticated) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.success
+                  ? 'Synced ${result.uploaded} records'
+                  : 'Sync failed: ${result.errors.join(', ')}'),
+              backgroundColor:
+                  result.success ? Colors.green : Colors.red,
+            ),
+          );
+        },
+      );
+    });
+
     return DefaultTabController(
       length: 3,
       child: Scaffold(
@@ -19,6 +40,22 @@ class HomeScreen extends ConsumerWidget {
           title: const Text('Honour Stage Fitness'),
           centerTitle: true,
           actions: [
+            // Manual sync button
+            syncState.isLoading
+                ? const Padding(
+                    padding: EdgeInsets.all(14),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.sync),
+                    tooltip: 'Sync now',
+                    onPressed: () =>
+                        ref.read(syncNotifierProvider.notifier).sync(),
+                  ),
             IconButton(
               icon: const Icon(Icons.logout),
               tooltip: 'Sign out',
