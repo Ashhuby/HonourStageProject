@@ -6,8 +6,28 @@ part of 'session_repository.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$watchSetsForSessionHash() =>
-    r'8a41b8f67b183c47f40f9ec204051cda9a092218';
+String _$watchCompletedSessionsHash() =>
+    r'31bdab35ab6ae66fea267b07f40099798630694a';
+
+/// See also [watchCompletedSessions].
+@ProviderFor(watchCompletedSessions)
+final watchCompletedSessionsProvider =
+    AutoDisposeStreamProvider<List<WorkoutSession>>.internal(
+      watchCompletedSessions,
+      name: r'watchCompletedSessionsProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$watchCompletedSessionsHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef WatchCompletedSessionsRef =
+    AutoDisposeStreamProviderRef<List<WorkoutSession>>;
+String _$getVolumeForExerciseHash() =>
+    r'9cf3b1c79377626cf36fbf8b91aaa3813482d081';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -29,6 +49,133 @@ class _SystemHash {
     return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
   }
 }
+
+/// See also [getVolumeForExercise].
+@ProviderFor(getVolumeForExercise)
+const getVolumeForExerciseProvider = GetVolumeForExerciseFamily();
+
+/// See also [getVolumeForExercise].
+class GetVolumeForExerciseFamily
+    extends Family<AsyncValue<List<VolumeDataPoint>>> {
+  /// See also [getVolumeForExercise].
+  const GetVolumeForExerciseFamily();
+
+  /// See also [getVolumeForExercise].
+  GetVolumeForExerciseProvider call(int exerciseId) {
+    return GetVolumeForExerciseProvider(exerciseId);
+  }
+
+  @override
+  GetVolumeForExerciseProvider getProviderOverride(
+    covariant GetVolumeForExerciseProvider provider,
+  ) {
+    return call(provider.exerciseId);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'getVolumeForExerciseProvider';
+}
+
+/// See also [getVolumeForExercise].
+class GetVolumeForExerciseProvider
+    extends AutoDisposeFutureProvider<List<VolumeDataPoint>> {
+  /// See also [getVolumeForExercise].
+  GetVolumeForExerciseProvider(int exerciseId)
+    : this._internal(
+        (ref) =>
+            getVolumeForExercise(ref as GetVolumeForExerciseRef, exerciseId),
+        from: getVolumeForExerciseProvider,
+        name: r'getVolumeForExerciseProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$getVolumeForExerciseHash,
+        dependencies: GetVolumeForExerciseFamily._dependencies,
+        allTransitiveDependencies:
+            GetVolumeForExerciseFamily._allTransitiveDependencies,
+        exerciseId: exerciseId,
+      );
+
+  GetVolumeForExerciseProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.exerciseId,
+  }) : super.internal();
+
+  final int exerciseId;
+
+  @override
+  Override overrideWith(
+    FutureOr<List<VolumeDataPoint>> Function(GetVolumeForExerciseRef provider)
+    create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: GetVolumeForExerciseProvider._internal(
+        (ref) => create(ref as GetVolumeForExerciseRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        exerciseId: exerciseId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeFutureProviderElement<List<VolumeDataPoint>> createElement() {
+    return _GetVolumeForExerciseProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is GetVolumeForExerciseProvider &&
+        other.exerciseId == exerciseId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, exerciseId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin GetVolumeForExerciseRef
+    on AutoDisposeFutureProviderRef<List<VolumeDataPoint>> {
+  /// The parameter `exerciseId` of this provider.
+  int get exerciseId;
+}
+
+class _GetVolumeForExerciseProviderElement
+    extends AutoDisposeFutureProviderElement<List<VolumeDataPoint>>
+    with GetVolumeForExerciseRef {
+  _GetVolumeForExerciseProviderElement(super.provider);
+
+  @override
+  int get exerciseId => (origin as GetVolumeForExerciseProvider).exerciseId;
+}
+
+String _$watchSetsForSessionHash() =>
+    r'8a41b8f67b183c47f40f9ec204051cda9a092218';
 
 /// See also [watchSetsForSession].
 @ProviderFor(watchSetsForSession)
