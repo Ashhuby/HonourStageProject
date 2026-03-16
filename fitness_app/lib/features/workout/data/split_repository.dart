@@ -110,7 +110,7 @@ class SplitRepository extends _$SplitRepository {
       for (final routine in routines) {
         await (db.update(db.routineExercises)
               ..where((re) => re.routineId.equals(routine.id)))
-            .write(WorkoutRoutinesCompanion(
+            .write(RoutineExercisesCompanion(
           deletedAt: Value(now),
           syncedAt: const Value(null),
         ));
