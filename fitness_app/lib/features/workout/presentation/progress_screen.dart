@@ -19,11 +19,89 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
   Widget build(BuildContext context) {
     final sessionsAsync = ref.watch(watchCompletedSessionsProvider);
     final exercisesAsync = ref.watch(watchExercisesProvider);
+    final attendanceAsync = ref.watch(getAttendanceDataProvider);
+    final streakAsync = ref.watch(getWeeklyStreakProvider);
 
-    return Column(
+    return ListView(
       children: [
+        // --- Stats row ---
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          child: Row(
+            children: [
+              _StatCard(
+                label: 'Weekly Streak',
+                valueAsync: streakAsync.when(
+                  data: (streak) => '$streak weeks',
+                  loading: () => '...',
+                  error: (_, __) => '-',
+                ),
+                icon: Icons.local_fire_department,
+                color: Colors.orange,
+              ),
+              const SizedBox(width: 8),
+              _StatCard(
+                label: 'Total Sessions',
+                valueAsync: sessionsAsync.when(
+                  data: (sessions) => '${sessions.length}',
+                  loading: () => '...',
+                  error: (_, __) => '-',
+                ),
+                icon: Icons.fitness_center,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              _StatCard(
+                label: 'This Month',
+                valueAsync: sessionsAsync.when(
+                  data: (sessions) {
+                    final now = DateTime.now();
+                    final count = sessions
+                        .where((s) =>
+                            s.startTime.month == now.month &&
+                            s.startTime.year == now.year)
+                        .length;
+                    return '$count';
+                  },
+                  loading: () => '...',
+                  error: (_, __) => '-',
+                ),
+                icon: Icons.calendar_month,
+                color: Colors.green,
+              ),
+            ],
+          ),
+        ),
+
+        // --- Attendance heatmap ---
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Text(
+            'Attendance — Last 12 Weeks',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+        ),
+        attendanceAsync.when(
+          data: (attendance) => _AttendanceHeatmap(attendance: attendance),
+          loading: () =>
+              const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Center(child: Text('Error: $err')),
+        ),
+
+        // --- Volume chart ---
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Text(
+            'Volume Tracker',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: exercisesAsync.when(
             data: (exercises) => DropdownButtonFormField<Exercise>(
               value: _selectedExercise,
@@ -49,55 +127,56 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
         ),
         if (_selectedExercise != null)
           _VolumeChart(exerciseId: _selectedExercise!.id),
-        const Divider(height: 1),
+
+        // --- Session history ---
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Row(
-            children: [
-              Text(
-                'Session History',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-            ],
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Text(
+            'Session History',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
           ),
         ),
-        Expanded(
-          child: sessionsAsync.when(
-            data: (sessions) => sessions.isEmpty
-                ? const Center(
+        sessionsAsync.when(
+          data: (sessions) => sessions.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(
                     child: Text(
                       'No completed sessions yet.\nFinish a workout to see it here.',
                       textAlign: TextAlign.center,
                     ),
-                  )
-                : ListView.builder(
-                    itemCount: sessions.length,
-                    itemBuilder: (context, index) {
-                      final session = sessions[index];
-                      final duration = session.endTime != null
-                          ? session.endTime!.difference(session.startTime)
-                          : null;
-
-                      return ListTile(
-                        title: Text(_formatDate(session.startTime)),
-                        subtitle: duration != null
-                            ? Text(_formatDuration(duration))
-                            : null,
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.fitness_center),
-                        ),
-                        onTap: () =>
-                            _showSessionDetail(context, session),
-                      );
-                    },
                   ),
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Center(child: Text('Error: $err')),
-          ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: sessions.length,
+                  itemBuilder: (context, index) {
+                    final session = sessions[index];
+                    final duration = session.endTime != null
+                        ? session.endTime!.difference(session.startTime)
+                        : null;
+
+                    return ListTile(
+                      title: Text(_formatDate(session.startTime)),
+                      subtitle: duration != null
+                          ? Text(_formatDuration(duration))
+                          : null,
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.fitness_center),
+                      ),
+                      onTap: () =>
+                          _showSessionDetail(context, session),
+                    );
+                  },
+                ),
+          loading: () =>
+              const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Center(child: Text('Error: $err')),
         ),
+        const SizedBox(height: 80),
       ],
     );
   }
@@ -122,6 +201,165 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
       builder: (_) => UncontrolledProviderScope(
         container: ProviderScope.containerOf(context),
         child: SessionDetailSheet(session: session),
+      ),
+    );
+  }
+}
+
+// --- Stat card widget ---
+
+class _StatCard extends StatelessWidget {
+  final String label;
+  final String valueAsync;
+  final IconData icon;
+  final Color color;
+
+  const _StatCard({
+    required this.label,
+    required this.valueAsync,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 4),
+              Text(
+                valueAsync,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- Attendance heatmap ---
+
+class _AttendanceHeatmap extends StatelessWidget {
+  final Map<DateTime, int> attendance;
+
+  const _AttendanceHeatmap({required this.attendance});
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    // Build 12 weeks of days ending today
+    final List<DateTime> days = [];
+    for (int i = 83; i >= 0; i--) {
+      days.add(DateTime(
+        today.year,
+        today.month,
+        today.day,
+      ).subtract(Duration(days: i)));
+    }
+
+    // Group into weeks
+    final List<List<DateTime>> weeks = [];
+    for (int i = 0; i < days.length; i += 7) {
+      weeks.add(days.sublist(i, (i + 7).clamp(0, days.length)));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Day labels
+          Row(
+            children: const [
+              SizedBox(width: 8),
+              Expanded(child: Text('M', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
+              Expanded(child: Text('T', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
+              Expanded(child: Text('W', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
+              Expanded(child: Text('T', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
+              Expanded(child: Text('F', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
+              Expanded(child: Text('S', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
+              Expanded(child: Text('S', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Heatmap grid — rows are weeks, columns are days
+          ...weeks.map((week) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 8),
+                    ...week.map((day) {
+                      final count = attendance[day] ?? 0;
+                      final hasSession = count > 0;
+                      final isToday = day.year == today.year &&
+                          day.month == today.month &&
+                          day.day == today.day;
+
+                      return Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: hasSession
+                                ? primaryColor.withValues(
+                                    alpha: (0.3 + (count * 0.2)).clamp(0.3, 1.0))
+                                : Colors.grey.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(3),
+                            border: isToday
+                                ? Border.all(color: primaryColor, width: 1.5)
+                                : null,
+                          ),
+                        ),
+                      );
+                    }),
+                    // Pad incomplete weeks
+                    if (week.length < 7)
+                      ...List.generate(
+                        7 - week.length,
+                        (_) => const Expanded(child: SizedBox()),
+                      ),
+                  ],
+                ),
+              )),
+          const SizedBox(height: 4),
+          // Legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              const Text('Less', style: TextStyle(fontSize: 10)),
+              const SizedBox(width: 4),
+              ...List.generate(4, (i) {
+                return Container(
+                  width: 14,
+                  height: 14,
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withValues(alpha: 0.2 + (i * 0.25)),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                );
+              }),
+              const SizedBox(width: 4),
+              const Text('More', style: TextStyle(fontSize: 10)),
+            ],
+          ),
+        ],
       ),
     );
   }

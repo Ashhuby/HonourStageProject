@@ -174,6 +174,41 @@ class _GetVolumeForExerciseProviderElement
   int get exerciseId => (origin as GetVolumeForExerciseProvider).exerciseId;
 }
 
+String _$getAttendanceDataHash() => r'01407ad14f72b5a7ccc3505e9ee5bff914d7b4d0';
+
+/// See also [getAttendanceData].
+@ProviderFor(getAttendanceData)
+final getAttendanceDataProvider =
+    AutoDisposeFutureProvider<Map<DateTime, int>>.internal(
+      getAttendanceData,
+      name: r'getAttendanceDataProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$getAttendanceDataHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef GetAttendanceDataRef = AutoDisposeFutureProviderRef<Map<DateTime, int>>;
+String _$getWeeklyStreakHash() => r'527845ffb6f520fc1695c09fa8373a26ff5da48f';
+
+/// See also [getWeeklyStreak].
+@ProviderFor(getWeeklyStreak)
+final getWeeklyStreakProvider = AutoDisposeFutureProvider<int>.internal(
+  getWeeklyStreak,
+  name: r'getWeeklyStreakProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$getWeeklyStreakHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef GetWeeklyStreakRef = AutoDisposeFutureProviderRef<int>;
 String _$watchSetsForSessionHash() =>
     r'8a41b8f67b183c47f40f9ec204051cda9a092218';
 
