@@ -16,18 +16,17 @@ class WorkoutSetWithExercise {
   });
 }
 
-// Watches all completed sessions, most recent first
+// Watches all completed sessions, most recent first — excludes soft-deleted
 @riverpod
 Stream<List<WorkoutSession>> watchCompletedSessions(Ref ref) {
   final db = ref.watch(databaseProvider);
   return (db.select(db.workoutSessions)
         ..where((s) => s.endTime.isNotNull())
+        ..where((s) => s.deletedAt.isNull())
         ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
       .watch();
 }
 
-// Returns volume data points for a specific exercise across all sessions
-// Volume = weight × reps per set, summed per session
 @riverpod
 Future<List<VolumeDataPoint>> getVolumeForExercise(
   Ref ref,
@@ -43,6 +42,8 @@ Future<List<VolumeDataPoint>> getVolumeForExercise(
   ])
     ..where(db.workoutSets.exerciseId.equals(exerciseId))
     ..where(db.workoutSessions.endTime.isNotNull())
+    ..where(db.workoutSessions.deletedAt.isNull())
+    ..where(db.workoutSets.deletedAt.isNull())
     ..orderBy([OrderingTerm.asc(db.workoutSessions.startTime)]);
 
   final rows = await query.get();
@@ -83,13 +84,13 @@ class VolumeDataPoint {
   });
 }
 
-// Returns a map of dates to session count for the attendance heatmap
 @riverpod
 Future<Map<DateTime, int>> getAttendanceData(Ref ref) async {
   final db = ref.read(databaseProvider);
 
   final sessions = await (db.select(db.workoutSessions)
-        ..where((s) => s.endTime.isNotNull()))
+        ..where((s) => s.endTime.isNotNull())
+        ..where((s) => s.deletedAt.isNull()))
       .get();
 
   final Map<DateTime, int> attendanceMap = {};
@@ -105,7 +106,6 @@ Future<Map<DateTime, int>> getAttendanceData(Ref ref) async {
   return attendanceMap;
 }
 
-// Returns current weekly streak — consecutive weeks with at least one session
 @riverpod
 Future<int> getWeeklyStreak(Ref ref) async {
   final attendanceData = await ref.watch(getAttendanceDataProvider.future);
@@ -123,8 +123,7 @@ Future<int> getWeeklyStreak(Ref ref) async {
     final hasSession = attendanceData.keys.any((date) =>
         !date.isBefore(
             DateTime(weekStart.year, weekStart.month, weekStart.day)) &&
-        !date.isAfter(
-            DateTime(weekEnd.year, weekEnd.month, weekEnd.day)));
+        !date.isAfter(DateTime(weekEnd.year, weekEnd.month, weekEnd.day)));
 
     if (hasSession) {
       streak++;
@@ -136,7 +135,6 @@ Future<int> getWeeklyStreak(Ref ref) async {
   return streak;
 }
 
-// Watches all sets for a session, joined with exercise names
 @riverpod
 Stream<List<WorkoutSetWithExercise>> watchSetsForSession(
   Ref ref,
@@ -151,6 +149,7 @@ Stream<List<WorkoutSetWithExercise>> watchSetsForSession(
     ),
   ])
     ..where(db.workoutSets.sessionId.equals(sessionId))
+    ..where(db.workoutSets.deletedAt.isNull())
     ..orderBy([OrderingTerm.asc(db.workoutSets.timestamp)]);
 
   return query.watch().map(
@@ -184,11 +183,9 @@ class SessionRepository extends _$SessionRepository {
     final db = ref.read(databaseProvider);
     await (db.update(db.workoutSessions)
           ..where((s) => s.id.equals(sessionId)))
-        .write(
-      WorkoutSessionsCompanion(
-        endTime: Value(DateTime.now()),
-      ),
-    );
+        .write(WorkoutSessionsCompanion(
+      endTime: Value(DateTime.now()),
+    ));
   }
 
   Future<void> logSet({
@@ -208,8 +205,35 @@ class SessionRepository extends _$SessionRepository {
         );
   }
 
+  /// Soft-deletes a set — marks it dirty so sync propagates the delete.
   Future<void> deleteSet(int setId) async {
     final db = ref.read(databaseProvider);
-    await (db.delete(db.workoutSets)..where((s) => s.id.equals(setId))).go();
+    await (db.update(db.workoutSets)..where((s) => s.id.equals(setId)))
+        .write(WorkoutSetsCompanion(
+      deletedAt: Value(DateTime.now()),
+      syncedAt: const Value(null),
+    ));
+  }
+
+  /// Soft-deletes a session and all its sets.
+  Future<void> deleteSession(int sessionId) async {
+    final db = ref.read(databaseProvider);
+    final now = DateTime.now();
+
+    await db.transaction(() async {
+      await (db.update(db.workoutSets)
+            ..where((s) => s.sessionId.equals(sessionId)))
+          .write(WorkoutSetsCompanion(
+        deletedAt: Value(now),
+        syncedAt: const Value(null),
+      ));
+
+      await (db.update(db.workoutSessions)
+            ..where((s) => s.id.equals(sessionId)))
+          .write(WorkoutSessionsCompanion(
+        deletedAt: Value(now),
+        syncedAt: const Value(null),
+      ));
+    });
   }
 }

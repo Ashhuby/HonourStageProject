@@ -7,7 +7,7 @@ part of 'session_repository.dart';
 // **************************************************************************
 
 String _$watchCompletedSessionsHash() =>
-    r'31bdab35ab6ae66fea267b07f40099798630694a';
+    r'e85dea4179a91953b5e845a0347d006283739282';
 
 /// See also [watchCompletedSessions].
 @ProviderFor(watchCompletedSessions)
@@ -27,7 +27,7 @@ final watchCompletedSessionsProvider =
 typedef WatchCompletedSessionsRef =
     AutoDisposeStreamProviderRef<List<WorkoutSession>>;
 String _$getVolumeForExerciseHash() =>
-    r'9cf3b1c79377626cf36fbf8b91aaa3813482d081';
+    r'c84754f4cadc8fd9b4e73cdfd9b3d32ce2802fae';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -174,7 +174,7 @@ class _GetVolumeForExerciseProviderElement
   int get exerciseId => (origin as GetVolumeForExerciseProvider).exerciseId;
 }
 
-String _$getAttendanceDataHash() => r'01407ad14f72b5a7ccc3505e9ee5bff914d7b4d0';
+String _$getAttendanceDataHash() => r'3e2c4df1c364d157c7690f3d8aa0c24f6d001880';
 
 /// See also [getAttendanceData].
 @ProviderFor(getAttendanceData)
@@ -210,7 +210,7 @@ final getWeeklyStreakProvider = AutoDisposeFutureProvider<int>.internal(
 // ignore: unused_element
 typedef GetWeeklyStreakRef = AutoDisposeFutureProviderRef<int>;
 String _$watchSetsForSessionHash() =>
-    r'8a41b8f67b183c47f40f9ec204051cda9a092218';
+    r'47f310f7d4ba4f5857f779589e8eecfc1c7c9b03';
 
 /// See also [watchSetsForSession].
 @ProviderFor(watchSetsForSession)
@@ -337,7 +337,7 @@ class _WatchSetsForSessionProviderElement
   int get sessionId => (origin as WatchSetsForSessionProvider).sessionId;
 }
 
-String _$sessionRepositoryHash() => r'93b81099ea03b3d94188be856546b6f88f264737';
+String _$sessionRepositoryHash() => r'47ca3d98ab2ccb5680d772d38dcd746bdcbe8e3c';
 
 /// See also [SessionRepository].
 @ProviderFor(SessionRepository)
