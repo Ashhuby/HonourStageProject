@@ -1,10 +1,10 @@
-// lib/features/workout/presentation/active_session_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/core/notifications/notification_service.dart';
+import '../../../main.dart';
 import '../data/session_repository.dart';
 import '../data/exercise_repository.dart';
 import '../data/personal_best_repository.dart';
@@ -32,18 +32,17 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   final _weightController = TextEditingController();
   final _repsController = TextEditingController();
 
-  // Rest timer state
+  // Rest timer
   static const int _defaultRestSeconds = 90;
   int _restDuration = _defaultRestSeconds;
   int _remainingSeconds = 0;
   Timer? _timer;
   bool get _isTimerRunning => _timer != null && _timer!.isActive;
 
-  // PR banner state
-  // Holds the most recently detected PR so the banner widget can render it.
-  // Null means no banner is shown. Cleared automatically after a fixed duration.
+  // PR banner
   PrResult? _latestPr;
   Timer? _prBannerTimer;
+  static const _prBannerDuration = Duration(seconds: 5);
 
   @override
   void dispose() {
@@ -55,13 +54,12 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Rest timer
+  // Timer
   // ---------------------------------------------------------------------------
 
   void _startTimer() {
     _timer?.cancel();
     setState(() => _remainingSeconds = _restDuration);
-
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds <= 0) {
         timer.cancel();
@@ -87,17 +85,10 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   // PR banner
   // ---------------------------------------------------------------------------
 
-  /// Shows the PR banner for [_prBannerDuration] then clears it.
-  /// If a second PR fires while the banner is already visible, the banner
-  /// resets to the new PR and the timer restarts — the user always sees
-  /// the most recent result.
-  static const _prBannerDuration = Duration(seconds: 5);
-
   void _showPrBanner(PrResult pr) {
     _prBannerTimer?.cancel();
     setState(() => _latestPr = pr);
     HapticFeedback.heavyImpact();
-
     _prBannerTimer = Timer(_prBannerDuration, () {
       if (mounted) setState(() => _latestPr = null);
     });
@@ -114,8 +105,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final setsAsync =
-        ref.watch(watchSetsForSessionProvider(widget.sessionId));
+    final setsAsync = ref.watch(watchSetsForSessionProvider(widget.sessionId));
 
     return PopScope(
       canPop: false,
@@ -124,20 +114,42 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.sessionTitle),
-          centerTitle: true,
           leading: IconButton(
-            icon: const Icon(Icons.close),
+            icon: const Icon(Icons.close, size: 22),
             onPressed: () => _confirmEndSession(context),
+          ),
+          title: Column(
+            children: [
+              Text(
+                widget.sessionTitle.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2,
+                  color: OneRepColors.textPrimary,
+                ),
+              ),
+              const Text(
+                'IN PROGRESS',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: OneRepColors.gold,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
               onPressed: () => _confirmEndSession(context),
               child: const Text(
-                'Finish',
+                'FINISH',
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  color: OneRepColors.gold,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  letterSpacing: 1,
                 ),
               ),
             ),
@@ -145,34 +157,53 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
         ),
         body: Column(
           children: [
-            _buildExerciseSelector(),
-            const Divider(height: 1),
-            if (_selectedExercise != null) _buildSetLogger(),
-            const Divider(height: 1),
-            if (_remainingSeconds > 0 || _isTimerRunning)
-              _buildRestTimer(),
-            // PR banner sits above the sets list, below the rest timer.
-            // AnimatedSwitcher gives a smooth fade — no jarring pop.
+            // PR banner
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: _latestPr != null
-                  ? _buildPrBanner(_latestPr!)
+                  ? _PrBanner(
+                      pr: _latestPr!,
+                      onDismiss: _dismissPrBanner,
+                    )
                   : const SizedBox.shrink(),
             ),
-            const Divider(height: 1),
+
+            // Rest timer — only visible when active
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: (_remainingSeconds > 0 || _isTimerRunning)
+                  ? _RestTimerBar(
+                      remainingSeconds: _remainingSeconds,
+                      totalSeconds: _restDuration,
+                      onSkip: _stopTimer,
+                      onRestart: _startTimer,
+                      onDurationChanged: (d) {
+                        setState(() {
+                          _restDuration = d;
+                          if (_isTimerRunning) _startTimer();
+                        });
+                      },
+                    )
+                  : const SizedBox.shrink(),
+            ),
+
+            // Exercise selector
+            _buildExerciseSelector(),
+
+            // Set logger
+            if (_selectedExercise != null) _buildSetLogger(),
+
+            Container(height: 1, color: OneRepColors.surfaceElevated),
+
+            // Sets list
             Expanded(
               child: setsAsync.when(
                 data: (sets) => sets.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No sets logged yet.\nSelect an exercise and log your first set.',
-                          textAlign: TextAlign.center,
-                        ),
-                      )
+                    ? const _EmptySessionState()
                     : _buildSetsList(sets),
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => Center(child: Text('Error: $err')),
+                error: (err, _) => Center(child: Text('Error: $err')),
               ),
             ),
           ],
@@ -182,170 +213,25 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // PR banner widget
-  // ---------------------------------------------------------------------------
-
-  Widget _buildPrBanner(PrResult pr) {
-    return GestureDetector(
-      onTap: _dismissPrBanner,
-      child: Container(
-        // Use a key so AnimatedSwitcher treats each new PR as a distinct widget
-        // and re-runs the fade animation even if two consecutive PRs fire.
-        key: ValueKey('${pr.exerciseId}-${pr.reps}-${pr.weight}'),
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Colors.amber.shade700,
-              Colors.orange.shade600,
-            ],
-          ),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.emoji_events,
-              color: Colors.white,
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    '🏆 New Personal Record!',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                  Text(
-                    '${pr.exerciseName} — ${pr.weight}kg × ${pr.reps} reps',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Dismiss handle — small affordance so the user knows it's tappable.
-            const Icon(Icons.close, color: Colors.white70, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Rest timer widget (unchanged)
-  // ---------------------------------------------------------------------------
-
-  Widget _buildRestTimer() {
-    final progress = _remainingSeconds / _restDuration;
-    final minutes = _remainingSeconds ~/ 60;
-    final seconds = _remainingSeconds % 60;
-    final timeString =
-        '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-
-    return Container(
-      color: Theme.of(context).colorScheme.primaryContainer,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 56,
-            height: 56,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: 5,
-                  backgroundColor: Theme.of(context)
-                      .colorScheme
-                      .onPrimaryContainer
-                      .withValues(alpha: 0.2),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                Center(
-                  child: Text(
-                    timeString,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Rest Timer',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Slider(
-                  value: _restDuration.toDouble(),
-                  min: 30,
-                  max: 300,
-                  divisions: 9,
-                  label: '${_restDuration}s',
-                  onChanged: (value) {
-                    setState(() => _restDuration = value.toInt());
-                  },
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.skip_next),
-            tooltip: 'Skip rest',
-            onPressed: _stopTimer,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Restart timer',
-            onPressed: _startTimer,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Exercise selector (unchanged)
+  // Exercise selector
   // ---------------------------------------------------------------------------
 
   Widget _buildExerciseSelector() {
-    // If this session has a routine, show only that routine's exercises.
-    // If freestyle (no routineId), show the full library.
     if (widget.routineId != null) {
-      final routineExercisesAsync = ref.watch(
+      final routineExAsync = ref.watch(
         watchExercisesForRoutineWithNamesProvider(widget.routineId!),
       );
-
       return Padding(
-        padding: const EdgeInsets.all(12),
-        child: routineExercisesAsync.when(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: routineExAsync.when(
           data: (routineExercises) => DropdownButtonFormField<Exercise>(
             value: _selectedExercise,
             decoration: const InputDecoration(
-              labelText: 'Select Exercise',
-              border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              labelText: 'Exercise',
+              prefixIcon: Icon(Icons.fitness_center, size: 18),
             ),
+            dropdownColor: OneRepColors.surfaceElevated,
+            style: const TextStyle(color: OneRepColors.textPrimary),
             items: routineExercises.map((re) {
               return DropdownMenuItem<Exercise>(
                 value: Exercise(
@@ -358,57 +244,52 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                 child: Text(re.exerciseName),
               );
             }).toList(),
-            onChanged: (exercise) {
-              setState(() {
-                _selectedExercise = exercise;
-                _weightController.clear();
-                _repsController.clear();
-              });
-            },
+            onChanged: (exercise) => setState(() {
+              _selectedExercise = exercise;
+              _weightController.clear();
+              _repsController.clear();
+            }),
           ),
-          loading: () => const CircularProgressIndicator(),
+          loading: () => const LinearProgressIndicator(),
           error: (err, _) => Text('Error: $err'),
         ),
       );
     }
 
-    // Freestyle — full exercise library
     final exercisesAsync = ref.watch(watchExercisesProvider);
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: exercisesAsync.when(
         data: (exercises) => DropdownButtonFormField<Exercise>(
           value: _selectedExercise,
           decoration: const InputDecoration(
-            labelText: 'Select Exercise',
-            border: OutlineInputBorder(),
-            contentPadding:
-                EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            labelText: 'Exercise',
+            prefixIcon: Icon(Icons.fitness_center, size: 18),
           ),
+          dropdownColor: OneRepColors.surfaceElevated,
+          style: const TextStyle(color: OneRepColors.textPrimary),
           items: exercises
               .map((e) => DropdownMenuItem(value: e, child: Text(e.name)))
               .toList(),
-          onChanged: (exercise) {
-            setState(() {
-              _selectedExercise = exercise;
-              _weightController.clear();
-              _repsController.clear();
-            });
-          },
+          onChanged: (exercise) => setState(() {
+            _selectedExercise = exercise;
+            _weightController.clear();
+            _repsController.clear();
+          }),
         ),
-        loading: () => const CircularProgressIndicator(),
+        loading: () => const LinearProgressIndicator(),
         error: (err, _) => Text('Error: $err'),
       ),
     );
   }
 
   // ---------------------------------------------------------------------------
-  // Set logger (unchanged layout, _logSet updated)
+  // Set logger
   // ---------------------------------------------------------------------------
 
   Widget _buildSetLogger() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
         children: [
           Expanded(
@@ -416,31 +297,42 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
               controller: _weightController,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(
+                color: OneRepColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
               decoration: const InputDecoration(
-                labelText: 'Weight (kg)',
-                border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                labelText: 'Weight',
+                suffixText: 'kg',
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: _repsController,
               keyboardType: TextInputType.number,
+              style: const TextStyle(
+                color: OneRepColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
               decoration: const InputDecoration(
                 labelText: 'Reps',
-                border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: _logSet,
-            child: const Text('Log'),
+          const SizedBox(width: 10),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _logSet,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+              ),
+              child: const Text('LOG'),
+            ),
           ),
         ],
       ),
@@ -448,7 +340,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Sets list (unchanged)
+  // Sets list
   // ---------------------------------------------------------------------------
 
   Widget _buildSetsList(List<WorkoutSetWithExercise> sets) {
@@ -458,26 +350,37 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     }
 
     return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
       itemCount: grouped.length,
       itemBuilder: (context, index) {
         final exerciseName = grouped.keys.elementAt(index);
         final exerciseSets = grouped[exerciseName]!;
 
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: OneRepColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: const Border(
+                left: BorderSide(color: OneRepColors.gold, width: 3),
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  exerciseName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+                  child: Text(
+                    exerciseName,
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
                 ...exerciseSets.asMap().entries.map((entry) {
                   final setNum = entry.key + 1;
                   final s = entry.value;
@@ -485,30 +388,67 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                     key: ValueKey(s.set.id),
                     direction: DismissDirection.endToStart,
                     background: Container(
-                      color: Colors.red,
                       alignment: Alignment.centerRight,
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 20),
-                      child:
-                          const Icon(Icons.delete, color: Colors.white),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      color: OneRepColors.error.withValues(alpha: 0.15),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: OneRepColors.error,
+                        size: 18,
+                      ),
                     ),
-                    onDismissed: (_) {
-                      ref
-                          .read(sessionRepositoryProvider.notifier)
-                          .deleteSet(s.set.id);
-                    },
+                    onDismissed: (_) => ref
+                        .read(sessionRepositoryProvider.notifier)
+                        .deleteSet(s.set.id),
                     child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
                       child: Row(
                         children: [
-                          Text(
-                            'Set $setNum',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold),
+                          // Set number chip
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: OneRepColors.surfaceElevated,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '$setNum',
+                                style: const TextStyle(
+                                  color: OneRepColors.textSecondary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: 16),
-                          Text('${s.set.weight}kg × ${s.set.reps} reps'),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${s.set.weight}kg',
+                            style: const TextStyle(
+                              color: OneRepColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            '×',
+                            style: TextStyle(
+                              color: OneRepColors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${s.set.reps} reps',
+                            style: const TextStyle(
+                              color: OneRepColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -523,12 +463,9 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Actions
+  // Log set
   // ---------------------------------------------------------------------------
 
-  /// Logs a set, starts the rest timer, and surfaces any PR immediately.
-  /// This method is now async — it awaits logSet so the PR result is available
-  /// before the UI updates. The rest timer starts regardless of PR detection.
   Future<void> _logSet() async {
     final weight = double.tryParse(_weightController.text);
     final reps = int.tryParse(_repsController.text);
@@ -536,18 +473,14 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     if (weight == null || reps == null || _selectedExercise == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'Please select an exercise and enter valid weight and reps.'),
+          content: Text('Select an exercise and enter valid weight and reps.'),
         ),
       );
       return;
     }
 
-    // Start the rest timer immediately — don't wait for PR detection.
-    // The DB write + PR check is fast but the UX should feel instant.
     _startTimer();
 
-    // Await the full logSet pipeline: insert → PR check → badge evaluation.
     final prResult = await ref
         .read(sessionRepositoryProvider.notifier)
         .logSet(
@@ -558,26 +491,23 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
           reps: reps,
         );
 
-    // Show the PR banner if a new record was set.
-    // Guard with mounted — the user could theoretically navigate away
-    // in the ~50ms it takes for the DB write to complete.
-    if (mounted && prResult != null) {
-      _showPrBanner(prResult);
-    }
+    if (mounted && prResult != null) _showPrBanner(prResult);
 
-    // Clear reps only — weight likely stays the same for the next set.
     _repsController.clear();
   }
+
+  // ---------------------------------------------------------------------------
+  // End session dialog — three options
+  // ---------------------------------------------------------------------------
 
   void _confirmEndSession(BuildContext context) {
     _timer?.cancel();
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Finish Workout?'),
-        content: const Text(
-          'This will end your session. You cannot add sets after finishing.',
-        ),
+        title: const Text('Workout'),
+        content: const Text('What would you like to do?'),
         actions: [
           TextButton(
             onPressed: () {
@@ -586,7 +516,49 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
             },
             child: const Text('Keep Going'),
           ),
-          ElevatedButton(
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: OneRepColors.error,
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Cancel Workout?'),
+                  content: const Text(
+                    'This session and all logged sets will be permanently '
+                    'deleted. This cannot be undone.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Back'),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: OneRepColors.error,
+                      ),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Delete Session'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                await ref
+                    .read(sessionRepositoryProvider.notifier)
+                    .deleteSession(widget.sessionId);
+                await NotificationService().cancelAll();
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('Cancel Workout'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: OneRepColors.gold,
+            ),
             onPressed: () async {
               await ref
                   .read(sessionRepositoryProvider.notifier)
@@ -600,6 +572,257 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
             child: const Text('Finish'),
           ),
         ],
+      ),
+    );
+    
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PR Banner
+// ---------------------------------------------------------------------------
+
+class _PrBanner extends StatelessWidget {
+  final PrResult pr;
+  final VoidCallback onDismiss;
+
+  const _PrBanner({required this.pr, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onDismiss,
+      child: Container(
+        key: ValueKey('${pr.exerciseId}-${pr.reps}-${pr.weight}'),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              OneRepColors.gold.withValues(alpha: 0.25),
+              OneRepColors.gold.withValues(alpha: 0.10),
+            ],
+          ),
+          border: const Border(
+            bottom: BorderSide(color: OneRepColors.gold, width: 1),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.emoji_events, color: OneRepColors.gold, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'NEW PERSONAL RECORD',
+                    style: TextStyle(
+                      color: OneRepColors.gold,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${pr.exerciseName}  ${pr.weight}kg × ${pr.reps} reps',
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.close, color: OneRepColors.textSecondary, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rest Timer Bar
+// ---------------------------------------------------------------------------
+
+class _RestTimerBar extends StatelessWidget {
+  final int remainingSeconds;
+  final int totalSeconds;
+  final VoidCallback onSkip;
+  final VoidCallback onRestart;
+  final ValueChanged<int> onDurationChanged;
+
+  const _RestTimerBar({
+    required this.remainingSeconds,
+    required this.totalSeconds,
+    required this.onSkip,
+    required this.onRestart,
+    required this.onDurationChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0.0;
+    final minutes = remainingSeconds ~/ 60;
+    final seconds = remainingSeconds % 60;
+    final timeString =
+        '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+
+    // Colour transitions: gold → orange → red as time runs out
+    final timerColor = progress > 0.5
+        ? OneRepColors.gold
+        : progress > 0.25
+            ? OneRepColors.coral
+            : OneRepColors.error;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: OneRepColors.surfaceElevated,
+        border: Border(
+          bottom: BorderSide(
+            color: timerColor.withValues(alpha: 0.4),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 3,
+              backgroundColor: OneRepColors.surfaceHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(timerColor),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              // Timer display
+              Text(
+                timeString,
+                style: TextStyle(
+                  color: timerColor,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'REST',
+                style: TextStyle(
+                  color: OneRepColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 2,
+                ),
+              ),
+              const Spacer(),
+              // Duration picker
+              DropdownButton<int>(
+                value: totalSeconds,
+                isDense: true,
+                underline: const SizedBox(),
+                dropdownColor: OneRepColors.surfaceElevated,
+                style: const TextStyle(
+                  color: OneRepColors.textSecondary,
+                  fontSize: 13,
+                ),
+                items: const [
+                  DropdownMenuItem(value: 30, child: Text('30s')),
+                  DropdownMenuItem(value: 60, child: Text('60s')),
+                  DropdownMenuItem(value: 90, child: Text('90s')),
+                  DropdownMenuItem(value: 120, child: Text('2min')),
+                  DropdownMenuItem(value: 180, child: Text('3min')),
+                  DropdownMenuItem(value: 300, child: Text('5min')),
+                ],
+                onChanged: (v) {
+                  if (v != null) onDurationChanged(v);
+                },
+              ),
+              const SizedBox(width: 4),
+              // Skip
+              IconButton(
+                icon: const Icon(Icons.skip_next_rounded, size: 22),
+                color: OneRepColors.textSecondary,
+                tooltip: 'Skip rest',
+                onPressed: onSkip,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 36,
+                  minHeight: 36,
+                ),
+              ),
+              // Restart
+              IconButton(
+                icon: const Icon(Icons.replay_rounded, size: 20),
+                color: OneRepColors.textSecondary,
+                tooltip: 'Restart timer',
+                onPressed: onRestart,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 36,
+                  minHeight: 36,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Empty session state
+// ---------------------------------------------------------------------------
+
+class _EmptySessionState extends StatelessWidget {
+  const _EmptySessionState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.fitness_center,
+              color: OneRepColors.textDisabled,
+              size: 44,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'No sets logged yet.',
+              style: TextStyle(
+                color: OneRepColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 6),
+            Text(
+              'Select an exercise above and log your first set.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: OneRepColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
