@@ -1,7 +1,8 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:fitness_app/core/database/local_database.dart';
+import '../../../main.dart';
 import '../data/session_repository.dart';
 import '../data/exercise_repository.dart';
 
@@ -23,37 +24,42 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
     final streakAsync = ref.watch(getWeeklyStreakProvider);
 
     return ListView(
+      padding: const EdgeInsets.only(bottom: 40),
       children: [
-        // --- Stats row ---
+        // ----------------------------------------------------------------
+        // Stat cards
+        // ----------------------------------------------------------------
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Row(
             children: [
               _StatCard(
-                label: 'Weekly Streak',
-                valueAsync: streakAsync.when(
-                  data: (streak) => '$streak weeks',
-                  loading: () => '...',
-                  error: (_, __) => '-',
+                label: 'WEEKLY\nSTREAK',
+                value: streakAsync.when(
+                  data: (s) => '$s',
+                  loading: () => '—',
+                  error: (_, __) => '—',
                 ),
+                unit: 'wks',
                 icon: Icons.local_fire_department,
-                color: Colors.orange,
+                color: OneRepColors.coral,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               _StatCard(
-                label: 'Total Sessions',
-                valueAsync: sessionsAsync.when(
-                  data: (sessions) => '${sessions.length}',
-                  loading: () => '...',
-                  error: (_, __) => '-',
+                label: 'TOTAL\nSESSIONS',
+                value: sessionsAsync.when(
+                  data: (s) => '${s.length}',
+                  loading: () => '—',
+                  error: (_, __) => '—',
                 ),
+                unit: 'done',
                 icon: Icons.fitness_center,
-                color: Theme.of(context).colorScheme.primary,
+                color: OneRepColors.gold,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               _StatCard(
-                label: 'This Month',
-                valueAsync: sessionsAsync.when(
+                label: 'THIS\nMONTH',
+                value: sessionsAsync.when(
                   data: (sessions) {
                     final now = DateTime.now();
                     final count = sessions
@@ -63,93 +69,78 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                         .length;
                     return '$count';
                   },
-                  loading: () => '...',
-                  error: (_, __) => '-',
+                  loading: () => '—',
+                  error: (_, __) => '—',
                 ),
+                unit: 'sessions',
                 icon: Icons.calendar_month,
-                color: Colors.green,
+                color: OneRepColors.back,
               ),
             ],
           ),
         ),
 
-        // --- Attendance heatmap ---
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text(
-            'Attendance — Last 12 Weeks',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-        ),
+        // ----------------------------------------------------------------
+        // Attendance heatmap
+        // ----------------------------------------------------------------
+        const _SectionLabel(title: 'ATTENDANCE — LAST 12 WEEKS'),
         attendanceAsync.when(
           data: (attendance) => _AttendanceHeatmap(attendance: attendance),
           loading: () =>
               const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Center(child: Text('Error: $err')),
+          error: (err, _) => Center(child: Text('Error: $err')),
         ),
 
-        // --- Volume chart ---
+        // ----------------------------------------------------------------
+        // Volume tracker
+        // ----------------------------------------------------------------
+        const _SectionLabel(title: 'VOLUME TRACKER'),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text(
-            'Volume Tracker',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: exercisesAsync.when(
             data: (exercises) => DropdownButtonFormField<Exercise>(
               value: _selectedExercise,
               decoration: const InputDecoration(
-                labelText: 'Select Exercise to Track',
-                border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                labelText: 'Select Exercise',
+                prefixIcon: Icon(Icons.fitness_center, size: 18),
               ),
+              dropdownColor: OneRepColors.surfaceElevated,
+              style: const TextStyle(color: OneRepColors.textPrimary),
               items: exercises
                   .map((e) => DropdownMenuItem(
                         value: e,
                         child: Text(e.name),
                       ))
                   .toList(),
-              onChanged: (exercise) {
-                setState(() => _selectedExercise = exercise);
-              },
+              onChanged: (exercise) =>
+                  setState(() => _selectedExercise = exercise),
             ),
-            loading: () => const CircularProgressIndicator(),
-            error: (err, stack) => Text('Error: $err'),
+            loading: () => const LinearProgressIndicator(),
+            error: (err, _) => Text('Error: $err'),
           ),
         ),
+        const SizedBox(height: 12),
         if (_selectedExercise != null)
           _VolumeChart(exerciseId: _selectedExercise!.id),
 
-        // --- Session history ---
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text(
-            'Session History',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-        ),
+        // ----------------------------------------------------------------
+        // Session history
+        // ----------------------------------------------------------------
+        const _SectionLabel(title: 'SESSION HISTORY'),
         sessionsAsync.when(
           data: (sessions) => sessions.isEmpty
               ? const Padding(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(24),
                   child: Center(
                     child: Text(
                       'No completed sessions yet.\nFinish a workout to see it here.',
                       textAlign: TextAlign.center,
+                      style: TextStyle(color: OneRepColors.textSecondary),
                     ),
                   ),
                 )
               : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: sessions.length,
@@ -158,46 +149,32 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                     final duration = session.endTime != null
                         ? session.endTime!.difference(session.startTime)
                         : null;
-
-                    return ListTile(
-                      title: Text(_formatDate(session.startTime)),
-                      subtitle: duration != null
-                          ? Text(_formatDuration(duration))
-                          : null,
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.fitness_center),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _SessionRow(
+                        session: session,
+                        duration: duration,
+                        onTap: () => _showSessionDetail(context, session),
                       ),
-                      onTap: () =>
-                          _showSessionDetail(context, session),
                     );
                   },
                 ),
           loading: () =>
               const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Center(child: Text('Error: $err')),
+          error: (err, _) => Center(child: Text('Error: $err')),
         ),
-        const SizedBox(height: 80),
       ],
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year} '
-        '${date.hour.toString().padLeft(2, '0')}:'
-        '${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    if (hours > 0) return '${hours}h ${minutes}m';
-    return '${minutes}m';
   }
 
   void _showSessionDetail(BuildContext context, WorkoutSession session) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: OneRepColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => UncontrolledProviderScope(
         container: ProviderScope.containerOf(context),
         child: SessionDetailSheet(session: session),
@@ -206,17 +183,21 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
   }
 }
 
-// --- Stat card widget ---
+// ---------------------------------------------------------------------------
+// Stat card
+// ---------------------------------------------------------------------------
 
 class _StatCard extends StatelessWidget {
   final String label;
-  final String valueAsync;
+  final String value;
+  final String unit;
   final IconData icon;
   final Color color;
 
   const _StatCard({
     required this.label,
-    required this.valueAsync,
+    required this.value,
+    required this.unit,
     required this.icon,
     required this.color,
   });
@@ -224,34 +205,165 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 4),
-              Text(
-                valueAsync,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 11),
-                textAlign: TextAlign.center,
-              ),
-            ],
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+        decoration: BoxDecoration(
+          color: OneRepColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border(
+            top: BorderSide(color: color, width: 2),
           ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(
+                color: OneRepColors.textPrimary,
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              unit,
+              style: const TextStyle(
+                color: OneRepColors.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: OneRepColors.textSecondary,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// --- Attendance heatmap ---
+// ---------------------------------------------------------------------------
+// Section label
+// ---------------------------------------------------------------------------
+
+class _SectionLabel extends StatelessWidget {
+  final String title;
+
+  const _SectionLabel({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: OneRepColors.textSecondary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 2,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Session row — no circle avatar
+// ---------------------------------------------------------------------------
+
+class _SessionRow extends StatelessWidget {
+  final WorkoutSession session;
+  final Duration? duration;
+  final VoidCallback onTap;
+
+  const _SessionRow({
+    required this.session,
+    required this.duration,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: OneRepColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: const Border(
+            left: BorderSide(color: OneRepColors.gold, width: 3),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _formatDate(session.startTime),
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (duration != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatDuration(duration!),
+                      style: const TextStyle(
+                        color: OneRepColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: OneRepColors.textDisabled,
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}  '
+        '${date.hour.toString().padLeft(2, '0')}:'
+        '${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDuration(Duration d) {
+    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
+    return '${d.inMinutes}m';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Attendance heatmap
+// ---------------------------------------------------------------------------
 
 class _AttendanceHeatmap extends StatelessWidget {
   final Map<DateTime, int> attendance;
@@ -261,74 +373,74 @@ class _AttendanceHeatmap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final primaryColor = Theme.of(context).colorScheme.primary;
 
-    // Build 12 weeks of days ending today
-    final List<DateTime> days = [];
-    for (int i = 83; i >= 0; i--) {
-      days.add(DateTime(
-        today.year,
-        today.month,
-        today.day,
-      ).subtract(Duration(days: i)));
-    }
+    final List<DateTime> days = List.generate(
+      84,
+      (i) => DateTime(today.year, today.month, today.day)
+          .subtract(Duration(days: 83 - i)),
+    );
 
-    // Group into weeks
     final List<List<DateTime>> weeks = [];
     for (int i = 0; i < days.length; i += 7) {
       weeks.add(days.sublist(i, (i + 7).clamp(0, days.length)));
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Day labels
           Row(
-            children: const [
-              SizedBox(width: 8),
-              Expanded(child: Text('M', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
-              Expanded(child: Text('T', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
-              Expanded(child: Text('W', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
-              Expanded(child: Text('T', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
-              Expanded(child: Text('F', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
-              Expanded(child: Text('S', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
-              Expanded(child: Text('S', style: TextStyle(fontSize: 10), textAlign: TextAlign.center)),
-            ],
+            children: ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d) {
+              return Expanded(
+                child: Center(
+                  child: Text(
+                    d,
+                    style: const TextStyle(
+                      color: OneRepColors.textDisabled,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
-          const SizedBox(height: 4),
-          // Heatmap grid — rows are weeks, columns are days
+          const SizedBox(height: 6),
+          // Grid
           ...weeks.map((week) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Row(
                   children: [
-                    const SizedBox(width: 8),
                     ...week.map((day) {
                       final count = attendance[day] ?? 0;
-                      final hasSession = count > 0;
                       final isToday = day.year == today.year &&
                           day.month == today.month &&
                           day.day == today.day;
-
                       return Expanded(
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 2),
-                          height: 20,
+                          height: 18,
                           decoration: BoxDecoration(
-                            color: hasSession
-                                ? primaryColor.withValues(
-                                    alpha: (0.3 + (count * 0.2)).clamp(0.3, 1.0))
-                                : Colors.grey.withValues(alpha: 0.15),
+                            color: count > 0
+                                ? OneRepColors.gold.withValues(
+                                    alpha:
+                                        (0.25 + (count * 0.25)).clamp(0.25, 1.0),
+                                  )
+                                : OneRepColors.surfaceElevated,
                             borderRadius: BorderRadius.circular(3),
                             border: isToday
-                                ? Border.all(color: primaryColor, width: 1.5)
+                                ? Border.all(
+                                    color: OneRepColors.gold,
+                                    width: 1.5,
+                                  )
                                 : null,
                           ),
                         ),
                       );
                     }),
-                    // Pad incomplete weeks
+                    // Pad incomplete final week
                     if (week.length < 7)
                       ...List.generate(
                         7 - week.length,
@@ -337,12 +449,18 @@ class _AttendanceHeatmap extends StatelessWidget {
                   ],
                 ),
               )),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           // Legend
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              const Text('Less', style: TextStyle(fontSize: 10)),
+              const Text(
+                'Less',
+                style: TextStyle(
+                  color: OneRepColors.textDisabled,
+                  fontSize: 10,
+                ),
+              ),
               const SizedBox(width: 4),
               ...List.generate(4, (i) {
                 return Container(
@@ -350,13 +468,20 @@ class _AttendanceHeatmap extends StatelessWidget {
                   height: 14,
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   decoration: BoxDecoration(
-                    color: primaryColor.withValues(alpha: 0.2 + (i * 0.25)),
+                    color: OneRepColors.gold
+                        .withValues(alpha: 0.2 + (i * 0.22)),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 );
               }),
               const SizedBox(width: 4),
-              const Text('More', style: TextStyle(fontSize: 10)),
+              const Text(
+                'More',
+                style: TextStyle(
+                  color: OneRepColors.textDisabled,
+                  fontSize: 10,
+                ),
+              ),
             ],
           ),
         ],
@@ -365,7 +490,9 @@ class _AttendanceHeatmap extends StatelessWidget {
   }
 }
 
-// --- Volume chart widget ---
+// ---------------------------------------------------------------------------
+// Volume chart
+// ---------------------------------------------------------------------------
 
 class _VolumeChart extends ConsumerWidget {
   final int exerciseId;
@@ -374,44 +501,68 @@ class _VolumeChart extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final volumeAsync =
-        ref.watch(getVolumeForExerciseProvider(exerciseId));
+    final volumeAsync = ref.watch(getVolumeForExerciseProvider(exerciseId));
 
     return SizedBox(
       height: 200,
       child: volumeAsync.when(
+        loading: () =>
+            const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
         data: (dataPoints) {
           if (dataPoints.isEmpty) {
             return const Center(
-              child: Text('No data yet for this exercise.'),
+              child: Text(
+                'No data yet for this exercise.',
+                style: TextStyle(color: OneRepColors.textSecondary),
+              ),
             );
           }
 
-          final spots = dataPoints.asMap().entries.map((entry) {
-            return FlSpot(
-              entry.key.toDouble(),
-              entry.value.totalVolume,
-            );
-          }).toList();
+          final sorted = [...dataPoints]
+            ..sort((a, b) => a.date.compareTo(b.date));
+
+          final spots = sorted.asMap().entries
+              .map((e) => FlSpot(
+                    e.key.toDouble(),
+                    e.value.totalVolume,
+                  ))
+              .toList();
 
           return Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 24, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
             child: LineChart(
               LineChartData(
-                gridData: const FlGridData(show: true),
+                gridData: FlGridData(
+                  show: true,
+                  getDrawingHorizontalLine: (_) => const FlLine(
+                    color: OneRepColors.surfaceElevated,
+                    strokeWidth: 1,
+                  ),
+                  getDrawingVerticalLine: (_) => const FlLine(
+                    color: Colors.transparent,
+                    strokeWidth: 0,
+                  ),
+                ),
                 titlesData: FlTitlesData(
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
                       getTitlesWidget: (value, meta) {
                         final index = value.toInt();
-                        if (index < 0 || index >= dataPoints.length) {
+                        if (index < 0 || index >= sorted.length) {
                           return const SizedBox();
                         }
-                        final date = dataPoints[index].date;
-                        return Text(
-                          '${date.day}/${date.month}',
-                          style: const TextStyle(fontSize: 10),
+                        final date = sorted[index].date;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            '${date.day}/${date.month}',
+                            style: const TextStyle(
+                              color: OneRepColors.textSecondary,
+                              fontSize: 9,
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -419,10 +570,13 @@ class _VolumeChart extends ConsumerWidget {
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 48,
+                      reservedSize: 44,
                       getTitlesWidget: (value, meta) => Text(
-                        '${value.toInt()}kg',
-                        style: const TextStyle(fontSize: 10),
+                        '${value.toInt()}',
+                        style: const TextStyle(
+                          color: OneRepColors.textSecondary,
+                          fontSize: 9,
+                        ),
                       ),
                     ),
                   ),
@@ -433,20 +587,42 @@ class _VolumeChart extends ConsumerWidget {
                     sideTitles: SideTitles(showTitles: false),
                   ),
                 ),
-                borderData: FlBorderData(show: true),
+                borderData: FlBorderData(
+                  show: true,
+                  border: const Border(
+                    bottom: BorderSide(
+                      color: OneRepColors.surfaceElevated,
+                    ),
+                    left: BorderSide(
+                      color: OneRepColors.surfaceElevated,
+                    ),
+                  ),
+                ),
                 lineBarsData: [
                   LineChartBarData(
                     spots: spots,
                     isCurved: true,
-                    color: Theme.of(context).colorScheme.primary,
-                    barWidth: 3,
-                    dotData: const FlDotData(show: true),
+                    color: OneRepColors.gold,
+                    barWidth: 2.5,
+                    dotData: FlDotData(
+                      getDotPainter: (spot, percent, bar, index) =>
+                          FlDotCirclePainter(
+                        radius: 3,
+                        color: OneRepColors.gold,
+                        strokeColor: OneRepColors.background,
+                        strokeWidth: 1.5,
+                      ),
+                    ),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.1),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          OneRepColors.gold.withValues(alpha: 0.2),
+                          OneRepColors.gold.withValues(alpha: 0.0),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -454,14 +630,14 @@ class _VolumeChart extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
       ),
     );
   }
 }
 
-// --- Session detail bottom sheet ---
+// ---------------------------------------------------------------------------
+// Session detail bottom sheet
+// ---------------------------------------------------------------------------
 
 class SessionDetailSheet extends ConsumerWidget {
   final WorkoutSession session;
@@ -470,12 +646,8 @@ class SessionDetailSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final setsAsync =
-        ref.watch(watchSetsForSessionProvider(session.id));
-
-    final duration = session.endTime != null
-        ? session.endTime!.difference(session.startTime)
-        : null;
+    final setsAsync = ref.watch(watchSetsForSessionProvider(session.id));
+    final duration = session.endTime?.difference(session.startTime);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
@@ -484,8 +656,21 @@ class SessionDetailSheet extends ConsumerWidget {
       expand: false,
       builder: (context, scrollController) => Column(
         children: [
+          // Drag handle
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(top: 12, bottom: 8),
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: OneRepColors.surfaceHighest,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
             child: Row(
               children: [
                 Expanded(
@@ -493,84 +678,131 @@ class SessionDetailSheet extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${session.startTime.day}/${session.startTime.month}/${session.startTime.year}',
+                        _formatDate(session.startTime),
                         style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          color: OneRepColors.textPrimary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       if (duration != null)
                         Text(
                           _formatDuration(duration),
-                          style: const TextStyle(color: Colors.grey),
+                          style: const TextStyle(
+                            color: OneRepColors.textSecondary,
+                            fontSize: 13,
+                          ),
                         ),
                     ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: OneRepColors.gold.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: OneRepColors.gold.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: const Text(
+                    'COMPLETED',
+                    style: TextStyle(
+                      color: OneRepColors.gold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1),
+          Container(height: 1, color: OneRepColors.surfaceElevated),
+          // Sets list
           Expanded(
             child: setsAsync.when(
               data: (sets) {
                 if (sets.isEmpty) {
-                  return const Center(child: Text('No sets logged.'));
+                  return const Center(
+                    child: Text(
+                      'No sets logged.',
+                      style: TextStyle(color: OneRepColors.textSecondary),
+                    ),
+                  );
                 }
-
-                final Map<String, List<WorkoutSetWithExercise>> grouped =
-                    {};
+                final grouped = <String, List<dynamic>>{};
                 for (final s in sets) {
                   grouped.putIfAbsent(s.exerciseName, () => []).add(s);
                 }
-
-                return ListView.builder(
+                return ListView(
                   controller: scrollController,
-                  itemCount: grouped.length,
-                  itemBuilder: (context, index) {
-                    final exerciseName = grouped.keys.elementAt(index);
-                    final exerciseSets = grouped[exerciseName]!;
-
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              exerciseName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+                  padding: const EdgeInsets.all(16),
+                  children: grouped.entries.map((entry) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.key,
+                            style: const TextStyle(
+                              color: OneRepColors.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.5,
                             ),
-                            const SizedBox(height: 8),
-                            ...exerciseSets.asMap().entries.map(
-                              (entry) {
-                                final setNum = entry.key + 1;
-                                final s = entry.value;
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 2),
-                                  child: Text(
-                                    'Set $setNum: ${s.set.weight}kg × ${s.set.reps} reps',
+                          ),
+                          const SizedBox(height: 6),
+                          ...entry.value.asMap().entries.map((e) {
+                            final set = e.value;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: OneRepColors.surfaceElevated,
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '${e.key + 1}',
+                                        style: const TextStyle(
+                                          color: OneRepColors.textSecondary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    '${set.set.weight}kg × ${set.set.reps} reps',
+                                    style: const TextStyle(
+                                      color: OneRepColors.textPrimary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
                       ),
                     );
-                  },
+                  }).toList(),
                 );
               },
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
-              error: (err, stack) =>
-                  Center(child: Text('Error: $err')),
+              error: (err, _) => Center(child: Text('Error: $err')),
             ),
           ),
         ],
@@ -578,10 +810,16 @@ class SessionDetailSheet extends ConsumerWidget {
     );
   }
 
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    if (hours > 0) return '${hours}h ${minutes}m';
-    return '${minutes}m';
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  String _formatDuration(Duration d) {
+    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
+    return '${d.inMinutes}m';
   }
 }
