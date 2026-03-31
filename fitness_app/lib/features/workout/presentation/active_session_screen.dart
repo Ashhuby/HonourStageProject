@@ -1,4 +1,5 @@
 // lib/features/workout/presentation/active_session_screen.dart
+// lib/features/workout/presentation/active_session_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,14 +46,25 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   PrResult? _latestPr;
   Timer? _prBannerTimer;
 
+  // PR banner state
+  // Holds the most recently detected PR so the banner widget can render it.
+  // Null means no banner is shown. Cleared automatically after a fixed duration.
+  PrResult? _latestPr;
+  Timer? _prBannerTimer;
+
   @override
   void dispose() {
     _weightController.dispose();
     _repsController.dispose();
     _timer?.cancel();
     _prBannerTimer?.cancel();
+    _prBannerTimer?.cancel();
     super.dispose();
   }
+
+  // ---------------------------------------------------------------------------
+  // Rest timer
+  // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
   // Rest timer
@@ -82,6 +94,35 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     NotificationService().showRestCompleteNotification();
     setState(() => _remainingSeconds = 0);
   }
+
+  // ---------------------------------------------------------------------------
+  // PR banner
+  // ---------------------------------------------------------------------------
+
+  /// Shows the PR banner for [_prBannerDuration] then clears it.
+  /// If a second PR fires while the banner is already visible, the banner
+  /// resets to the new PR and the timer restarts — the user always sees
+  /// the most recent result.
+  static const _prBannerDuration = Duration(seconds: 5);
+
+  void _showPrBanner(PrResult pr) {
+    _prBannerTimer?.cancel();
+    setState(() => _latestPr = pr);
+    HapticFeedback.heavyImpact();
+
+    _prBannerTimer = Timer(_prBannerDuration, () {
+      if (mounted) setState(() => _latestPr = null);
+    });
+  }
+
+  void _dismissPrBanner() {
+    _prBannerTimer?.cancel();
+    setState(() => _latestPr = null);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
   // PR banner
@@ -151,6 +192,14 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
             const Divider(height: 1),
             if (_remainingSeconds > 0 || _isTimerRunning)
               _buildRestTimer(),
+            // PR banner sits above the sets list, below the rest timer.
+            // AnimatedSwitcher gives a smooth fade — no jarring pop.
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: _latestPr != null
+                  ? _buildPrBanner(_latestPr!)
+                  : const SizedBox.shrink(),
+            ),
             // PR banner sits above the sets list, below the rest timer.
             // AnimatedSwitcher gives a smooth fade — no jarring pop.
             AnimatedSwitcher(
@@ -245,6 +294,70 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   // Rest timer widget (unchanged)
   // ---------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+  // PR banner widget
+  // ---------------------------------------------------------------------------
+
+  Widget _buildPrBanner(PrResult pr) {
+    return GestureDetector(
+      onTap: _dismissPrBanner,
+      child: Container(
+        // Use a key so AnimatedSwitcher treats each new PR as a distinct widget
+        // and re-runs the fade animation even if two consecutive PRs fire.
+        key: ValueKey('${pr.exerciseId}-${pr.reps}-${pr.weight}'),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.amber.shade700,
+              Colors.orange.shade600,
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.emoji_events,
+              color: Colors.white,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '🏆 New Personal Record!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  Text(
+                    '${pr.exerciseName} — ${pr.weight}kg × ${pr.reps} reps',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Dismiss handle — small affordance so the user knows it's tappable.
+            const Icon(Icons.close, color: Colors.white70, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rest timer widget (unchanged)
+  // ---------------------------------------------------------------------------
+
   Widget _buildRestTimer() {
     final progress = _remainingSeconds / _restDuration;
     final minutes = _remainingSeconds ~/ 60;
@@ -266,6 +379,10 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                 CircularProgressIndicator(
                   value: progress,
                   strokeWidth: 5,
+                  backgroundColor: Theme.of(context)
+                      .colorScheme
+                      .onPrimaryContainer
+                      .withValues(alpha: 0.2),
                   backgroundColor: Theme.of(context)
                       .colorScheme
                       .onPrimaryContainer
@@ -295,6 +412,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   'Rest Timer',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
+                Slider(
+                  value: _restDuration.toDouble(),
+                  min: 30,
+                  max: 300,
+                  divisions: 9,
+                  label: '${_restDuration}s',
+                  onChanged: (value) {
+                    setState(() => _restDuration = value.toInt());
+                  },
                 Slider(
                   value: _restDuration.toDouble(),
                   min: 30,
@@ -536,12 +662,22 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   /// This method is now async — it awaits logSet so the PR result is available
   /// before the UI updates. The rest timer starts regardless of PR detection.
   Future<void> _logSet() async {
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
+  /// Logs a set, starts the rest timer, and surfaces any PR immediately.
+  /// This method is now async — it awaits logSet so the PR result is available
+  /// before the UI updates. The rest timer starts regardless of PR detection.
+  Future<void> _logSet() async {
     final weight = double.tryParse(_weightController.text);
     final reps = int.tryParse(_repsController.text);
 
     if (weight == null || reps == null || _selectedExercise == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          content: Text(
+              'Please select an exercise and enter valid weight and reps.'),
           content: Text(
               'Please select an exercise and enter valid weight and reps.'),
         ),
@@ -557,8 +693,17 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     final prResult = await ref
         .read(sessionRepositoryProvider.notifier)
         .logSet(
+    // Start the rest timer immediately — don't wait for PR detection.
+    // The DB write + PR check is fast but the UX should feel instant.
+    _startTimer();
+
+    // Await the full logSet pipeline: insert → PR check → badge evaluation.
+    final prResult = await ref
+        .read(sessionRepositoryProvider.notifier)
+        .logSet(
           sessionId: widget.sessionId,
           exerciseId: _selectedExercise!.id,
+          exerciseName: _selectedExercise!.name,
           exerciseName: _selectedExercise!.name,
           weight: weight,
           reps: reps,
@@ -570,7 +715,14 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     if (mounted && prResult != null) {
       _showPrBanner(prResult);
     }
+    // Show the PR banner if a new record was set.
+    // Guard with mounted — the user could theoretically navigate away
+    // in the ~50ms it takes for the DB write to complete.
+    if (mounted && prResult != null) {
+      _showPrBanner(prResult);
+    }
 
+    // Clear reps only — weight likely stays the same for the next set.
     // Clear reps only — weight likely stays the same for the next set.
     _repsController.clear();
   }
