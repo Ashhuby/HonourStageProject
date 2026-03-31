@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../main.dart';
 import '../data/badge_service.dart';
 
 class BadgesScreen extends ConsumerWidget {
@@ -10,10 +11,6 @@ class BadgesScreen extends ConsumerWidget {
     final badgesAsync = ref.watch(watchBadgesProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Achievements'),
-        centerTitle: true,
-      ),
       body: badgesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
@@ -23,22 +20,22 @@ class BadgesScreen extends ConsumerWidget {
 
           return CustomScrollView(
             slivers: [
-              // ----------------------------------------------------------------
+              // ---------------------------------------------------------------
               // Summary header
-              // ----------------------------------------------------------------
+              // ---------------------------------------------------------------
               SliverToBoxAdapter(
-                child: _SummaryBanner(
+                child: _SummaryHeader(
                   earned: earned.length,
                   total: badges.length,
                 ),
               ),
 
-              // ----------------------------------------------------------------
-              // Earned badges
-              // ----------------------------------------------------------------
+              // ---------------------------------------------------------------
+              // Earned
+              // ---------------------------------------------------------------
               if (earned.isNotEmpty) ...[
                 const SliverToBoxAdapter(
-                  child: _SectionHeader(title: 'Earned'),
+                  child: _SectionLabel(title: 'EARNED'),
                 ),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -46,9 +43,9 @@ class BadgesScreen extends ConsumerWidget {
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.1,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 1.05,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _BadgeTile(
@@ -61,23 +58,22 @@ class BadgesScreen extends ConsumerWidget {
                 ),
               ],
 
-              // ----------------------------------------------------------------
-              // Unearned badges
-              // ----------------------------------------------------------------
+              // ---------------------------------------------------------------
+              // Locked
+              // ---------------------------------------------------------------
               if (unearned.isNotEmpty) ...[
                 const SliverToBoxAdapter(
-                  child: _SectionHeader(title: 'Locked'),
+                  child: _SectionLabel(title: 'LOCKED'),
                 ),
                 SliverPadding(
-                  padding:
-                      const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
                   sliver: SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.1,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 1.05,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _BadgeTile(
@@ -98,53 +94,82 @@ class BadgesScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Summary banner
+// Summary header
 // ---------------------------------------------------------------------------
 
-class _SummaryBanner extends StatelessWidget {
+class _SummaryHeader extends StatelessWidget {
   final int earned;
   final int total;
 
-  const _SummaryBanner({required this.earned, required this.total});
+  const _SummaryHeader({required this.earned, required this.total});
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final progress = total == 0 ? 0.0 : earned / total;
 
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            colorScheme.primaryContainer,
-            colorScheme.secondaryContainer,
-          ],
-        ),
+        color: OneRepColors.surface,
         borderRadius: BorderRadius.circular(16),
+        border: const Border(
+          left: BorderSide(color: OneRepColors.gold, width: 3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '$earned / $total achievements unlocked',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$earned',
+                style: const TextStyle(
+                  color: OneRepColors.gold,
+                  fontSize: 48,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6, left: 4),
+                child: Text(
+                  '/ $total',
+                  style: const TextStyle(
+                    color: OneRepColors.textSecondary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              const Icon(
+                Icons.emoji_events,
+                color: OneRepColors.gold,
+                size: 32,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'ACHIEVEMENTS UNLOCKED',
+            style: TextStyle(
+              color: OneRepColors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 10,
-              backgroundColor:
-                  colorScheme.onPrimaryContainer.withValues(alpha: 0.15),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                colorScheme.primary,
-              ),
+              minHeight: 6,
+              backgroundColor: OneRepColors.surfaceHighest,
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(OneRepColors.gold),
             ),
           ),
           const SizedBox(height: 8),
@@ -152,9 +177,9 @@ class _SummaryBanner extends StatelessWidget {
             earned == total && total > 0
                 ? '🏆 All achievements unlocked!'
                 : '${total - earned} remaining',
-            style: TextStyle(
-              color: colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
-              fontSize: 13,
+            style: const TextStyle(
+              color: OneRepColors.textSecondary,
+              fontSize: 12,
             ),
           ),
         ],
@@ -164,24 +189,26 @@ class _SummaryBanner extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Section header
+// Section label
 // ---------------------------------------------------------------------------
 
-class _SectionHeader extends StatelessWidget {
+class _SectionLabel extends StatelessWidget {
   final String title;
 
-  const _SectionHeader({required this.title});
+  const _SectionLabel({required this.title});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
-            ),
+        style: const TextStyle(
+          color: OneRepColors.textSecondary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 2,
+        ),
       ),
     );
   }
@@ -199,85 +226,85 @@ class _BadgeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return GestureDetector(
       onTap: () => _showDetail(context),
       child: AnimatedOpacity(
-        opacity: earned ? 1.0 : 0.4,
-        duration: const Duration(milliseconds: 200),
-        child: Card(
-          elevation: earned ? 2 : 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: earned
-                ? BorderSide(
-                    color: colorScheme.primary.withValues(alpha: 0.4),
-                    width: 1.5,
-                  )
-                : BorderSide.none,
+        opacity: earned ? 1.0 : 0.35,
+        duration: const Duration(milliseconds: 300),
+        child: Container(
+          decoration: BoxDecoration(
+            color: OneRepColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: earned
+                  ? OneRepColors.gold.withValues(alpha: 0.4)
+                  : OneRepColors.surfaceElevated,
+              width: earned ? 1.5 : 1,
+            ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Icon with background circle
+                // Icon container
                 Container(
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
                     color: earned
-                        ? colorScheme.primaryContainer
-                        : colorScheme.surfaceContainerHighest,
+                        ? OneRepColors.gold.withValues(alpha: 0.15)
+                        : OneRepColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(14),
+                    border: earned
+                        ? Border.all(
+                            color: OneRepColors.gold.withValues(alpha: 0.3),
+                          )
+                        : null,
                   ),
                   child: Icon(
                     _iconData(badge.icon),
-                    size: 28,
+                    size: 26,
                     color: earned
-                        ? colorScheme.primary
-                        : colorScheme.onSurfaceVariant,
+                        ? OneRepColors.gold
+                        : OneRepColors.textDisabled,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
 
-                // Badge name
+                // Name
                 Text(
                   badge.name,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
                     color: earned
-                        ? colorScheme.onSurface
-                        : colorScheme.onSurfaceVariant,
+                        ? OneRepColors.textPrimary
+                        : OneRepColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    letterSpacing: 0.2,
                   ),
                 ),
 
-                // Earned date — only shown when earned
-                if (earned && badge.earnedAt != null) ...[
-                  const SizedBox(height: 4),
+                // Earned date or lock icon
+                const SizedBox(height: 4),
+                if (earned && badge.earnedAt != null)
                   Text(
                     _formatDate(badge.earnedAt!),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colorScheme.onSurfaceVariant,
+                    style: const TextStyle(
+                      color: OneRepColors.gold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
                     ),
-                  ),
-                ],
-
-                // Lock icon for unearned
-                if (!earned) ...[
-                  const SizedBox(height: 4),
-                  Icon(
+                  )
+                else
+                  const Icon(
                     Icons.lock_outline,
-                    size: 14,
-                    color: colorScheme.onSurfaceVariant,
+                    size: 13,
+                    color: OneRepColors.textDisabled,
                   ),
-                ],
               ],
             ),
           ),
@@ -289,6 +316,7 @@ class _BadgeTile extends StatelessWidget {
   void _showDetail(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      backgroundColor: OneRepColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -301,21 +329,17 @@ class _BadgeTile extends StatelessWidget {
       '${dt.month.toString().padLeft(2, '0')}/'
       '${dt.year}';
 
-  /// Maps the string icon name stored in [BadgeDefinition] to a
-  /// Flutter [IconData]. Centralised here so the mapping is one place.
-  IconData _iconData(String name) {
-    return switch (name) {
-      'fitness_center' => Icons.fitness_center,
-      'local_fire_department' => Icons.local_fire_department,
-      'emoji_events' => Icons.emoji_events,
-      'military_tech' => Icons.military_tech,
-      'trending_up' => Icons.trending_up,
-      'bolt' => Icons.bolt,
-      'workspace_premium' => Icons.workspace_premium,
-      'add_circle' => Icons.add_circle,
-      _ => Icons.star,
-    };
-  }
+  IconData _iconData(String name) => switch (name) {
+        'fitness_center' => Icons.fitness_center,
+        'local_fire_department' => Icons.local_fire_department,
+        'emoji_events' => Icons.emoji_events,
+        'military_tech' => Icons.military_tech,
+        'trending_up' => Icons.trending_up,
+        'bolt' => Icons.bolt,
+        'workspace_premium' => Icons.workspace_premium,
+        'add_circle' => Icons.add_circle,
+        _ => Icons.star,
+      };
 }
 
 // ---------------------------------------------------------------------------
@@ -330,19 +354,17 @@ class _BadgeDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Drag handle
           Container(
-            width: 40,
+            width: 36,
             height: 4,
             decoration: BoxDecoration(
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+              color: OneRepColors.surfaceHighest,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -353,17 +375,21 @@ class _BadgeDetailSheet extends StatelessWidget {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
               color: earned
-                  ? colorScheme.primaryContainer
-                  : colorScheme.surfaceContainerHighest,
+                  ? OneRepColors.gold.withValues(alpha: 0.15)
+                  : OneRepColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(18),
+              border: earned
+                  ? Border.all(
+                      color: OneRepColors.gold.withValues(alpha: 0.4),
+                      width: 1.5,
+                    )
+                  : null,
             ),
             child: Icon(
               _iconData(badge.icon),
-              size: 40,
-              color: earned
-                  ? colorScheme.primary
-                  : colorScheme.onSurfaceVariant,
+              size: 36,
+              color: earned ? OneRepColors.gold : OneRepColors.textDisabled,
             ),
           ),
           const SizedBox(height: 16),
@@ -372,8 +398,10 @@ class _BadgeDetailSheet extends StatelessWidget {
           Text(
             badge.name,
             style: const TextStyle(
+              color: OneRepColors.textPrimary,
               fontSize: 20,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.3,
             ),
           ),
           const SizedBox(height: 8),
@@ -382,59 +410,55 @@ class _BadgeDetailSheet extends StatelessWidget {
           Text(
             badge.description,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 15,
+            style: const TextStyle(
+              color: OneRepColors.textSecondary,
+              fontSize: 14,
+              height: 1.5,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Earned state
-          if (earned && badge.earnedAt != null)
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: Colors.green.withValues(alpha: 0.4)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.check_circle,
-                      color: Colors.green, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Earned on ${_formatDate(badge.earnedAt!)}',
-                    style: const TextStyle(
-                        color: Colors.green, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            )
-          else
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.lock_outline,
-                      color: colorScheme.onSurfaceVariant, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Not yet earned',
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
-                  ),
-                ],
+          // Status pill
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: earned
+                  ? OneRepColors.gold.withValues(alpha: 0.12)
+                  : OneRepColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: earned
+                    ? OneRepColors.gold.withValues(alpha: 0.4)
+                    : OneRepColors.surfaceHighest,
               ),
             ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  earned ? Icons.check_circle_outline : Icons.lock_outline,
+                  color: earned
+                      ? OneRepColors.gold
+                      : OneRepColors.textSecondary,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  earned && badge.earnedAt != null
+                      ? 'Earned ${_formatDate(badge.earnedAt!)}'
+                      : 'Not yet earned',
+                  style: TextStyle(
+                    color: earned
+                        ? OneRepColors.gold
+                        : OneRepColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -445,17 +469,15 @@ class _BadgeDetailSheet extends StatelessWidget {
       '${dt.month.toString().padLeft(2, '0')}/'
       '${dt.year}';
 
-  IconData _iconData(String name) {
-    return switch (name) {
-      'fitness_center' => Icons.fitness_center,
-      'local_fire_department' => Icons.local_fire_department,
-      'emoji_events' => Icons.emoji_events,
-      'military_tech' => Icons.military_tech,
-      'trending_up' => Icons.trending_up,
-      'bolt' => Icons.bolt,
-      'workspace_premium' => Icons.workspace_premium,
-      'add_circle' => Icons.add_circle,
-      _ => Icons.star,
-    };
-  }
+  IconData _iconData(String name) => switch (name) {
+        'fitness_center' => Icons.fitness_center,
+        'local_fire_department' => Icons.local_fire_department,
+        'emoji_events' => Icons.emoji_events,
+        'military_tech' => Icons.military_tech,
+        'trending_up' => Icons.trending_up,
+        'bolt' => Icons.bolt,
+        'workspace_premium' => Icons.workspace_premium,
+        'add_circle' => Icons.add_circle,
+        _ => Icons.star,
+      };
 }
