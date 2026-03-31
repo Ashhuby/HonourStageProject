@@ -114,10 +114,8 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.close, size: 22),
-            onPressed: () => _confirmEndSession(context),
-          ),
+          // X button removed — FINISH button in actions is sufficient
+          automaticallyImplyLeading: false,
           title: Column(
             children: [
               Text(
@@ -404,7 +402,6 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                       padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
                       child: Row(
                         children: [
-                          // Set number chip
                           Container(
                             width: 28,
                             height: 28,
@@ -492,7 +489,6 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
         );
 
     if (mounted && prResult != null) _showPrBanner(prResult);
-
     _repsController.clear();
   }
 
@@ -502,29 +498,40 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
 
   void _confirmEndSession(BuildContext context) {
     _timer?.cancel();
+
+    // Capture the screen's navigator HERE — before any dialogs open.
+    // Dialog builders shadow 'context' with their own local context,
+    // and after async gaps those dialog contexts are deactivated.
+    // The screen's navigator reference stays valid for the lifetime
+    // of this widget regardless of how many dialogs open and close.
+    final navigator = Navigator.of(context);
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Workout'),
         content: const Text('What would you like to do?'),
         actions: [
+          // Keep Going
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               if (_remainingSeconds > 0) _startTimer();
             },
             child: const Text('Keep Going'),
           ),
+
+          // Cancel Workout — destructive, requires second confirmation
           TextButton(
             style: TextButton.styleFrom(
               foregroundColor: OneRepColors.error,
             ),
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext); // close first dialog
               final confirmed = await showDialog<bool>(
                 context: context,
-                builder: (context) => AlertDialog(
+                builder: (confirmContext) => AlertDialog(
                   title: const Text('Cancel Workout?'),
                   content: const Text(
                     'This session and all logged sets will be permanently '
@@ -532,14 +539,14 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context, false),
+                      onPressed: () => Navigator.pop(confirmContext, false),
                       child: const Text('Back'),
                     ),
                     TextButton(
                       style: TextButton.styleFrom(
                         foregroundColor: OneRepColors.error,
                       ),
-                      onPressed: () => Navigator.pop(context, true),
+                      onPressed: () => Navigator.pop(confirmContext, true),
                       child: const Text('Delete Session'),
                     ),
                   ],
@@ -550,11 +557,14 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                     .read(sessionRepositoryProvider.notifier)
                     .deleteSession(widget.sessionId);
                 await NotificationService().cancelAll();
-                if (context.mounted) Navigator.pop(context);
+                // Use the pre-captured screen navigator — always valid.
+                navigator.popUntil((route) => route.isFirst);
               }
             },
             child: const Text('Cancel Workout'),
           ),
+
+          // Finish — end session, badge evaluation fires in endSession
           TextButton(
             style: TextButton.styleFrom(
               foregroundColor: OneRepColors.gold,
@@ -564,17 +574,13 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   .read(sessionRepositoryProvider.notifier)
                   .endSession(widget.sessionId);
               await NotificationService().cancelAll();
-              if (context.mounted) {
-                Navigator.pop(context);
-                Navigator.pop(context);
-              }
+              navigator.popUntil((route) => route.isFirst);
             },
             child: const Text('Finish'),
           ),
         ],
       ),
     );
-    
   }
 }
 
@@ -637,7 +643,8 @@ class _PrBanner extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.close, color: OneRepColors.textSecondary, size: 16),
+            const Icon(
+                Icons.close, color: OneRepColors.textSecondary, size: 16),
           ],
         ),
       ),
@@ -666,13 +673,13 @@ class _RestTimerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0.0;
+    final progress =
+        totalSeconds > 0 ? remainingSeconds / totalSeconds : 0.0;
     final minutes = remainingSeconds ~/ 60;
     final seconds = remainingSeconds % 60;
     final timeString =
         '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
 
-    // Colour transitions: gold → orange → red as time runs out
     final timerColor = progress > 0.5
         ? OneRepColors.gold
         : progress > 0.25
@@ -693,7 +700,6 @@ class _RestTimerBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
@@ -706,7 +712,6 @@ class _RestTimerBar extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              // Timer display
               Text(
                 timeString,
                 style: TextStyle(
@@ -728,7 +733,6 @@ class _RestTimerBar extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              // Duration picker
               DropdownButton<int>(
                 value: totalSeconds,
                 isDense: true,
@@ -751,7 +755,6 @@ class _RestTimerBar extends StatelessWidget {
                 },
               ),
               const SizedBox(width: 4),
-              // Skip
               IconButton(
                 icon: const Icon(Icons.skip_next_rounded, size: 22),
                 color: OneRepColors.textSecondary,
@@ -763,7 +766,6 @@ class _RestTimerBar extends StatelessWidget {
                   minHeight: 36,
                 ),
               ),
-              // Restart
               IconButton(
                 icon: const Icon(Icons.replay_rounded, size: 20),
                 color: OneRepColors.textSecondary,
