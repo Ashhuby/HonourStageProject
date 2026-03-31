@@ -110,14 +110,22 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     // update weight + achievedAt if the new weight is better.
     // The unique constraint on (exerciseId, reps) defined in workout_tables.dart
     // makes this a clean single-statement operation.
-    await db.into(db.personalBests).insertOnConflictUpdate(
-          PersonalBestsCompanion.insert(
-            exerciseId: exerciseId,
-            reps: reps,
-            weight: weight,
-            achievedAt: DateTime.now(),
-          ),
-        );
+    await db.into(db.personalBests).insert(
+      PersonalBestsCompanion.insert(
+        exerciseId: exerciseId,
+        reps: reps,
+        weight: weight,
+        achievedAt: DateTime.now(),
+      ),
+      onConflict: DoUpdate(
+        (old) => PersonalBestsCompanion.custom(
+          weight: Variable(weight),
+          achievedAt: Variable(DateTime.now()),
+        ),
+        target: [db.personalBests.exerciseId, db.personalBests.reps],
+      ),
+    );
+    
 
     return PrResult(
       exerciseId: exerciseId,
