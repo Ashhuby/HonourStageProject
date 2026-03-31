@@ -1,6 +1,6 @@
-// lib/features/workout/presentation/exercise_library_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../main.dart';
 import '../data/badge_service.dart';
 import '../data/exercise_repository.dart';
 import '../data/personal_best_repository.dart';
@@ -14,43 +14,18 @@ class ExerciseLibraryScreen extends ConsumerWidget {
     final exercisesAsync = ref.watch(watchExercisesProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Exercise Library'),
-        centerTitle: true,
-      ),
       body: exercisesAsync.when(
         data: (exercises) => exercises.isEmpty
-            ? const Center(child: Text('No exercises found. Add one!'))
+            ? _EmptyState()
             : ListView.builder(
-                // Bottom padding so the last item isn't hidden behind the FAB.
-                padding: const EdgeInsets.only(bottom: 80),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                 itemCount: exercises.length,
                 itemBuilder: (context, index) {
                   final exercise = exercises[index];
-                  return Dismissible(
-                    key: ValueKey(exercise.id),
-                    direction: DismissDirection.endToStart,
-                    background: Container(
-                      color: Colors.red,
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: const Icon(Icons.delete, color: Colors.white),
-                    ),
-                    onDismissed: (_) {
-                      ref
-                          .read(exerciseRepositoryProvider.notifier)
-                          .deleteExercise(exercise.id);
-                    },
-                    child: ListTile(
-                      title: Text(exercise.name),
-                      subtitle: Text(
-                          '${exercise.bodyPart} • ${exercise.equipmentType}'),
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.fitness_center),
-                      ),
-                      // PR count badge on trailing — gives the user a reason
-                      // to tap through to the detail screen.
-                      trailing: _PrCountBadge(exerciseId: exercise.id),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _ExerciseCard(
+                      exercise: exercise,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -58,17 +33,24 @@ class ExerciseLibraryScreen extends ConsumerWidget {
                               ExerciseDetailScreen(exercise: exercise),
                         ),
                       ),
+                      onDelete: () => ref
+                          .read(exerciseRepositoryProvider.notifier)
+                          .deleteExercise(exercise.id),
                     ),
                   );
                 },
               ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        loading: () =>
+            const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddExerciseDialog(context, ref),
-        label: const Text('Add Exercise'),
         icon: const Icon(Icons.add),
+        label: const Text(
+          'ADD EXERCISE',
+          style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1),
+        ),
       ),
     );
   }
@@ -88,19 +70,26 @@ class ExerciseLibraryScreen extends ConsumerWidget {
             children: [
               TextField(
                 controller: nameController,
-                decoration:
-                    const InputDecoration(labelText: 'Exercise Name'),
                 autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Exercise Name',
+                ),
               ),
+              const SizedBox(height: 12),
               TextField(
                 controller: bodyPartController,
-                decoration:
-                    const InputDecoration(labelText: 'Body Part'),
+                decoration: const InputDecoration(
+                  labelText: 'Body Part',
+                  hintText: 'e.g. Chest, Back, Legs',
+                ),
               ),
+              const SizedBox(height: 12),
               TextField(
                 controller: equipmentController,
-                decoration:
-                    const InputDecoration(labelText: 'Equipment'),
+                decoration: const InputDecoration(
+                  labelText: 'Equipment',
+                  hintText: 'e.g. Barbell, Dumbbell',
+                ),
               ),
             ],
           ),
@@ -113,7 +102,6 @@ class ExerciseLibraryScreen extends ConsumerWidget {
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.isNotEmpty) {
-                // Add the exercise — isCustom defaults to true in the repo.
                 await ref
                     .read(exerciseRepositoryProvider.notifier)
                     .addExercise(
@@ -122,10 +110,6 @@ class ExerciseLibraryScreen extends ConsumerWidget {
                       equipmentController.text,
                     );
 
-                // Evaluate badges — adding a custom exercise may unlock
-                // 'first_custom_exercise'. PR count unchanged so pass 0
-                // as a floor; evaluateAll reads the real count internally
-                // for PR-related badges.
                 final prCount = await ref
                     .read(personalBestRepositoryProvider.notifier)
                     .getTotalPrCount();
@@ -137,7 +121,7 @@ class ExerciseLibraryScreen extends ConsumerWidget {
                 if (context.mounted) Navigator.pop(context);
               }
             },
-            child: const Text('Add to Library'),
+            child: const Text('Add'),
           ),
         ],
       ),
@@ -146,58 +130,221 @@ class ExerciseLibraryScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// PR count badge widget
+// Exercise card — body part colour dot, no avatar
 // ---------------------------------------------------------------------------
-// Shows how many personal records exist for an exercise.
-// Renders nothing if there are no PRs — no noise for new exercises.
-// Gives users a visual reason to tap through to the detail screen.
 
-class _PrCountBadge extends ConsumerWidget {
-  final int exerciseId;
+class _ExerciseCard extends ConsumerWidget {
+  final dynamic exercise;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
 
-  const _PrCountBadge({required this.exerciseId});
+  const _ExerciseCard({
+    required this.exercise,
+    required this.onTap,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prsAsync = ref.watch(watchPrsForExerciseProvider(exerciseId));
+    final bodyPartColor = _bodyPartColor(exercise.bodyPart as String);
+    final prsAsync =
+        ref.watch(watchPrsForExerciseProvider(exercise.id as int));
 
-    return prsAsync.when(
-      // No loading indicator — trailing slot is too small and the
-      // flicker on list rebuild looks worse than showing nothing.
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (prs) {
-        if (prs.isEmpty) return const SizedBox.shrink();
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return Dismissible(
+      key: ValueKey(exercise.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: OneRepColors.error.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(Icons.delete_outline, color: OneRepColors.error),
+      ),
+      onDismissed: (_) => onDelete(),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .primaryContainer,
-            borderRadius: BorderRadius.circular(12),
+            color: OneRepColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border(
+              left: BorderSide(color: bodyPartColor, width: 3),
+            ),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.emoji_events,
-                size: 14,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '${prs.length} PR${prs.length == 1 ? '' : 's'}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
+              // Body part colour dot
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: bodyPartColor,
+                  shape: BoxShape.circle,
                 ),
+              ),
+              const SizedBox(width: 12),
+              // Exercise info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          exercise.name as String,
+                          style: const TextStyle(
+                            color: OneRepColors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (exercise.isCustom == true) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: OneRepColors.gold
+                                  .withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'CUSTOM',
+                              style: TextStyle(
+                                color: OneRepColors.gold,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${exercise.bodyPart} • ${exercise.equipmentType}',
+                      style: const TextStyle(
+                        color: OneRepColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // PR count badge
+              prsAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (prs) {
+                  if (prs.isEmpty) {
+                    return const Icon(
+                      Icons.chevron_right,
+                      color: OneRepColors.textDisabled,
+                      size: 18,
+                    );
+                  }
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: OneRepColors.gold.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: OneRepColors.gold.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Text(
+                          '${prs.length} PR${prs.length == 1 ? '' : 's'}',
+                          style: const TextStyle(
+                            color: OneRepColors.gold,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: OneRepColors.textDisabled,
+                        size: 18,
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  /// Maps body part string to a colour from OneRepColors.
+  Color _bodyPartColor(String bodyPart) {
+    return switch (bodyPart.toLowerCase()) {
+      'chest' => OneRepColors.chest,
+      'back' => OneRepColors.back,
+      'legs' => OneRepColors.legs,
+      'shoulders' => OneRepColors.shoulders,
+      'biceps' => OneRepColors.biceps,
+      'triceps' => OneRepColors.triceps,
+      'core' => OneRepColors.core,
+      'whole body' => OneRepColors.wholeBody,
+      _ => OneRepColors.textSecondary,
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
+
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.fitness_center,
+              color: OneRepColors.textDisabled,
+              size: 48,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'No exercises yet.',
+              style: TextStyle(
+                color: OneRepColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Tap Add Exercise to build your library.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: OneRepColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
