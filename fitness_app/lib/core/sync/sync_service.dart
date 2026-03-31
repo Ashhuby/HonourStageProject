@@ -1,3 +1,4 @@
+// lib/core/sync/sync_service.dart
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -16,6 +17,9 @@ class SyncService {
   String? get _userId => supabase.auth.currentUser?.id;
 
   /// Entry point — upload all dirty records across all syncable tables.
+  /// FK-ordered: splits → routines → routineExercises → sessions → sets
+  /// PersonalBests and Badges have no parent FK dependencies so they
+  /// run last but could run in any order.
   Future<SyncResult> uploadDirtyRecords() async {
     final userId = _userId;
     if (userId == null) return SyncResult.unauthenticated();
@@ -51,6 +55,18 @@ class SyncService {
       uploaded += await _syncSets(userId);
     } catch (e) {
       errors.add('sets: $e');
+    }
+
+    try {
+      uploaded += await _syncPersonalBests(userId);
+    } catch (e) {
+      errors.add('personalBests: $e');
+    }
+
+    try {
+      uploaded += await _syncBadges(userId);
+    } catch (e) {
+      errors.add('badges: $e');
     }
 
     return SyncResult(
@@ -89,7 +105,6 @@ class SyncService {
         syncedAt: Value(DateTime.now()),
       ));
 
-      // Hard-delete locally if soft-deleted and now synced
       if (split.deletedAt != null) {
         await (db.delete(db.workoutSplits)
               ..where((s) => s.id.equals(split.id)))
@@ -110,15 +125,11 @@ class SyncService {
         .get();
 
     for (final routine in dirty) {
-      // Parent split must have a remoteId before we can sync child
       final split = await (db.select(db.workoutSplits)
             ..where((s) => s.id.equals(routine.splitId)))
           .getSingleOrNull();
 
-      if (split == null || split.remoteId == null) {
-        // Parent not synced yet — skip, will retry next sync
-        continue;
-      }
+      if (split == null || split.remoteId == null) continue;
 
       final remoteId = routine.remoteId ?? _uuid.v4();
 
@@ -210,7 +221,6 @@ class SyncService {
         .get();
 
     for (final session in dirty) {
-      // Only sync completed sessions — endTime must be set
       if (session.endTime == null) continue;
 
       String? routineRemoteId;
@@ -294,6 +304,97 @@ class SyncService {
 
       if (set.deletedAt != null) {
         await (db.delete(db.workoutSets)..where((s) => s.id.equals(set.id)))
+            .go();
+      }
+    }
+
+    return dirty.length;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Personal Bests
+  // ---------------------------------------------------------------------------
+  // No parent FK dependency — exercise rows are seeded globally and not synced.
+  // exercise_id is stored as a plain integer reference, not a remote UUID.
+  // The UNIQUE (user_id, exercise_id, reps) constraint in Supabase handles
+  // conflict resolution — upsert will update weight + achieved_at if beaten.
+
+  Future<int> _syncPersonalBests(String userId) async {
+    final dirty = await (db.select(db.personalBests)
+          ..where((pb) => pb.syncedAt.isNull()))
+        .get();
+
+    for (final pr in dirty) {
+      final remoteId = pr.remoteId ?? _uuid.v4();
+
+      await supabase.from('personal_bests').upsert({
+        'id': remoteId,
+        'user_id': userId,
+        'local_id': pr.id,
+        'exercise_id': pr.exerciseId,
+        'reps': pr.reps,
+        'weight': pr.weight,
+        'achieved_at': pr.achievedAt.toIso8601String(),
+        'deleted_at': pr.deletedAt?.toIso8601String(),
+        'synced_at': DateTime.now().toIso8601String(),
+      });
+
+      await (db.update(db.personalBests)
+            ..where((pb) => pb.id.equals(pr.id)))
+          .write(PersonalBestsCompanion(
+        remoteId: Value(remoteId),
+        userId: Value(userId),
+        syncedAt: Value(DateTime.now()),
+      ));
+
+      // Hard-delete locally once soft-delete has been synced upstream.
+      if (pr.deletedAt != null) {
+        await (db.delete(db.personalBests)
+              ..where((pb) => pb.id.equals(pr.id)))
+            .go();
+      }
+    }
+
+    return dirty.length;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Badges
+  // ---------------------------------------------------------------------------
+  // No parent FK dependency — badge rows are standalone.
+  // Only earned badges (earnedAt != null) are worth syncing — unearned badges
+  // are local UI state seeded on install. Syncing unearned rows would just
+  // add noise to Supabase with no value.
+  // The UNIQUE (user_id, badge_key) constraint handles conflict resolution.
+
+  Future<int> _syncBadges(String userId) async {
+    final dirty = await (db.select(db.badges)
+          ..where((b) => b.syncedAt.isNull())
+          ..where((b) => b.earnedAt.isNotNull()))
+        .get();
+
+    for (final badge in dirty) {
+      final remoteId = badge.remoteId ?? _uuid.v4();
+
+      await supabase.from('badges').upsert({
+        'id': remoteId,
+        'user_id': userId,
+        'local_id': badge.id,
+        'badge_key': badge.badgeKey,
+        'earned_at': badge.earnedAt!.toIso8601String(),
+        'deleted_at': badge.deletedAt?.toIso8601String(),
+        'synced_at': DateTime.now().toIso8601String(),
+      });
+
+      await (db.update(db.badges)..where((b) => b.id.equals(badge.id)))
+          .write(BadgesCompanion(
+        remoteId: Value(remoteId),
+        userId: Value(userId),
+        syncedAt: Value(DateTime.now()),
+      ));
+
+      if (badge.deletedAt != null) {
+        await (db.delete(db.badges)..where((b) => b.id.equals(badge.id)))
             .go();
       }
     }
