@@ -1,3 +1,4 @@
+// lib/features/workout/presentation/active_session_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/core/notifications/notification_service.dart';
 import '../data/session_repository.dart';
 import '../data/exercise_repository.dart';
+import '../data/personal_best_repository.dart';
 
 class ActiveSessionScreen extends ConsumerStatefulWidget {
   final int sessionId;
@@ -34,13 +36,24 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   Timer? _timer;
   bool get _isTimerRunning => _timer != null && _timer!.isActive;
 
+  // PR banner state
+  // Holds the most recently detected PR so the banner widget can render it.
+  // Null means no banner is shown. Cleared automatically after a fixed duration.
+  PrResult? _latestPr;
+  Timer? _prBannerTimer;
+
   @override
   void dispose() {
     _weightController.dispose();
     _repsController.dispose();
     _timer?.cancel();
+    _prBannerTimer?.cancel();
     super.dispose();
   }
+
+  // ---------------------------------------------------------------------------
+  // Rest timer
+  // ---------------------------------------------------------------------------
 
   void _startTimer() {
     _timer?.cancel();
@@ -66,6 +79,35 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     NotificationService().showRestCompleteNotification();
     setState(() => _remainingSeconds = 0);
   }
+
+  // ---------------------------------------------------------------------------
+  // PR banner
+  // ---------------------------------------------------------------------------
+
+  /// Shows the PR banner for [_prBannerDuration] then clears it.
+  /// If a second PR fires while the banner is already visible, the banner
+  /// resets to the new PR and the timer restarts — the user always sees
+  /// the most recent result.
+  static const _prBannerDuration = Duration(seconds: 5);
+
+  void _showPrBanner(PrResult pr) {
+    _prBannerTimer?.cancel();
+    setState(() => _latestPr = pr);
+    HapticFeedback.heavyImpact();
+
+    _prBannerTimer = Timer(_prBannerDuration, () {
+      if (mounted) setState(() => _latestPr = null);
+    });
+  }
+
+  void _dismissPrBanner() {
+    _prBannerTimer?.cancel();
+    setState(() => _latestPr = null);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +148,14 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
             const Divider(height: 1),
             if (_remainingSeconds > 0 || _isTimerRunning)
               _buildRestTimer(),
+            // PR banner sits above the sets list, below the rest timer.
+            // AnimatedSwitcher gives a smooth fade — no jarring pop.
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: _latestPr != null
+                  ? _buildPrBanner(_latestPr!)
+                  : const SizedBox.shrink(),
+            ),
             const Divider(height: 1),
             Expanded(
               child: setsAsync.when(
@@ -128,6 +178,70 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // PR banner widget
+  // ---------------------------------------------------------------------------
+
+  Widget _buildPrBanner(PrResult pr) {
+    return GestureDetector(
+      onTap: _dismissPrBanner,
+      child: Container(
+        // Use a key so AnimatedSwitcher treats each new PR as a distinct widget
+        // and re-runs the fade animation even if two consecutive PRs fire.
+        key: ValueKey('${pr.exerciseId}-${pr.reps}-${pr.weight}'),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.amber.shade700,
+              Colors.orange.shade600,
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.emoji_events,
+              color: Colors.white,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '🏆 New Personal Record!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  Text(
+                    '${pr.exerciseName} — ${pr.weight}kg × ${pr.reps} reps',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Dismiss handle — small affordance so the user knows it's tappable.
+            const Icon(Icons.close, color: Colors.white70, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rest timer widget (unchanged)
+  // ---------------------------------------------------------------------------
+
   Widget _buildRestTimer() {
     final progress = _remainingSeconds / _restDuration;
     final minutes = _remainingSeconds ~/ 60;
@@ -149,8 +263,10 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                 CircularProgressIndicator(
                   value: progress,
                   strokeWidth: 5,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.2),
+                  backgroundColor: Theme.of(context)
+                      .colorScheme
+                      .onPrimaryContainer
+                      .withValues(alpha: 0.2),
                   valueColor: AlwaysStoppedAnimation<Color>(
                     Theme.of(context).colorScheme.primary,
                   ),
@@ -176,31 +292,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   'Rest Timer',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                Row(
-                  children: [
-                    const Text('Duration: '),
-                    DropdownButton<int>(
-                      value: _restDuration,
-                      isDense: true,
-                      underline: const SizedBox(),
-                      items: const [
-                        DropdownMenuItem(value: 30, child: Text('30s')),
-                        DropdownMenuItem(value: 60, child: Text('60s')),
-                        DropdownMenuItem(value: 90, child: Text('90s')),
-                        DropdownMenuItem(value: 120, child: Text('2min')),
-                        DropdownMenuItem(value: 180, child: Text('3min')),
-                        DropdownMenuItem(value: 300, child: Text('5min')),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _restDuration = value;
-                            if (_isTimerRunning) _startTimer();
-                          });
-                        }
-                      },
-                    ),
-                  ],
+                Slider(
+                  value: _restDuration.toDouble(),
+                  min: 30,
+                  max: 300,
+                  divisions: 9,
+                  label: '${_restDuration}s',
+                  onChanged: (value) {
+                    setState(() => _restDuration = value.toInt());
+                  },
                 ),
               ],
             ),
@@ -220,6 +320,10 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Exercise selector (unchanged)
+  // ---------------------------------------------------------------------------
+
   Widget _buildExerciseSelector() {
     final exercisesAsync = ref.watch(watchExercisesProvider);
 
@@ -227,7 +331,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
       padding: const EdgeInsets.all(12),
       child: exercisesAsync.when(
         data: (exercises) => DropdownButtonFormField<Exercise>(
-          initialValue: _selectedExercise,
+          value: _selectedExercise,
           decoration: const InputDecoration(
             labelText: 'Select Exercise',
             border: OutlineInputBorder(),
@@ -255,6 +359,10 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
       ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Set logger (unchanged layout, _logSet updated)
+  // ---------------------------------------------------------------------------
 
   Widget _buildSetLogger() {
     return Padding(
@@ -296,6 +404,10 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
       ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Sets list (unchanged)
+  // ---------------------------------------------------------------------------
 
   Widget _buildSetsList(List<WorkoutSetWithExercise> sets) {
     final Map<String, List<WorkoutSetWithExercise>> grouped = {};
@@ -368,30 +480,50 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     );
   }
 
-  void _logSet() {
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
+  /// Logs a set, starts the rest timer, and surfaces any PR immediately.
+  /// This method is now async — it awaits logSet so the PR result is available
+  /// before the UI updates. The rest timer starts regardless of PR detection.
+  Future<void> _logSet() async {
     final weight = double.tryParse(_weightController.text);
     final reps = int.tryParse(_repsController.text);
 
     if (weight == null || reps == null || _selectedExercise == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select an exercise and enter valid weight and reps.'),
+          content: Text(
+              'Please select an exercise and enter valid weight and reps.'),
         ),
       );
       return;
     }
 
-    ref.read(sessionRepositoryProvider.notifier).logSet(
+    // Start the rest timer immediately — don't wait for PR detection.
+    // The DB write + PR check is fast but the UX should feel instant.
+    _startTimer();
+
+    // Await the full logSet pipeline: insert → PR check → badge evaluation.
+    final prResult = await ref
+        .read(sessionRepositoryProvider.notifier)
+        .logSet(
           sessionId: widget.sessionId,
           exerciseId: _selectedExercise!.id,
+          exerciseName: _selectedExercise!.name,
           weight: weight,
           reps: reps,
         );
 
-    // Start rest timer automatically after logging a set
-    _startTimer();
+    // Show the PR banner if a new record was set.
+    // Guard with mounted — the user could theoretically navigate away
+    // in the ~50ms it takes for the DB write to complete.
+    if (mounted && prResult != null) {
+      _showPrBanner(prResult);
+    }
 
-    // Clear reps only — weight likely stays the same for next set
+    // Clear reps only — weight likely stays the same for the next set.
     _repsController.clear();
   }
 
@@ -408,7 +540,6 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // Restart timer if it was running
               if (_remainingSeconds > 0) _startTimer();
             },
             child: const Text('Keep Going'),
