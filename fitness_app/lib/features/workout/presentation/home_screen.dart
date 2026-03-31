@@ -1,3 +1,4 @@
+// lib/features/workout/presentation/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_providers.dart';
@@ -7,6 +8,8 @@ import 'split_list_screen.dart';
 import 'exercise_library_screen.dart';
 import 'active_session_screen.dart';
 import 'progress_screen.dart';
+import 'badges_screen.dart';
+import '../../profile/presentation/profile_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -15,7 +18,6 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final syncState = ref.watch(syncNotifierProvider);
 
-    // Show snackbar on sync completion or failure
     ref.listen(syncNotifierProvider, (_, next) {
       next.whenOrNull(
         data: (result) {
@@ -25,8 +27,7 @@ class HomeScreen extends ConsumerWidget {
               content: Text(result.success
                   ? 'Synced ${result.uploaded} records'
                   : 'Sync failed: ${result.errors.join(', ')}'),
-              backgroundColor:
-                  result.success ? Colors.green : Colors.red,
+              backgroundColor: result.success ? Colors.green : Colors.red,
             ),
           );
         },
@@ -34,12 +35,23 @@ class HomeScreen extends ConsumerWidget {
     });
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Honour Stage Fitness'),
+          title: const Text('One Rep'),
           centerTitle: true,
           actions: [
+            // Profile button
+            IconButton(
+              icon: const Icon(Icons.person_outline),
+              tooltip: 'Profile & Settings',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ProfileScreen(),
+                ),
+              ),
+            ),
             // Manual sync button
             syncState.isLoading
                 ? const Padding(
@@ -69,14 +81,16 @@ class HomeScreen extends ConsumerWidget {
               Tab(icon: Icon(Icons.calendar_view_week), text: 'Splits'),
               Tab(icon: Icon(Icons.fitness_center), text: 'Exercises'),
               Tab(icon: Icon(Icons.bar_chart), text: 'Progress'),
+              Tab(icon: Icon(Icons.emoji_events), text: 'Badges'),
             ],
           ),
         ),
-        body: TabBarView(
+        body: const TabBarView(
           children: [
-            const SplitListScreen(),
-            const ExerciseLibraryScreen(),
+            SplitListScreen(),
+            ExerciseLibraryScreen(),
             ProgressScreen(),
+            BadgesScreen(),
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
@@ -103,9 +117,10 @@ class HomeScreen extends ConsumerWidget {
           builder: (_) => ActiveSessionScreen(
             sessionId: sessionId,
             sessionTitle: 'Freestyle Session',
+            routineId: null, // explicit — freestyle shows full library
           ),
         ),
-      );
+      );     
     }
   }
 }

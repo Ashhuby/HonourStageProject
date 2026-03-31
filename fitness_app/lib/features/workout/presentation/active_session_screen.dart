@@ -8,15 +8,18 @@ import 'package:fitness_app/core/notifications/notification_service.dart';
 import '../data/session_repository.dart';
 import '../data/exercise_repository.dart';
 import '../data/personal_best_repository.dart';
+import '../data/split_repository.dart';
 
 class ActiveSessionScreen extends ConsumerStatefulWidget {
   final int sessionId;
   final String sessionTitle;
+  final int? routineId; // null means freestyle
 
   const ActiveSessionScreen({
     super.key,
     required this.sessionId,
     required this.sessionTitle,
+    this.routineId, // defaults to null
   });
 
   @override
@@ -321,47 +324,92 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Exercise selector (unchanged)
+  // Exercise selector 
   // ---------------------------------------------------------------------------
 
   Widget _buildExerciseSelector() {
-    final exercisesAsync = ref.watch(watchExercisesProvider);
+  // If this session has a routine, show only that routine's exercises.
+  // If freestyle (no routineId), show the full library.
+  if (widget.routineId != null) {
+    final routineExercisesAsync = ref.watch(
+      watchExercisesForRoutineWithNamesProvider(widget.routineId!),
+    );
 
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: exercisesAsync.when(
-        data: (exercises) => DropdownButtonFormField<Exercise>(
-          value: _selectedExercise,
-          decoration: const InputDecoration(
-            labelText: 'Select Exercise',
-            border: OutlineInputBorder(),
-            contentPadding:
-                EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-          items: exercises
-              .map(
-                (e) => DropdownMenuItem(
-                  value: e,
-                  child: Text(e.name),
+      child: routineExercisesAsync.when(
+        data: (routineExercises) {
+          // Convert RoutineExerciseWithName → Exercise-like dropdown items.
+          // We need the Exercise object for logSet, so we match by exerciseId.
+          return DropdownButtonFormField<Exercise>(
+            value: _selectedExercise,
+            decoration: const InputDecoration(
+              labelText: 'Select Exercise',
+              border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            items: routineExercises.map((re) {
+              // Build a minimal Exercise from the joined data.
+              // We only need id and name for logSet + PR detection.
+              return DropdownMenuItem<Exercise>(
+                value: Exercise(
+                  id: re.routineExercise.exerciseId,
+                  name: re.exerciseName,
+                  bodyPart: re.bodyPart,
+                  equipmentType: re.equipmentType,
+                  isCustom: false,
                 ),
-              )
-              .toList(),
-          onChanged: (exercise) {
-            setState(() {
-              _selectedExercise = exercise;
-              _weightController.clear();
-              _repsController.clear();
-            });
-          },
-        ),
+                child: Text(re.exerciseName),
+              );
+            }).toList(),
+            onChanged: (exercise) {
+              setState(() {
+                _selectedExercise = exercise;
+                _weightController.clear();
+                _repsController.clear();
+              });
+            },
+          );
+        },
         loading: () => const CircularProgressIndicator(),
-        error: (err, stack) => Text('Error: $err'),
+        error: (err, _) => Text('Error: $err'),
       ),
     );
   }
 
+  // Freestyle — full exercise library
+  final exercisesAsync = ref.watch(watchExercisesProvider);
+  return Padding(
+    padding: const EdgeInsets.all(12),
+    child: exercisesAsync.when(
+      data: (exercises) => DropdownButtonFormField<Exercise>(
+        value: _selectedExercise,
+        decoration: const InputDecoration(
+          labelText: 'Select Exercise',
+          border: OutlineInputBorder(),
+          contentPadding:
+              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        items: exercises
+            .map((e) => DropdownMenuItem(value: e, child: Text(e.name)))
+            .toList(),
+        onChanged: (exercise) {
+          setState(() {
+            _selectedExercise = exercise;
+            _weightController.clear();
+            _repsController.clear();
+          });
+        },
+      ),
+      loading: () => const CircularProgressIndicator(),
+      error: (err, _) => Text('Error: $err'),
+    ),
+  );
+}
+
   // ---------------------------------------------------------------------------
-  // Set logger (unchanged layout, _logSet updated)
+  // Set logger 
   // ---------------------------------------------------------------------------
 
   Widget _buildSetLogger() {
@@ -406,7 +454,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Sets list (unchanged)
+  // Sets list 
   // ---------------------------------------------------------------------------
 
   Widget _buildSetsList(List<WorkoutSetWithExercise> sets) {
