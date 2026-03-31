@@ -1,4 +1,3 @@
-// lib/features/workout/presentation/active_session_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -117,6 +116,28 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
         appBar: AppBar(
           // X button removed — FINISH button in actions is sufficient
           automaticallyImplyLeading: false,
+          title: Column(
+            children: [
+              Text(
+                widget.sessionTitle.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2,
+                  color: OneRepColors.textPrimary,
+                ),
+              ),
+              const Text(
+                'IN PROGRESS',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: OneRepColors.gold,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
           title: Column(
             children: [
               Text(
@@ -580,6 +601,257 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
             child: const Text('Finish'),
           ),
         ],
+      ),
+    );
+    
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PR Banner
+// ---------------------------------------------------------------------------
+
+class _PrBanner extends StatelessWidget {
+  final PrResult pr;
+  final VoidCallback onDismiss;
+
+  const _PrBanner({required this.pr, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onDismiss,
+      child: Container(
+        key: ValueKey('${pr.exerciseId}-${pr.reps}-${pr.weight}'),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              OneRepColors.gold.withValues(alpha: 0.25),
+              OneRepColors.gold.withValues(alpha: 0.10),
+            ],
+          ),
+          border: const Border(
+            bottom: BorderSide(color: OneRepColors.gold, width: 1),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.emoji_events, color: OneRepColors.gold, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'NEW PERSONAL RECORD',
+                    style: TextStyle(
+                      color: OneRepColors.gold,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${pr.exerciseName}  ${pr.weight}kg × ${pr.reps} reps',
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.close, color: OneRepColors.textSecondary, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rest Timer Bar
+// ---------------------------------------------------------------------------
+
+class _RestTimerBar extends StatelessWidget {
+  final int remainingSeconds;
+  final int totalSeconds;
+  final VoidCallback onSkip;
+  final VoidCallback onRestart;
+  final ValueChanged<int> onDurationChanged;
+
+  const _RestTimerBar({
+    required this.remainingSeconds,
+    required this.totalSeconds,
+    required this.onSkip,
+    required this.onRestart,
+    required this.onDurationChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0.0;
+    final minutes = remainingSeconds ~/ 60;
+    final seconds = remainingSeconds % 60;
+    final timeString =
+        '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+
+    // Colour transitions: gold → orange → red as time runs out
+    final timerColor = progress > 0.5
+        ? OneRepColors.gold
+        : progress > 0.25
+            ? OneRepColors.coral
+            : OneRepColors.error;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: OneRepColors.surfaceElevated,
+        border: Border(
+          bottom: BorderSide(
+            color: timerColor.withValues(alpha: 0.4),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 3,
+              backgroundColor: OneRepColors.surfaceHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(timerColor),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              // Timer display
+              Text(
+                timeString,
+                style: TextStyle(
+                  color: timerColor,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'REST',
+                style: TextStyle(
+                  color: OneRepColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 2,
+                ),
+              ),
+              const Spacer(),
+              // Duration picker
+              DropdownButton<int>(
+                value: totalSeconds,
+                isDense: true,
+                underline: const SizedBox(),
+                dropdownColor: OneRepColors.surfaceElevated,
+                style: const TextStyle(
+                  color: OneRepColors.textSecondary,
+                  fontSize: 13,
+                ),
+                items: const [
+                  DropdownMenuItem(value: 30, child: Text('30s')),
+                  DropdownMenuItem(value: 60, child: Text('60s')),
+                  DropdownMenuItem(value: 90, child: Text('90s')),
+                  DropdownMenuItem(value: 120, child: Text('2min')),
+                  DropdownMenuItem(value: 180, child: Text('3min')),
+                  DropdownMenuItem(value: 300, child: Text('5min')),
+                ],
+                onChanged: (v) {
+                  if (v != null) onDurationChanged(v);
+                },
+              ),
+              const SizedBox(width: 4),
+              // Skip
+              IconButton(
+                icon: const Icon(Icons.skip_next_rounded, size: 22),
+                color: OneRepColors.textSecondary,
+                tooltip: 'Skip rest',
+                onPressed: onSkip,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 36,
+                  minHeight: 36,
+                ),
+              ),
+              // Restart
+              IconButton(
+                icon: const Icon(Icons.replay_rounded, size: 20),
+                color: OneRepColors.textSecondary,
+                tooltip: 'Restart timer',
+                onPressed: onRestart,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 36,
+                  minHeight: 36,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Empty session state
+// ---------------------------------------------------------------------------
+
+class _EmptySessionState extends StatelessWidget {
+  const _EmptySessionState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.fitness_center,
+              color: OneRepColors.textDisabled,
+              size: 44,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'No sets logged yet.',
+              style: TextStyle(
+                color: OneRepColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 6),
+            Text(
+              'Select an exercise above and log your first set.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: OneRepColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
