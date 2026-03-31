@@ -3,6 +3,8 @@ import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:fitness_app/core/database/database_provider.dart';
 import 'package:fitness_app/core/database/local_database.dart';
+import 'personal_best_repository.dart';
+import 'badge_service.dart';
 
 part 'session_repository.g.dart';
 
@@ -16,7 +18,10 @@ class WorkoutSetWithExercise {
   });
 }
 
-// Watches all completed sessions, most recent first — excludes soft-deleted
+// ---------------------------------------------------------------------------
+// Queries (unchanged from original)
+// ---------------------------------------------------------------------------
+
 @riverpod
 Stream<List<WorkoutSession>> watchCompletedSessions(Ref ref) {
   final db = ref.watch(databaseProvider);
@@ -164,6 +169,10 @@ Stream<List<WorkoutSetWithExercise>> watchSetsForSession(
       );
 }
 
+// ---------------------------------------------------------------------------
+// Repository
+// ---------------------------------------------------------------------------
+
 @riverpod
 class SessionRepository extends _$SessionRepository {
   @override
@@ -179,6 +188,8 @@ class SessionRepository extends _$SessionRepository {
         );
   }
 
+  /// Ends a session and evaluates badge triggers that fire on session
+  /// completion: first_workout, streak triggers, and set count milestones.
   Future<void> endSession(int sessionId) async {
     final db = ref.read(databaseProvider);
     await (db.update(db.workoutSessions)
@@ -186,15 +197,34 @@ class SessionRepository extends _$SessionRepository {
         .write(WorkoutSessionsCompanion(
       endTime: Value(DateTime.now()),
     ));
+
+    // Evaluate session-completion badges.
+    // PR count is required by evaluateAll — fetch it here so BadgeService
+    // stays decoupled from PersonalBestRepository.
+    final prCount = await ref
+        .read(personalBestRepositoryProvider.notifier)
+        .getTotalPrCount();
+
+    await ref.read(badgeServiceProvider.notifier).evaluateAll(
+          totalPrCount: prCount,
+        );
   }
 
-  Future<void> logSet({
+  /// Logs a set, checks for a new personal best, and evaluates badge
+  /// triggers. Returns a [PrResult] if a new PR was set, null otherwise.
+  ///
+  /// The return value is consumed by the UI to show a PR banner.
+  /// Callers that don't care about PR feedback can discard it with `unawaited`.
+  Future<PrResult?> logSet({
     required int sessionId,
     required int exerciseId,
+    required String exerciseName,
     required double weight,
     required int reps,
   }) async {
     final db = ref.read(databaseProvider);
+
+    // 1. Insert the set into the database.
     await db.into(db.workoutSets).insert(
           WorkoutSetsCompanion.insert(
             sessionId: sessionId,
@@ -203,6 +233,29 @@ class SessionRepository extends _$SessionRepository {
             reps: reps,
           ),
         );
+
+    // 2. Check for a new PR.
+    final prResult = await ref
+        .read(personalBestRepositoryProvider.notifier)
+        .checkAndSavePr(
+          exerciseId: exerciseId,
+          exerciseName: exerciseName,
+          weight: weight,
+          reps: reps,
+        );
+
+    // 3. Evaluate badges after every set.
+    //    getTotalPrCount is a cheap COUNT(*) — safe to call on every set.
+    final prCount = await ref
+        .read(personalBestRepositoryProvider.notifier)
+        .getTotalPrCount();
+
+    await ref.read(badgeServiceProvider.notifier).evaluateAll(
+          totalPrCount: prCount,
+        );
+
+    // 4. Return the PR result so the UI can surface it immediately.
+    return prResult;
   }
 
   /// Soft-deletes a set — marks it dirty so sync propagates the delete.

@@ -3191,6 +3191,1022 @@ class WorkoutSetsCompanion extends UpdateCompanion<WorkoutSet> {
   }
 }
 
+class $PersonalBestsTable extends PersonalBests
+    with TableInfo<$PersonalBestsTable, PersonalBest> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PersonalBestsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _exerciseIdMeta = const VerificationMeta(
+    'exerciseId',
+  );
+  @override
+  late final GeneratedColumn<int> exerciseId = GeneratedColumn<int>(
+    'exercise_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES exercises (id)',
+    ),
+  );
+  static const VerificationMeta _repsMeta = const VerificationMeta('reps');
+  @override
+  late final GeneratedColumn<int> reps = GeneratedColumn<int>(
+    'reps',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _weightMeta = const VerificationMeta('weight');
+  @override
+  late final GeneratedColumn<double> weight = GeneratedColumn<double>(
+    'weight',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _achievedAtMeta = const VerificationMeta(
+    'achievedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> achievedAt = GeneratedColumn<DateTime>(
+    'achieved_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _remoteIdMeta = const VerificationMeta(
+    'remoteId',
+  );
+  @override
+  late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
+    'remote_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    exerciseId,
+    reps,
+    weight,
+    achievedAt,
+    remoteId,
+    userId,
+    syncedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'personal_bests';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PersonalBest> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('exercise_id')) {
+      context.handle(
+        _exerciseIdMeta,
+        exerciseId.isAcceptableOrUnknown(data['exercise_id']!, _exerciseIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_exerciseIdMeta);
+    }
+    if (data.containsKey('reps')) {
+      context.handle(
+        _repsMeta,
+        reps.isAcceptableOrUnknown(data['reps']!, _repsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_repsMeta);
+    }
+    if (data.containsKey('weight')) {
+      context.handle(
+        _weightMeta,
+        weight.isAcceptableOrUnknown(data['weight']!, _weightMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_weightMeta);
+    }
+    if (data.containsKey('achieved_at')) {
+      context.handle(
+        _achievedAtMeta,
+        achievedAt.isAcceptableOrUnknown(data['achieved_at']!, _achievedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_achievedAtMeta);
+    }
+    if (data.containsKey('remote_id')) {
+      context.handle(
+        _remoteIdMeta,
+        remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
+      );
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {exerciseId, reps},
+  ];
+  @override
+  PersonalBest map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PersonalBest(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      exerciseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}exercise_id'],
+      )!,
+      reps: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reps'],
+      )!,
+      weight: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}weight'],
+      )!,
+      achievedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}achieved_at'],
+      )!,
+      remoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_id'],
+      ),
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $PersonalBestsTable createAlias(String alias) {
+    return $PersonalBestsTable(attachedDatabase, alias);
+  }
+}
+
+class PersonalBest extends DataClass implements Insertable<PersonalBest> {
+  final int id;
+  final int exerciseId;
+  final int reps;
+  final double weight;
+  final DateTime achievedAt;
+  final String? remoteId;
+  final String? userId;
+  final DateTime? syncedAt;
+  final DateTime? deletedAt;
+  const PersonalBest({
+    required this.id,
+    required this.exerciseId,
+    required this.reps,
+    required this.weight,
+    required this.achievedAt,
+    this.remoteId,
+    this.userId,
+    this.syncedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['exercise_id'] = Variable<int>(exerciseId);
+    map['reps'] = Variable<int>(reps);
+    map['weight'] = Variable<double>(weight);
+    map['achieved_at'] = Variable<DateTime>(achievedAt);
+    if (!nullToAbsent || remoteId != null) {
+      map['remote_id'] = Variable<String>(remoteId);
+    }
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    if (!nullToAbsent || syncedAt != null) {
+      map['synced_at'] = Variable<DateTime>(syncedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  PersonalBestsCompanion toCompanion(bool nullToAbsent) {
+    return PersonalBestsCompanion(
+      id: Value(id),
+      exerciseId: Value(exerciseId),
+      reps: Value(reps),
+      weight: Value(weight),
+      achievedAt: Value(achievedAt),
+      remoteId: remoteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteId),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      syncedAt: syncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory PersonalBest.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PersonalBest(
+      id: serializer.fromJson<int>(json['id']),
+      exerciseId: serializer.fromJson<int>(json['exerciseId']),
+      reps: serializer.fromJson<int>(json['reps']),
+      weight: serializer.fromJson<double>(json['weight']),
+      achievedAt: serializer.fromJson<DateTime>(json['achievedAt']),
+      remoteId: serializer.fromJson<String?>(json['remoteId']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'exerciseId': serializer.toJson<int>(exerciseId),
+      'reps': serializer.toJson<int>(reps),
+      'weight': serializer.toJson<double>(weight),
+      'achievedAt': serializer.toJson<DateTime>(achievedAt),
+      'remoteId': serializer.toJson<String?>(remoteId),
+      'userId': serializer.toJson<String?>(userId),
+      'syncedAt': serializer.toJson<DateTime?>(syncedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  PersonalBest copyWith({
+    int? id,
+    int? exerciseId,
+    int? reps,
+    double? weight,
+    DateTime? achievedAt,
+    Value<String?> remoteId = const Value.absent(),
+    Value<String?> userId = const Value.absent(),
+    Value<DateTime?> syncedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) => PersonalBest(
+    id: id ?? this.id,
+    exerciseId: exerciseId ?? this.exerciseId,
+    reps: reps ?? this.reps,
+    weight: weight ?? this.weight,
+    achievedAt: achievedAt ?? this.achievedAt,
+    remoteId: remoteId.present ? remoteId.value : this.remoteId,
+    userId: userId.present ? userId.value : this.userId,
+    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  PersonalBest copyWithCompanion(PersonalBestsCompanion data) {
+    return PersonalBest(
+      id: data.id.present ? data.id.value : this.id,
+      exerciseId: data.exerciseId.present
+          ? data.exerciseId.value
+          : this.exerciseId,
+      reps: data.reps.present ? data.reps.value : this.reps,
+      weight: data.weight.present ? data.weight.value : this.weight,
+      achievedAt: data.achievedAt.present
+          ? data.achievedAt.value
+          : this.achievedAt,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PersonalBest(')
+          ..write('id: $id, ')
+          ..write('exerciseId: $exerciseId, ')
+          ..write('reps: $reps, ')
+          ..write('weight: $weight, ')
+          ..write('achievedAt: $achievedAt, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('userId: $userId, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    exerciseId,
+    reps,
+    weight,
+    achievedAt,
+    remoteId,
+    userId,
+    syncedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PersonalBest &&
+          other.id == this.id &&
+          other.exerciseId == this.exerciseId &&
+          other.reps == this.reps &&
+          other.weight == this.weight &&
+          other.achievedAt == this.achievedAt &&
+          other.remoteId == this.remoteId &&
+          other.userId == this.userId &&
+          other.syncedAt == this.syncedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class PersonalBestsCompanion extends UpdateCompanion<PersonalBest> {
+  final Value<int> id;
+  final Value<int> exerciseId;
+  final Value<int> reps;
+  final Value<double> weight;
+  final Value<DateTime> achievedAt;
+  final Value<String?> remoteId;
+  final Value<String?> userId;
+  final Value<DateTime?> syncedAt;
+  final Value<DateTime?> deletedAt;
+  const PersonalBestsCompanion({
+    this.id = const Value.absent(),
+    this.exerciseId = const Value.absent(),
+    this.reps = const Value.absent(),
+    this.weight = const Value.absent(),
+    this.achievedAt = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  });
+  PersonalBestsCompanion.insert({
+    this.id = const Value.absent(),
+    required int exerciseId,
+    required int reps,
+    required double weight,
+    required DateTime achievedAt,
+    this.remoteId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  }) : exerciseId = Value(exerciseId),
+       reps = Value(reps),
+       weight = Value(weight),
+       achievedAt = Value(achievedAt);
+  static Insertable<PersonalBest> custom({
+    Expression<int>? id,
+    Expression<int>? exerciseId,
+    Expression<int>? reps,
+    Expression<double>? weight,
+    Expression<DateTime>? achievedAt,
+    Expression<String>? remoteId,
+    Expression<String>? userId,
+    Expression<DateTime>? syncedAt,
+    Expression<DateTime>? deletedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (exerciseId != null) 'exercise_id': exerciseId,
+      if (reps != null) 'reps': reps,
+      if (weight != null) 'weight': weight,
+      if (achievedAt != null) 'achieved_at': achievedAt,
+      if (remoteId != null) 'remote_id': remoteId,
+      if (userId != null) 'user_id': userId,
+      if (syncedAt != null) 'synced_at': syncedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+    });
+  }
+
+  PersonalBestsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? exerciseId,
+    Value<int>? reps,
+    Value<double>? weight,
+    Value<DateTime>? achievedAt,
+    Value<String?>? remoteId,
+    Value<String?>? userId,
+    Value<DateTime?>? syncedAt,
+    Value<DateTime?>? deletedAt,
+  }) {
+    return PersonalBestsCompanion(
+      id: id ?? this.id,
+      exerciseId: exerciseId ?? this.exerciseId,
+      reps: reps ?? this.reps,
+      weight: weight ?? this.weight,
+      achievedAt: achievedAt ?? this.achievedAt,
+      remoteId: remoteId ?? this.remoteId,
+      userId: userId ?? this.userId,
+      syncedAt: syncedAt ?? this.syncedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (exerciseId.present) {
+      map['exercise_id'] = Variable<int>(exerciseId.value);
+    }
+    if (reps.present) {
+      map['reps'] = Variable<int>(reps.value);
+    }
+    if (weight.present) {
+      map['weight'] = Variable<double>(weight.value);
+    }
+    if (achievedAt.present) {
+      map['achieved_at'] = Variable<DateTime>(achievedAt.value);
+    }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<String>(remoteId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PersonalBestsCompanion(')
+          ..write('id: $id, ')
+          ..write('exerciseId: $exerciseId, ')
+          ..write('reps: $reps, ')
+          ..write('weight: $weight, ')
+          ..write('achievedAt: $achievedAt, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('userId: $userId, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BadgesTable extends Badges with TableInfo<$BadgesTable, Badge> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BadgesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _badgeKeyMeta = const VerificationMeta(
+    'badgeKey',
+  );
+  @override
+  late final GeneratedColumn<String> badgeKey = GeneratedColumn<String>(
+    'badge_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _earnedAtMeta = const VerificationMeta(
+    'earnedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> earnedAt = GeneratedColumn<DateTime>(
+    'earned_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _remoteIdMeta = const VerificationMeta(
+    'remoteId',
+  );
+  @override
+  late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
+    'remote_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    badgeKey,
+    earnedAt,
+    remoteId,
+    userId,
+    syncedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'badges';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Badge> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('badge_key')) {
+      context.handle(
+        _badgeKeyMeta,
+        badgeKey.isAcceptableOrUnknown(data['badge_key']!, _badgeKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_badgeKeyMeta);
+    }
+    if (data.containsKey('earned_at')) {
+      context.handle(
+        _earnedAtMeta,
+        earnedAt.isAcceptableOrUnknown(data['earned_at']!, _earnedAtMeta),
+      );
+    }
+    if (data.containsKey('remote_id')) {
+      context.handle(
+        _remoteIdMeta,
+        remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
+      );
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Badge map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Badge(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      badgeKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}badge_key'],
+      )!,
+      earnedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}earned_at'],
+      ),
+      remoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_id'],
+      ),
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $BadgesTable createAlias(String alias) {
+    return $BadgesTable(attachedDatabase, alias);
+  }
+}
+
+class Badge extends DataClass implements Insertable<Badge> {
+  final int id;
+  final String badgeKey;
+  final DateTime? earnedAt;
+  final String? remoteId;
+  final String? userId;
+  final DateTime? syncedAt;
+  final DateTime? deletedAt;
+  const Badge({
+    required this.id,
+    required this.badgeKey,
+    this.earnedAt,
+    this.remoteId,
+    this.userId,
+    this.syncedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['badge_key'] = Variable<String>(badgeKey);
+    if (!nullToAbsent || earnedAt != null) {
+      map['earned_at'] = Variable<DateTime>(earnedAt);
+    }
+    if (!nullToAbsent || remoteId != null) {
+      map['remote_id'] = Variable<String>(remoteId);
+    }
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    if (!nullToAbsent || syncedAt != null) {
+      map['synced_at'] = Variable<DateTime>(syncedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  BadgesCompanion toCompanion(bool nullToAbsent) {
+    return BadgesCompanion(
+      id: Value(id),
+      badgeKey: Value(badgeKey),
+      earnedAt: earnedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(earnedAt),
+      remoteId: remoteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteId),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      syncedAt: syncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory Badge.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Badge(
+      id: serializer.fromJson<int>(json['id']),
+      badgeKey: serializer.fromJson<String>(json['badgeKey']),
+      earnedAt: serializer.fromJson<DateTime?>(json['earnedAt']),
+      remoteId: serializer.fromJson<String?>(json['remoteId']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'badgeKey': serializer.toJson<String>(badgeKey),
+      'earnedAt': serializer.toJson<DateTime?>(earnedAt),
+      'remoteId': serializer.toJson<String?>(remoteId),
+      'userId': serializer.toJson<String?>(userId),
+      'syncedAt': serializer.toJson<DateTime?>(syncedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  Badge copyWith({
+    int? id,
+    String? badgeKey,
+    Value<DateTime?> earnedAt = const Value.absent(),
+    Value<String?> remoteId = const Value.absent(),
+    Value<String?> userId = const Value.absent(),
+    Value<DateTime?> syncedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) => Badge(
+    id: id ?? this.id,
+    badgeKey: badgeKey ?? this.badgeKey,
+    earnedAt: earnedAt.present ? earnedAt.value : this.earnedAt,
+    remoteId: remoteId.present ? remoteId.value : this.remoteId,
+    userId: userId.present ? userId.value : this.userId,
+    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  Badge copyWithCompanion(BadgesCompanion data) {
+    return Badge(
+      id: data.id.present ? data.id.value : this.id,
+      badgeKey: data.badgeKey.present ? data.badgeKey.value : this.badgeKey,
+      earnedAt: data.earnedAt.present ? data.earnedAt.value : this.earnedAt,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Badge(')
+          ..write('id: $id, ')
+          ..write('badgeKey: $badgeKey, ')
+          ..write('earnedAt: $earnedAt, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('userId: $userId, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    badgeKey,
+    earnedAt,
+    remoteId,
+    userId,
+    syncedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Badge &&
+          other.id == this.id &&
+          other.badgeKey == this.badgeKey &&
+          other.earnedAt == this.earnedAt &&
+          other.remoteId == this.remoteId &&
+          other.userId == this.userId &&
+          other.syncedAt == this.syncedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class BadgesCompanion extends UpdateCompanion<Badge> {
+  final Value<int> id;
+  final Value<String> badgeKey;
+  final Value<DateTime?> earnedAt;
+  final Value<String?> remoteId;
+  final Value<String?> userId;
+  final Value<DateTime?> syncedAt;
+  final Value<DateTime?> deletedAt;
+  const BadgesCompanion({
+    this.id = const Value.absent(),
+    this.badgeKey = const Value.absent(),
+    this.earnedAt = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  });
+  BadgesCompanion.insert({
+    this.id = const Value.absent(),
+    required String badgeKey,
+    this.earnedAt = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+  }) : badgeKey = Value(badgeKey);
+  static Insertable<Badge> custom({
+    Expression<int>? id,
+    Expression<String>? badgeKey,
+    Expression<DateTime>? earnedAt,
+    Expression<String>? remoteId,
+    Expression<String>? userId,
+    Expression<DateTime>? syncedAt,
+    Expression<DateTime>? deletedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (badgeKey != null) 'badge_key': badgeKey,
+      if (earnedAt != null) 'earned_at': earnedAt,
+      if (remoteId != null) 'remote_id': remoteId,
+      if (userId != null) 'user_id': userId,
+      if (syncedAt != null) 'synced_at': syncedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+    });
+  }
+
+  BadgesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? badgeKey,
+    Value<DateTime?>? earnedAt,
+    Value<String?>? remoteId,
+    Value<String?>? userId,
+    Value<DateTime?>? syncedAt,
+    Value<DateTime?>? deletedAt,
+  }) {
+    return BadgesCompanion(
+      id: id ?? this.id,
+      badgeKey: badgeKey ?? this.badgeKey,
+      earnedAt: earnedAt ?? this.earnedAt,
+      remoteId: remoteId ?? this.remoteId,
+      userId: userId ?? this.userId,
+      syncedAt: syncedAt ?? this.syncedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (badgeKey.present) {
+      map['badge_key'] = Variable<String>(badgeKey.value);
+    }
+    if (earnedAt.present) {
+      map['earned_at'] = Variable<DateTime>(earnedAt.value);
+    }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<String>(remoteId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BadgesCompanion(')
+          ..write('id: $id, ')
+          ..write('badgeKey: $badgeKey, ')
+          ..write('earnedAt: $earnedAt, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('userId: $userId, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3206,6 +4222,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $WorkoutSetsTable workoutSets = $WorkoutSetsTable(this);
+  late final $PersonalBestsTable personalBests = $PersonalBestsTable(this);
+  late final $BadgesTable badges = $BadgesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3217,6 +4235,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     routineExercises,
     workoutSessions,
     workoutSets,
+    personalBests,
+    badges,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3307,6 +4327,27 @@ final class $$ExercisesTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$PersonalBestsTable, List<PersonalBest>>
+  _personalBestsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.personalBests,
+    aliasName: $_aliasNameGenerator(
+      db.exercises.id,
+      db.personalBests.exerciseId,
+    ),
+  );
+
+  $$PersonalBestsTableProcessedTableManager get personalBestsRefs {
+    final manager = $$PersonalBestsTableTableManager(
+      $_db,
+      $_db.personalBests,
+    ).filter((f) => f.exerciseId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_personalBestsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$ExercisesTableFilterComposer
@@ -3389,6 +4430,31 @@ class $$ExercisesTableFilterComposer
           }) => $$WorkoutSetsTableFilterComposer(
             $db: $db,
             $table: $db.workoutSets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> personalBestsRefs(
+    Expression<bool> Function($$PersonalBestsTableFilterComposer f) f,
+  ) {
+    final $$PersonalBestsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.personalBests,
+      getReferencedColumn: (t) => t.exerciseId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PersonalBestsTableFilterComposer(
+            $db: $db,
+            $table: $db.personalBests,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3517,6 +4583,31 @@ class $$ExercisesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> personalBestsRefs<T extends Object>(
+    Expression<T> Function($$PersonalBestsTableAnnotationComposer a) f,
+  ) {
+    final $$PersonalBestsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.personalBests,
+      getReferencedColumn: (t) => t.exerciseId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PersonalBestsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.personalBests,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ExercisesTableTableManager
@@ -3535,6 +4626,7 @@ class $$ExercisesTableTableManager
           PrefetchHooks Function({
             bool routineExercisesRefs,
             bool workoutSetsRefs,
+            bool personalBestsRefs,
           })
         > {
   $$ExercisesTableTableManager(_$AppDatabase db, $ExercisesTable table)
@@ -3589,12 +4681,17 @@ class $$ExercisesTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({routineExercisesRefs = false, workoutSetsRefs = false}) {
+              ({
+                routineExercisesRefs = false,
+                workoutSetsRefs = false,
+                personalBestsRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (routineExercisesRefs) db.routineExercises,
                     if (workoutSetsRefs) db.workoutSets,
+                    if (personalBestsRefs) db.personalBests,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -3641,6 +4738,27 @@ class $$ExercisesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (personalBestsRefs)
+                        await $_getPrefetchedData<
+                          Exercise,
+                          $ExercisesTable,
+                          PersonalBest
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ExercisesTableReferences
+                              ._personalBestsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ExercisesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).personalBestsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.exerciseId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -3661,7 +4779,11 @@ typedef $$ExercisesTableProcessedTableManager =
       $$ExercisesTableUpdateCompanionBuilder,
       (Exercise, $$ExercisesTableReferences),
       Exercise,
-      PrefetchHooks Function({bool routineExercisesRefs, bool workoutSetsRefs})
+      PrefetchHooks Function({
+        bool routineExercisesRefs,
+        bool workoutSetsRefs,
+        bool personalBestsRefs,
+      })
     >;
 typedef $$WorkoutSplitsTableCreateCompanionBuilder =
     WorkoutSplitsCompanion Function({
@@ -6125,6 +7247,627 @@ typedef $$WorkoutSetsTableProcessedTableManager =
       WorkoutSet,
       PrefetchHooks Function({bool sessionId, bool exerciseId})
     >;
+typedef $$PersonalBestsTableCreateCompanionBuilder =
+    PersonalBestsCompanion Function({
+      Value<int> id,
+      required int exerciseId,
+      required int reps,
+      required double weight,
+      required DateTime achievedAt,
+      Value<String?> remoteId,
+      Value<String?> userId,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
+    });
+typedef $$PersonalBestsTableUpdateCompanionBuilder =
+    PersonalBestsCompanion Function({
+      Value<int> id,
+      Value<int> exerciseId,
+      Value<int> reps,
+      Value<double> weight,
+      Value<DateTime> achievedAt,
+      Value<String?> remoteId,
+      Value<String?> userId,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
+    });
+
+final class $$PersonalBestsTableReferences
+    extends BaseReferences<_$AppDatabase, $PersonalBestsTable, PersonalBest> {
+  $$PersonalBestsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ExercisesTable _exerciseIdTable(_$AppDatabase db) =>
+      db.exercises.createAlias(
+        $_aliasNameGenerator(db.personalBests.exerciseId, db.exercises.id),
+      );
+
+  $$ExercisesTableProcessedTableManager get exerciseId {
+    final $_column = $_itemColumn<int>('exercise_id')!;
+
+    final manager = $$ExercisesTableTableManager(
+      $_db,
+      $_db.exercises,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_exerciseIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$PersonalBestsTableFilterComposer
+    extends Composer<_$AppDatabase, $PersonalBestsTable> {
+  $$PersonalBestsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reps => $composableBuilder(
+    column: $table.reps,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get weight => $composableBuilder(
+    column: $table.weight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get achievedAt => $composableBuilder(
+    column: $table.achievedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ExercisesTableFilterComposer get exerciseId {
+    final $$ExercisesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exerciseId,
+      referencedTable: $db.exercises,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExercisesTableFilterComposer(
+            $db: $db,
+            $table: $db.exercises,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PersonalBestsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PersonalBestsTable> {
+  $$PersonalBestsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reps => $composableBuilder(
+    column: $table.reps,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get weight => $composableBuilder(
+    column: $table.weight,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get achievedAt => $composableBuilder(
+    column: $table.achievedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ExercisesTableOrderingComposer get exerciseId {
+    final $$ExercisesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exerciseId,
+      referencedTable: $db.exercises,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExercisesTableOrderingComposer(
+            $db: $db,
+            $table: $db.exercises,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PersonalBestsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PersonalBestsTable> {
+  $$PersonalBestsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get reps =>
+      $composableBuilder(column: $table.reps, builder: (column) => column);
+
+  GeneratedColumn<double> get weight =>
+      $composableBuilder(column: $table.weight, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get achievedAt => $composableBuilder(
+    column: $table.achievedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $$ExercisesTableAnnotationComposer get exerciseId {
+    final $$ExercisesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exerciseId,
+      referencedTable: $db.exercises,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExercisesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.exercises,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PersonalBestsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PersonalBestsTable,
+          PersonalBest,
+          $$PersonalBestsTableFilterComposer,
+          $$PersonalBestsTableOrderingComposer,
+          $$PersonalBestsTableAnnotationComposer,
+          $$PersonalBestsTableCreateCompanionBuilder,
+          $$PersonalBestsTableUpdateCompanionBuilder,
+          (PersonalBest, $$PersonalBestsTableReferences),
+          PersonalBest,
+          PrefetchHooks Function({bool exerciseId})
+        > {
+  $$PersonalBestsTableTableManager(_$AppDatabase db, $PersonalBestsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PersonalBestsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PersonalBestsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PersonalBestsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> exerciseId = const Value.absent(),
+                Value<int> reps = const Value.absent(),
+                Value<double> weight = const Value.absent(),
+                Value<DateTime> achievedAt = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+              }) => PersonalBestsCompanion(
+                id: id,
+                exerciseId: exerciseId,
+                reps: reps,
+                weight: weight,
+                achievedAt: achievedAt,
+                remoteId: remoteId,
+                userId: userId,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int exerciseId,
+                required int reps,
+                required double weight,
+                required DateTime achievedAt,
+                Value<String?> remoteId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+              }) => PersonalBestsCompanion.insert(
+                id: id,
+                exerciseId: exerciseId,
+                reps: reps,
+                weight: weight,
+                achievedAt: achievedAt,
+                remoteId: remoteId,
+                userId: userId,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PersonalBestsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({exerciseId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (exerciseId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.exerciseId,
+                                referencedTable: $$PersonalBestsTableReferences
+                                    ._exerciseIdTable(db),
+                                referencedColumn: $$PersonalBestsTableReferences
+                                    ._exerciseIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PersonalBestsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PersonalBestsTable,
+      PersonalBest,
+      $$PersonalBestsTableFilterComposer,
+      $$PersonalBestsTableOrderingComposer,
+      $$PersonalBestsTableAnnotationComposer,
+      $$PersonalBestsTableCreateCompanionBuilder,
+      $$PersonalBestsTableUpdateCompanionBuilder,
+      (PersonalBest, $$PersonalBestsTableReferences),
+      PersonalBest,
+      PrefetchHooks Function({bool exerciseId})
+    >;
+typedef $$BadgesTableCreateCompanionBuilder =
+    BadgesCompanion Function({
+      Value<int> id,
+      required String badgeKey,
+      Value<DateTime?> earnedAt,
+      Value<String?> remoteId,
+      Value<String?> userId,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
+    });
+typedef $$BadgesTableUpdateCompanionBuilder =
+    BadgesCompanion Function({
+      Value<int> id,
+      Value<String> badgeKey,
+      Value<DateTime?> earnedAt,
+      Value<String?> remoteId,
+      Value<String?> userId,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
+    });
+
+class $$BadgesTableFilterComposer
+    extends Composer<_$AppDatabase, $BadgesTable> {
+  $$BadgesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get badgeKey => $composableBuilder(
+    column: $table.badgeKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get earnedAt => $composableBuilder(
+    column: $table.earnedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BadgesTableOrderingComposer
+    extends Composer<_$AppDatabase, $BadgesTable> {
+  $$BadgesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get badgeKey => $composableBuilder(
+    column: $table.badgeKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get earnedAt => $composableBuilder(
+    column: $table.earnedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BadgesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BadgesTable> {
+  $$BadgesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get badgeKey =>
+      $composableBuilder(column: $table.badgeKey, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get earnedAt =>
+      $composableBuilder(column: $table.earnedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$BadgesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BadgesTable,
+          Badge,
+          $$BadgesTableFilterComposer,
+          $$BadgesTableOrderingComposer,
+          $$BadgesTableAnnotationComposer,
+          $$BadgesTableCreateCompanionBuilder,
+          $$BadgesTableUpdateCompanionBuilder,
+          (Badge, BaseReferences<_$AppDatabase, $BadgesTable, Badge>),
+          Badge,
+          PrefetchHooks Function()
+        > {
+  $$BadgesTableTableManager(_$AppDatabase db, $BadgesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BadgesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BadgesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BadgesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> badgeKey = const Value.absent(),
+                Value<DateTime?> earnedAt = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+              }) => BadgesCompanion(
+                id: id,
+                badgeKey: badgeKey,
+                earnedAt: earnedAt,
+                remoteId: remoteId,
+                userId: userId,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String badgeKey,
+                Value<DateTime?> earnedAt = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+              }) => BadgesCompanion.insert(
+                id: id,
+                badgeKey: badgeKey,
+                earnedAt: earnedAt,
+                remoteId: remoteId,
+                userId: userId,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BadgesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BadgesTable,
+      Badge,
+      $$BadgesTableFilterComposer,
+      $$BadgesTableOrderingComposer,
+      $$BadgesTableAnnotationComposer,
+      $$BadgesTableCreateCompanionBuilder,
+      $$BadgesTableUpdateCompanionBuilder,
+      (Badge, BaseReferences<_$AppDatabase, $BadgesTable, Badge>),
+      Badge,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6141,4 +7884,8 @@ class $AppDatabaseManager {
       $$WorkoutSessionsTableTableManager(_db, _db.workoutSessions);
   $$WorkoutSetsTableTableManager get workoutSets =>
       $$WorkoutSetsTableTableManager(_db, _db.workoutSets);
+  $$PersonalBestsTableTableManager get personalBests =>
+      $$PersonalBestsTableTableManager(_db, _db.personalBests);
+  $$BadgesTableTableManager get badges =>
+      $$BadgesTableTableManager(_db, _db.badges);
 }
