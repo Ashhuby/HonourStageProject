@@ -1,7 +1,6 @@
 // lib/features/workout/presentation/exercise_library_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fitness_app/core/database/local_database.dart';
 import '../data/badge_service.dart';
 import '../data/exercise_repository.dart';
 import '../data/personal_best_repository.dart';

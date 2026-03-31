@@ -242,7 +242,7 @@ class RoutineExercisesSheet extends ConsumerWidget {
           builder: (_) => ActiveSessionScreen(
             sessionId: sessionId,
             sessionTitle: routine.name,
-            routineId: routine.id, // ADD THIS
+            routineId: routine.id, 
           ),
         ),
       );      

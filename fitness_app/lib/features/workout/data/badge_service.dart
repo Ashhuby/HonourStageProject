@@ -1,6 +1,4 @@
-import 'package:drift/native.dart';
 import 'package:drift/drift.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:fitness_app/core/database/database_provider.dart';
