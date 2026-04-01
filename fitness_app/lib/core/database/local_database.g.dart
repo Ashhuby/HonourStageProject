@@ -81,6 +81,48 @@ class $ExercisesTable extends Exercises
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _remoteIdMeta = const VerificationMeta(
+    'remoteId',
+  );
+  @override
+  late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
+    'remote_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -89,6 +131,10 @@ class $ExercisesTable extends Exercises
     equipmentType,
     isCustom,
     notes,
+    remoteId,
+    userId,
+    syncedAt,
+    deletedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -144,6 +190,30 @@ class $ExercisesTable extends Exercises
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('remote_id')) {
+      context.handle(
+        _remoteIdMeta,
+        remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
+      );
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -177,6 +247,22 @@ class $ExercisesTable extends Exercises
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      remoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_id'],
+      ),
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
     );
   }
 
@@ -193,6 +279,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   final String equipmentType;
   final bool isCustom;
   final String? notes;
+  final String? remoteId;
+  final String? userId;
+  final DateTime? syncedAt;
+  final DateTime? deletedAt;
   const Exercise({
     required this.id,
     required this.name,
@@ -200,6 +290,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     required this.equipmentType,
     required this.isCustom,
     this.notes,
+    this.remoteId,
+    this.userId,
+    this.syncedAt,
+    this.deletedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -211,6 +305,18 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     map['is_custom'] = Variable<bool>(isCustom);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || remoteId != null) {
+      map['remote_id'] = Variable<String>(remoteId);
+    }
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    if (!nullToAbsent || syncedAt != null) {
+      map['synced_at'] = Variable<DateTime>(syncedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
     return map;
   }
@@ -225,6 +331,18 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      remoteId: remoteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteId),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      syncedAt: syncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
     );
   }
 
@@ -240,6 +358,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       equipmentType: serializer.fromJson<String>(json['equipmentType']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       notes: serializer.fromJson<String?>(json['notes']),
+      remoteId: serializer.fromJson<String?>(json['remoteId']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
     );
   }
   @override
@@ -252,6 +374,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'equipmentType': serializer.toJson<String>(equipmentType),
       'isCustom': serializer.toJson<bool>(isCustom),
       'notes': serializer.toJson<String?>(notes),
+      'remoteId': serializer.toJson<String?>(remoteId),
+      'userId': serializer.toJson<String?>(userId),
+      'syncedAt': serializer.toJson<DateTime?>(syncedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
     };
   }
 
@@ -262,6 +388,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     String? equipmentType,
     bool? isCustom,
     Value<String?> notes = const Value.absent(),
+    Value<String?> remoteId = const Value.absent(),
+    Value<String?> userId = const Value.absent(),
+    Value<DateTime?> syncedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
   }) => Exercise(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -269,6 +399,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     equipmentType: equipmentType ?? this.equipmentType,
     isCustom: isCustom ?? this.isCustom,
     notes: notes.present ? notes.value : this.notes,
+    remoteId: remoteId.present ? remoteId.value : this.remoteId,
+    userId: userId.present ? userId.value : this.userId,
+    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
     return Exercise(
@@ -280,6 +414,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           : this.equipmentType,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
       notes: data.notes.present ? data.notes.value : this.notes,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
     );
   }
 
@@ -291,14 +429,28 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('bodyPart: $bodyPart, ')
           ..write('equipmentType: $equipmentType, ')
           ..write('isCustom: $isCustom, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('userId: $userId, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, bodyPart, equipmentType, isCustom, notes);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    bodyPart,
+    equipmentType,
+    isCustom,
+    notes,
+    remoteId,
+    userId,
+    syncedAt,
+    deletedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -308,7 +460,11 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.bodyPart == this.bodyPart &&
           other.equipmentType == this.equipmentType &&
           other.isCustom == this.isCustom &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.remoteId == this.remoteId &&
+          other.userId == this.userId &&
+          other.syncedAt == this.syncedAt &&
+          other.deletedAt == this.deletedAt);
 }
 
 class ExercisesCompanion extends UpdateCompanion<Exercise> {
@@ -318,6 +474,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<String> equipmentType;
   final Value<bool> isCustom;
   final Value<String?> notes;
+  final Value<String?> remoteId;
+  final Value<String?> userId;
+  final Value<DateTime?> syncedAt;
+  final Value<DateTime?> deletedAt;
   const ExercisesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -325,6 +485,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.equipmentType = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.notes = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
   });
   ExercisesCompanion.insert({
     this.id = const Value.absent(),
@@ -333,6 +497,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     required String equipmentType,
     this.isCustom = const Value.absent(),
     this.notes = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
   }) : name = Value(name),
        bodyPart = Value(bodyPart),
        equipmentType = Value(equipmentType);
@@ -343,6 +511,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<String>? equipmentType,
     Expression<bool>? isCustom,
     Expression<String>? notes,
+    Expression<String>? remoteId,
+    Expression<String>? userId,
+    Expression<DateTime>? syncedAt,
+    Expression<DateTime>? deletedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -351,6 +523,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (equipmentType != null) 'equipment_type': equipmentType,
       if (isCustom != null) 'is_custom': isCustom,
       if (notes != null) 'notes': notes,
+      if (remoteId != null) 'remote_id': remoteId,
+      if (userId != null) 'user_id': userId,
+      if (syncedAt != null) 'synced_at': syncedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
     });
   }
 
@@ -361,6 +537,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<String>? equipmentType,
     Value<bool>? isCustom,
     Value<String?>? notes,
+    Value<String?>? remoteId,
+    Value<String?>? userId,
+    Value<DateTime?>? syncedAt,
+    Value<DateTime?>? deletedAt,
   }) {
     return ExercisesCompanion(
       id: id ?? this.id,
@@ -369,6 +549,10 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       equipmentType: equipmentType ?? this.equipmentType,
       isCustom: isCustom ?? this.isCustom,
       notes: notes ?? this.notes,
+      remoteId: remoteId ?? this.remoteId,
+      userId: userId ?? this.userId,
+      syncedAt: syncedAt ?? this.syncedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 
@@ -393,6 +577,18 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<String>(remoteId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     return map;
   }
 
@@ -404,7 +600,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('bodyPart: $bodyPart, ')
           ..write('equipmentType: $equipmentType, ')
           ..write('isCustom: $isCustom, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('userId: $userId, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt')
           ..write(')'))
         .toString();
   }
@@ -4272,6 +4472,10 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       required String equipmentType,
       Value<bool> isCustom,
       Value<String?> notes,
+      Value<String?> remoteId,
+      Value<String?> userId,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
     });
 typedef $$ExercisesTableUpdateCompanionBuilder =
     ExercisesCompanion Function({
@@ -4281,6 +4485,10 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<String> equipmentType,
       Value<bool> isCustom,
       Value<String?> notes,
+      Value<String?> remoteId,
+      Value<String?> userId,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
     });
 
 final class $$ExercisesTableReferences
@@ -4386,6 +4594,26 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4503,6 +4731,26 @@ class $$ExercisesTableOrderingComposer
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExercisesTableAnnotationComposer
@@ -4533,6 +4781,18 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   Expression<T> routineExercisesRefs<T extends Object>(
     Expression<T> Function($$RoutineExercisesTableAnnotationComposer a) f,
@@ -4648,6 +4908,10 @@ class $$ExercisesTableTableManager
                 Value<String> equipmentType = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
               }) => ExercisesCompanion(
                 id: id,
                 name: name,
@@ -4655,6 +4919,10 @@ class $$ExercisesTableTableManager
                 equipmentType: equipmentType,
                 isCustom: isCustom,
                 notes: notes,
+                remoteId: remoteId,
+                userId: userId,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
               ),
           createCompanionCallback:
               ({
@@ -4664,6 +4932,10 @@ class $$ExercisesTableTableManager
                 required String equipmentType,
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
               }) => ExercisesCompanion.insert(
                 id: id,
                 name: name,
@@ -4671,6 +4943,10 @@ class $$ExercisesTableTableManager
                 equipmentType: equipmentType,
                 isCustom: isCustom,
                 notes: notes,
+                remoteId: remoteId,
+                userId: userId,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
               ),
           withReferenceMapper: (p0) => p0
               .map(
