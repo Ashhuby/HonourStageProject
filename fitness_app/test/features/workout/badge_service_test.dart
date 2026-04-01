@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/core/database/local_database.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 /// Tests for badge trigger logic.
 /// Each test seeds the minimum data needed to trigger the badge under test,
