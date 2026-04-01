@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/core/database/local_database.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 
 /// Tests for badge trigger logic.
@@ -124,14 +125,14 @@ void main() {
     test('awarded when 7 consecutive calendar days each have a session', () async {
       final today = DateTime.now();
       for (int i = 0; i < 7; i++) {
-        final day = today.subtract(Duration(days: i));
-        await insertCompletedSession(DateTime(day.year, day.month, day.day));
-      }  
+        final day = DateTime(today.year, today.month, today.day - i);
+        await insertCompletedSession(day);
+      }
 
       final streak = await _calculateStreak(db, 7);
       if (streak >= 7) await awardBadge('streak_7_day');
       final earned = await isBadgeEarned('streak_7_day');
-      
+
       expect(earned, isTrue);
     });
 
@@ -151,12 +152,9 @@ void main() {
     test('multiple sessions on same day count as one streak day', () async {
       final today = DateTime.now();
       for (int i = 0; i < 7; i++) {
-        final day = today.subtract(Duration(days: i));
-        // Insert two sessions on each day
-        await insertCompletedSession(
-            DateTime(day.year, day.month, day.day, 9));
-        await insertCompletedSession(
-            DateTime(day.year, day.month, day.day, 18));
+        final day = DateTime(today.year, today.month, today.day - i);
+        await insertCompletedSession(DateTime(day.year, day.month, day.day, 9));
+        await insertCompletedSession(DateTime(day.year, day.month, day.day, 18));
       }
       final streak = await _calculateStreak(db, 7);
       if (streak >= 7) await awardBadge('streak_7_day');
@@ -168,9 +166,8 @@ void main() {
     test('awarded when 30 consecutive days each have a session', () async {
       final today = DateTime.now();
       for (int i = 0; i < 30; i++) {
-        final day = today.subtract(Duration(days: i));
-        await insertCompletedSession(
-            DateTime(day.year, day.month, day.day, 10));
+        final day = DateTime(today.year, today.month, today.day - i);
+        await insertCompletedSession(DateTime(day.year, day.month, day.day, 10));
       }
       final streak = await _calculateStreak(db, 30);
       if (streak >= 30) await awardBadge('streak_30_day');
