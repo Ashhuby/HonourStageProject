@@ -23,7 +23,7 @@ final supabaseClientProvider = AutoDisposeProvider<SupabaseClient>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef SupabaseClientRef = AutoDisposeProviderRef<SupabaseClient>;
-String _$authRepositoryHash() => r'ad0d2dbdcd16330667642d40541f556a89f93328';
+String _$authRepositoryHash() => r'963fc941ed2bf6f5a1c668f9f4f6ba52820e278d';
 
 /// See also [authRepository].
 @ProviderFor(authRepository)
