@@ -1,4 +1,3 @@
-// lib/core/sync/sync_service.dart
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -400,6 +399,224 @@ class SyncService {
     }
 
     return dirty.length;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Clear local data — call on sign out
+  // ---------------------------------------------------------------------------
+
+  Future<void> clearLocalData() async {
+    await db.transaction(() async {
+      await db.delete(db.workoutSets).go();
+      await db.delete(db.workoutSessions).go();
+      await db.delete(db.routineExercises).go();
+      await db.delete(db.workoutRoutines).go();
+      await db.delete(db.workoutSplits).go();
+      await db.delete(db.personalBests).go();
+
+      await db.update(db.badges).write(const BadgesCompanion(
+        earnedAt: Value(null),
+        remoteId: Value(null),
+        userId: Value(null),
+        syncedAt: Value(null),
+      ));
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Download user data — call on sign in
+  // ---------------------------------------------------------------------------
+
+  Future<void> downloadUserData() async {
+    final userId = _userId;
+    if (userId == null) return;
+
+    await _downloadSplits(userId);
+    await _downloadRoutines(userId);
+    await _downloadRoutineExercises(userId);
+    await _downloadSessions(userId);
+    await _downloadSets(userId);
+    await _downloadPersonalBests(userId);
+    await _downloadBadges(userId);
+  }
+
+  Future<void> _downloadSplits(String userId) async {
+    final rows = await supabase
+        .from('workout_splits')
+        .select()
+        .eq('user_id', userId)
+        .isFilter('deleted_at', null);
+
+    for (final row in rows) {
+      await db.into(db.workoutSplits).insertOnConflictUpdate(
+            WorkoutSplitsCompanion.insert(
+              name: row['name'] as String,
+              createdAt: Value(DateTime.parse(row['created_at'] as String)),
+              remoteId: Value(row['id'] as String),
+              userId: Value(userId),
+              syncedAt: Value(DateTime.now()),
+            ),
+          );
+    }
+  }
+
+  Future<void> _downloadRoutines(String userId) async {
+    final rows = await supabase
+        .from('workout_routines')
+        .select()
+        .eq('user_id', userId)
+        .isFilter('deleted_at', null);
+
+    for (final row in rows) {
+      final split = await (db.select(db.workoutSplits)
+            ..where((s) => s.remoteId.equals(row['split_id'] as String)))
+          .getSingleOrNull();
+      if (split == null) continue;
+
+      await db.into(db.workoutRoutines).insertOnConflictUpdate(
+            WorkoutRoutinesCompanion.insert(
+              name: row['name'] as String,
+              splitId: split.id,
+              orderIndex: row['order_index'] as int,
+              remoteId: Value(row['id'] as String),
+              userId: Value(userId),
+              syncedAt: Value(DateTime.now()),
+            ),
+          );
+    }
+  }
+
+  Future<void> _downloadRoutineExercises(String userId) async {
+    final rows = await supabase
+        .from('routine_exercises')
+        .select()
+        .eq('user_id', userId)
+        .isFilter('deleted_at', null);
+
+    for (final row in rows) {
+      final routine = await (db.select(db.workoutRoutines)
+            ..where((r) => r.remoteId.equals(row['routine_id'] as String)))
+          .getSingleOrNull();
+      if (routine == null) continue;
+
+      await db.into(db.routineExercises).insertOnConflictUpdate(
+            RoutineExercisesCompanion.insert(
+              routineId: routine.id,
+              exerciseId: row['exercise_id'] as int,
+              orderIndex: row['order_index'] as int,
+              targetSets: Value(row['target_sets'] as int? ?? 3),
+              targetReps: Value(row['target_reps'] as int? ?? 10),
+              remoteId: Value(row['id'] as String),
+              userId: Value(userId),
+              syncedAt: Value(DateTime.now()),
+            ),
+          );
+    }
+  }
+
+  Future<void> _downloadSessions(String userId) async {
+    final rows = await supabase
+        .from('workout_sessions')
+        .select()
+        .eq('user_id', userId)
+        .isFilter('deleted_at', null);
+
+    for (final row in rows) {
+      int? localRoutineId;
+      if (row['routine_id'] != null) {
+        final routine = await (db.select(db.workoutRoutines)
+              ..where((r) => r.remoteId.equals(row['routine_id'] as String)))
+            .getSingleOrNull();
+        localRoutineId = routine?.id;
+      }
+
+      await db.into(db.workoutSessions).insertOnConflictUpdate(
+            WorkoutSessionsCompanion.insert(
+              startTime: DateTime.parse(row['start_time'] as String),
+              endTime: Value(row['end_time'] != null
+                  ? DateTime.parse(row['end_time'] as String)
+                  : null),
+              routineId: Value(localRoutineId),
+              sessionNote: Value(row['session_note'] as String?),
+              remoteId: Value(row['id'] as String),
+              userId: Value(userId),
+              syncedAt: Value(DateTime.now()),
+            ),
+          );
+    }
+  }
+
+  Future<void> _downloadSets(String userId) async {
+    final rows = await supabase
+        .from('workout_sets')
+        .select()
+        .eq('user_id', userId)
+        .isFilter('deleted_at', null);
+
+    for (final row in rows) {
+      final session = await (db.select(db.workoutSessions)
+            ..where((s) => s.remoteId.equals(row['session_id'] as String)))
+          .getSingleOrNull();
+      if (session == null) continue;
+
+      await db.into(db.workoutSets).insertOnConflictUpdate(
+            WorkoutSetsCompanion.insert(
+              sessionId: session.id,
+              exerciseId: row['exercise_id'] as int,
+              weight: (row['weight'] as num).toDouble(),
+              reps: row['reps'] as int,
+              isCompleted: Value(row['is_completed'] as bool? ?? false),
+              timestamp: Value(row['timestamp'] != null
+                  ? DateTime.parse(row['timestamp'] as String)
+                  : DateTime.now()),
+              remoteId: Value(row['id'] as String),
+              userId: Value(userId),
+              syncedAt: Value(DateTime.now()),
+            ),
+          );
+    }
+  }
+
+  Future<void> _downloadPersonalBests(String userId) async {
+    final rows = await supabase
+        .from('personal_bests')
+        .select()
+        .eq('user_id', userId)
+        .isFilter('deleted_at', null);
+
+    for (final row in rows) {
+      await db.into(db.personalBests).insertOnConflictUpdate(
+            PersonalBestsCompanion.insert(
+              exerciseId: row['exercise_id'] as int,
+              reps: row['reps'] as int,
+              weight: (row['weight'] as num).toDouble(),
+              achievedAt: DateTime.parse(row['achieved_at'] as String),
+              remoteId: Value(row['id'] as String),
+              userId: Value(userId),
+              syncedAt: Value(DateTime.now()),
+            ),
+          );
+    }
+  }
+
+  Future<void> _downloadBadges(String userId) async {
+    final rows = await supabase
+        .from('badges')
+        .select()
+        .eq('user_id', userId);
+
+    for (final row in rows) {
+      await (db.update(db.badges)
+            ..where((b) => b.badgeKey.equals(row['badge_key'] as String)))
+          .write(BadgesCompanion(
+        earnedAt: Value(row['earned_at'] != null
+            ? DateTime.parse(row['earned_at'] as String)
+            : null),
+        remoteId: Value(row['id'] as String),
+        userId: Value(userId),
+        syncedAt: Value(DateTime.now()),
+      ));
+    }
   }
 }
 
