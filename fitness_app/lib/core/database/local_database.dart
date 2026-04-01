@@ -1,4 +1,3 @@
-// lib/core/database/local_database.dart
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
@@ -26,7 +25,7 @@ class AppDatabase extends _$AppDatabase {
   final bool _isTesting;
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -68,9 +67,6 @@ class AppDatabase extends _$AppDatabase {
               ),
             ]);
           });
-          // Seed all badge definitions as unearned (earnedAt = null).
-          // This guarantees the badges screen always has a full list to render
-          // regardless of whether the user has triggered any badge yet.
           await _seedBadges();
         }
       },
@@ -106,13 +102,18 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(workoutSets, workoutSets.deletedAt);
         }
         if (from < 4) {
-          // Feature: Personal Best (PR) tracking
           await m.createTable(personalBests);
-          // Feature: Badges and Achievements
           await m.createTable(badges);
-          // Seed badge definitions for existing installs.
-          // New installs hit onCreate above; upgrades hit this path.
           await _seedBadges();
+        }
+        if (from < 5) {
+          // Add sync columns to Exercises for custom exercise sync support.
+          // Seeded default exercises get null values for all sync columns —
+          // they are never synced since they are identical for all users.
+          await m.addColumn(exercises, exercises.remoteId);
+          await m.addColumn(exercises, exercises.userId);
+          await m.addColumn(exercises, exercises.syncedAt);
+          await m.addColumn(exercises, exercises.deletedAt);
         }
       },
       beforeOpen: (details) async {
@@ -121,10 +122,6 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// Inserts all known badge keys with earnedAt = null (unearned).
-  /// Uses insertOnConflictUpdate so it is safe to call on both
-  /// onCreate and onUpgrade — re-running it will never duplicate or
-  /// overwrite an already-earned badge.
   Future<void> _seedBadges() async {
     const badgeKeys = [
       'first_workout',
@@ -142,8 +139,6 @@ class AppDatabase extends _$AppDatabase {
           badges,
           BadgesCompanion.insert(badgeKey: key),
           onConflict: DoUpdate(
-            // On conflict (key already exists) do nothing — preserve
-            // any earnedAt that has already been set.
             (_) => BadgesCompanion.insert(badgeKey: key),
             target: [badges.badgeKey],
           ),
