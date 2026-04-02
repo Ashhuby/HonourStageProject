@@ -337,7 +337,7 @@ class _WatchSetsForSessionProviderElement
   int get sessionId => (origin as WatchSetsForSessionProvider).sessionId;
 }
 
-String _$sessionRepositoryHash() => r'bacb1179acdaa7d42353e2b6807cedf0869a69aa';
+String _$sessionRepositoryHash() => r'a2ac6d3d5e91668804795230285bc6f5ae886a6b';
 
 /// See also [SessionRepository].
 @ProviderFor(SessionRepository)

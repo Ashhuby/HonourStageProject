@@ -620,8 +620,8 @@ class SyncService {
             WorkoutSetsCompanion.insert(
               sessionId: session.id,
               exerciseId: row['exercise_id'] as int,
-              weight: (row['weight'] as num).toDouble(),
-              reps: row['reps'] as int,
+              weight: Value((row['weight'] as num).toDouble()),
+              reps: Value(row['reps'] as int),
               isCompleted: Value(row['is_completed'] as bool? ?? false),
               timestamp: Value(row['timestamp'] != null
                   ? DateTime.parse(row['timestamp'] as String)
@@ -645,8 +645,8 @@ class SyncService {
       await db.into(db.personalBests).insertOnConflictUpdate(
             PersonalBestsCompanion.insert(
               exerciseId: row['exercise_id'] as int,
-              reps: row['reps'] as int,
-              weight: (row['weight'] as num).toDouble(),
+              reps: Value(row['reps'] as int),
+              weight: Value((row['weight'] as num).toDouble()),
               achievedAt: DateTime.parse(row['achieved_at'] as String),
               remoteId: Value(row['id'] as String),
               userId: Value(userId),
