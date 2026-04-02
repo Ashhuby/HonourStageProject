@@ -182,8 +182,8 @@ void main() {
             WorkoutSetsCompanion.insert(
               sessionId: sessionId,
               exerciseId: exerciseId,
-              weight: 100.0,
-              reps: 5,
+              weight: const Value(100.0),
+              reps: const Value(5),
             ),
           );
 

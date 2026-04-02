@@ -213,14 +213,20 @@ class SessionRepository extends _$SessionRepository {
   /// Logs a set, checks for a new personal best, and evaluates badge
   /// triggers. Returns a [PrResult] if a new PR was set, null otherwise.
   ///
-  /// The return value is consumed by the UI to show a PR banner.
-  /// Callers that don't care about PR feedback can discard it with `unawaited`.
+  /// [metricType] controls which fields are relevant:
+  ///   weightReps:     weight + reps
+  ///   bodyweightReps: reps only (weight optional for added weight)
+  ///   timeOnly:       durationSeconds only
+  ///   distanceTime:   distanceMetres + durationSeconds
   Future<PrResult?> logSet({
     required int sessionId,
     required int exerciseId,
     required String exerciseName,
-    required double weight,
-    required int reps,
+    required String metricType,
+    double weight = 0.0,
+    int reps = 0,
+    int? durationSeconds,
+    double? distanceMetres,
   }) async {
     final db = ref.read(databaseProvider);
 
@@ -229,23 +235,27 @@ class SessionRepository extends _$SessionRepository {
           WorkoutSetsCompanion.insert(
             sessionId: sessionId,
             exerciseId: exerciseId,
-            weight: weight,
-            reps: reps,
+            weight: Value(weight),
+            reps: Value(reps),
+            durationSeconds: Value(durationSeconds),
+            distanceMetres: Value(distanceMetres),
           ),
         );
 
-    // 2. Check for a new PR.
+    // 2. Check for a new PR — routes by metricType.
     final prResult = await ref
         .read(personalBestRepositoryProvider.notifier)
         .checkAndSavePr(
           exerciseId: exerciseId,
           exerciseName: exerciseName,
+          metricType: metricType,
           weight: weight,
           reps: reps,
+          durationSeconds: durationSeconds,
+          distanceMetres: distanceMetres,
         );
 
     // 3. Evaluate badges after every set.
-    //    getTotalPrCount is a cheap COUNT(*) — safe to call on every set.
     final prCount = await ref
         .read(personalBestRepositoryProvider.notifier)
         .getTotalPrCount();
