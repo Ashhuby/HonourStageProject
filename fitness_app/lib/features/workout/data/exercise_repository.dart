@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:fitness_app/core/database/database_provider.dart';
 import 'package:fitness_app/core/database/local_database.dart';
+import 'package:drift/drift.dart';
 
 // This must match the filename exactly
 part 'exercise_repository.g.dart'; 
@@ -12,14 +13,21 @@ class ExerciseRepository extends _$ExerciseRepository {
     // No initialization needed for this notifier
   }
 
-  Future<void> addExercise(String name, String bodyPart, String equipmentType) async {
+  Future<void> addExercise(
+    String name,
+    String bodyPart,
+    String equipmentType, {
+    String metricType = 'weightReps',
+  }) async {
     final db = ref.read(databaseProvider);
-    
+
     await db.into(db.exercises).insert(
       ExercisesCompanion.insert(
         name: name,
         bodyPart: bodyPart,
         equipmentType: equipmentType,
+        isCustom: Value(true),
+        metricType: Value(metricType),
       ),
     );
   }
