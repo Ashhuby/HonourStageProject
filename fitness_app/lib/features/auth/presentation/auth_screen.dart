@@ -107,7 +107,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   // --------------------------------------------------------
                   // Logo mark
                   // --------------------------------------------------------
-                  _LogoMark(),
+                  const _LogoMark(),
                   const SizedBox(height: 40),
 
                   // --------------------------------------------------------
@@ -269,7 +269,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   // --------------------------------------------------------
                   // Bottom tagline
                   // --------------------------------------------------------
-                  Center(
+                  const Center(
                     child: Text(
                       'Track every rep. Own every record.',
                       style: TextStyle(
@@ -295,6 +295,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 // ---------------------------------------------------------------------------
 
 class _LogoMark extends StatelessWidget {
+  const _LogoMark();
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -315,10 +317,10 @@ class _LogoMark extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         // App name
-        Column(
+        const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'ONE REP',
               style: TextStyle(
                 color: OneRepColors.textPrimary,

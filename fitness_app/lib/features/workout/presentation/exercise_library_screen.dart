@@ -139,7 +139,7 @@ class ExerciseLibraryScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedBodyPart,
+                  initialValue: selectedBodyPart,
                   decoration: const InputDecoration(labelText: 'Body Part'),
                   dropdownColor: OneRepColors.surfaceElevated,
                   items: _bodyParts
@@ -149,7 +149,7 @@ class ExerciseLibraryScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedEquipment,
+                  initialValue: selectedEquipment,
                   decoration: const InputDecoration(labelText: 'Equipment'),
                   dropdownColor: OneRepColors.surfaceElevated,
                   items: _equipment
@@ -159,7 +159,7 @@ class ExerciseLibraryScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedMetricType,
+                  initialValue: selectedMetricType,
                   decoration: const InputDecoration(labelText: 'Metric Type'),
                   dropdownColor: OneRepColors.surfaceElevated,
                   items: _metricTypes

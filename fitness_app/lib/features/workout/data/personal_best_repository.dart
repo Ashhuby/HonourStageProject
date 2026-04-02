@@ -245,7 +245,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
         exerciseId: exerciseId,
         reps: Value(reps),
         weight: const Value(0.0),
-        metricType: Value(MetricType.bodyweightReps),
+        metricType: const Value(MetricType.bodyweightReps),
         achievedAt: DateTime.now(),
       ),
       onConflict: DoUpdate(
@@ -294,7 +294,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
         reps: const Value(0),
         weight: const Value(0.0),
         durationSeconds: Value(durationSeconds),
-        metricType: Value(MetricType.timeOnly),
+        metricType: const Value(MetricType.timeOnly),
         achievedAt: DateTime.now(),
       ),
       onConflict: DoUpdate(
@@ -347,7 +347,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
         weight: const Value(0.0),
         durationSeconds: Value(durationSeconds),
         distanceMetres: Value(distanceMetres),
-        metricType: Value(MetricType.distanceTime),
+        metricType: const Value(MetricType.distanceTime),
         achievedAt: DateTime.now(),
       ),
       onConflict: DoUpdate(

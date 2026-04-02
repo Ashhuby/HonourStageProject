@@ -99,7 +99,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: exercisesAsync.when(
             data: (exercises) => DropdownButtonFormField<Exercise>(
-              value: _selectedExercise,
+              initialValue: _selectedExercise,
               decoration: const InputDecoration(
                 labelText: 'Select Exercise',
                 prefixIcon: Icon(Icons.fitness_center, size: 18),
@@ -146,9 +146,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   itemCount: sessions.length,
                   itemBuilder: (context, index) {
                     final session = sessions[index];
-                    final duration = session.endTime != null
-                        ? session.endTime!.difference(session.startTime)
-                        : null;
+                    final duration = session.endTime?.difference(session.startTime);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _SessionRow(

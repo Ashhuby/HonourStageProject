@@ -232,7 +232,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         child: routineExAsync.when(
           data: (routineExercises) => DropdownButtonFormField<Exercise>(
-            value: _selectedExercise,
+            initialValue: _selectedExercise,
             decoration: const InputDecoration(
               labelText: 'Exercise',
               prefixIcon: Icon(Icons.fitness_center, size: 18),
@@ -272,7 +272,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: exercisesAsync.when(
         data: (exercises) => DropdownButtonFormField<Exercise>(
-          value: _selectedExercise,
+          initialValue: _selectedExercise,
           decoration: const InputDecoration(
             labelText: 'Exercise',
             prefixIcon: Icon(Icons.fitness_center, size: 18),

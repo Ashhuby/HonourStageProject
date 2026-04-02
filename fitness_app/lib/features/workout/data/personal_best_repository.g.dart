@@ -30,28 +30,16 @@ class _SystemHash {
   }
 }
 
-/// Watches all PRs for a single exercise, ordered by rep count ascending.
-/// Used on the exercise detail / progress screen.
-///
-/// Copied from [watchPrsForExercise].
+/// See also [watchPrsForExercise].
 @ProviderFor(watchPrsForExercise)
 const watchPrsForExerciseProvider = WatchPrsForExerciseFamily();
 
-/// Watches all PRs for a single exercise, ordered by rep count ascending.
-/// Used on the exercise detail / progress screen.
-///
-/// Copied from [watchPrsForExercise].
+/// See also [watchPrsForExercise].
 class WatchPrsForExerciseFamily extends Family<AsyncValue<List<PersonalBest>>> {
-  /// Watches all PRs for a single exercise, ordered by rep count ascending.
-  /// Used on the exercise detail / progress screen.
-  ///
-  /// Copied from [watchPrsForExercise].
+  /// See also [watchPrsForExercise].
   const WatchPrsForExerciseFamily();
 
-  /// Watches all PRs for a single exercise, ordered by rep count ascending.
-  /// Used on the exercise detail / progress screen.
-  ///
-  /// Copied from [watchPrsForExercise].
+  /// See also [watchPrsForExercise].
   WatchPrsForExerciseProvider call(int exerciseId) {
     return WatchPrsForExerciseProvider(exerciseId);
   }
@@ -78,16 +66,10 @@ class WatchPrsForExerciseFamily extends Family<AsyncValue<List<PersonalBest>>> {
   String? get name => r'watchPrsForExerciseProvider';
 }
 
-/// Watches all PRs for a single exercise, ordered by rep count ascending.
-/// Used on the exercise detail / progress screen.
-///
-/// Copied from [watchPrsForExercise].
+/// See also [watchPrsForExercise].
 class WatchPrsForExerciseProvider
     extends AutoDisposeStreamProvider<List<PersonalBest>> {
-  /// Watches all PRs for a single exercise, ordered by rep count ascending.
-  /// Used on the exercise detail / progress screen.
-  ///
-  /// Copied from [watchPrsForExercise].
+  /// See also [watchPrsForExercise].
   WatchPrsForExerciseProvider(int exerciseId)
     : this._internal(
         (ref) => watchPrsForExercise(ref as WatchPrsForExerciseRef, exerciseId),
@@ -172,28 +154,16 @@ class _WatchPrsForExerciseProviderElement
 String _$getBestLiftForExerciseHash() =>
     r'97cde4e180856ee8b38e7d83efe9a66194c8d658';
 
-/// Returns the single heaviest PR for an exercise regardless of rep count.
-/// "Best lift" for use in strength percentile benchmarking.
-///
-/// Copied from [getBestLiftForExercise].
+/// See also [getBestLiftForExercise].
 @ProviderFor(getBestLiftForExercise)
 const getBestLiftForExerciseProvider = GetBestLiftForExerciseFamily();
 
-/// Returns the single heaviest PR for an exercise regardless of rep count.
-/// "Best lift" for use in strength percentile benchmarking.
-///
-/// Copied from [getBestLiftForExercise].
+/// See also [getBestLiftForExercise].
 class GetBestLiftForExerciseFamily extends Family<AsyncValue<PersonalBest?>> {
-  /// Returns the single heaviest PR for an exercise regardless of rep count.
-  /// "Best lift" for use in strength percentile benchmarking.
-  ///
-  /// Copied from [getBestLiftForExercise].
+  /// See also [getBestLiftForExercise].
   const GetBestLiftForExerciseFamily();
 
-  /// Returns the single heaviest PR for an exercise regardless of rep count.
-  /// "Best lift" for use in strength percentile benchmarking.
-  ///
-  /// Copied from [getBestLiftForExercise].
+  /// See also [getBestLiftForExercise].
   GetBestLiftForExerciseProvider call(int exerciseId) {
     return GetBestLiftForExerciseProvider(exerciseId);
   }
@@ -220,16 +190,10 @@ class GetBestLiftForExerciseFamily extends Family<AsyncValue<PersonalBest?>> {
   String? get name => r'getBestLiftForExerciseProvider';
 }
 
-/// Returns the single heaviest PR for an exercise regardless of rep count.
-/// "Best lift" for use in strength percentile benchmarking.
-///
-/// Copied from [getBestLiftForExercise].
+/// See also [getBestLiftForExercise].
 class GetBestLiftForExerciseProvider
     extends AutoDisposeFutureProvider<PersonalBest?> {
-  /// Returns the single heaviest PR for an exercise regardless of rep count.
-  /// "Best lift" for use in strength percentile benchmarking.
-  ///
-  /// Copied from [getBestLiftForExercise].
+  /// See also [getBestLiftForExercise].
   GetBestLiftForExerciseProvider(int exerciseId)
     : this._internal(
         (ref) => getBestLiftForExercise(
@@ -315,10 +279,7 @@ class _GetBestLiftForExerciseProviderElement
 
 String _$watchAllPrsHash() => r'27ba1510a3bc005ef00286a2ae1abb8432c88506';
 
-/// Watches all PRs across all exercises. Used on the badges screen to count
-/// total PRs earned (for the 'pr_10' badge trigger).
-///
-/// Copied from [watchAllPrs].
+/// See also [watchAllPrs].
 @ProviderFor(watchAllPrs)
 final watchAllPrsProvider =
     AutoDisposeStreamProvider<List<PersonalBest>>.internal(
@@ -335,7 +296,7 @@ final watchAllPrsProvider =
 // ignore: unused_element
 typedef WatchAllPrsRef = AutoDisposeStreamProviderRef<List<PersonalBest>>;
 String _$personalBestRepositoryHash() =>
-    r'69a6e8fe32bf2e78d670ef1c72b3fe35302837d1';
+    r'fcca46c226342608da4e5ea1206ae5f25381be42';
 
 /// See also [PersonalBestRepository].
 @ProviderFor(PersonalBestRepository)
