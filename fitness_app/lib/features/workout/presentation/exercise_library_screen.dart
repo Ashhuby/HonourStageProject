@@ -15,31 +15,76 @@ class ExerciseLibraryScreen extends ConsumerWidget {
 
     return Scaffold(
       body: exercisesAsync.when(
-        data: (exercises) => exercises.isEmpty
-            ? _EmptyState()
-            : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                itemCount: exercises.length,
-                itemBuilder: (context, index) {
-                  final exercise = exercises[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _ExerciseCard(
-                      exercise: exercise,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              ExerciseDetailScreen(exercise: exercise),
-                        ),
-                      ),
-                      onDelete: () => ref
-                          .read(exerciseRepositoryProvider.notifier)
-                          .deleteExercise(exercise.id),
+        data: (exercises) {
+          if (exercises.isEmpty) return _EmptyState();
+
+          // Define display order for body part sections.
+          const sectionOrder = [
+            'Chest', 'Back', 'Legs', 'Shoulders',
+            'Biceps', 'Triceps', 'Core', 'Whole Body',
+          ];
+
+          // Sort exercises: first by sectionOrder, then alphabetically within.
+          final sorted = [...exercises];
+          sorted.sort((a, b) {
+            final ai = sectionOrder.indexOf(a.bodyPart);
+            final bi = sectionOrder.indexOf(b.bodyPart);
+            final aIdx = ai == -1 ? sectionOrder.length : ai;
+            final bIdx = bi == -1 ? sectionOrder.length : bi;
+            if (aIdx != bIdx) return aIdx.compareTo(bIdx);
+            return a.name.compareTo(b.name);
+          });
+
+          // Build flat list of section headers + exercise cards.
+          final items = <_LibraryItem>[];
+          String? lastBodyPart;
+          for (final exercise in sorted) {
+            if (exercise.bodyPart != lastBodyPart) {
+              items.add(_LibraryItem.header(exercise.bodyPart));
+              lastBodyPart = exercise.bodyPart;
+            }
+            items.add(_LibraryItem.exercise(exercise));
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              if (item.isHeader) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+                  child: Text(
+                    item.header!.toUpperCase(),
+                    style: const TextStyle(
+                      color: OneRepColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5,
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              }
+              final exercise = item.exercise!;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _ExerciseCard(
+                  exercise: exercise,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ExerciseDetailScreen(exercise: exercise),
+                    ),
+                  ),
+                  onDelete: () => ref
+                      .read(exerciseRepositoryProvider.notifier)
+                      .deleteExercise(exercise.id),
+                ),
+              );
+            },
+          );
+        },
         loading: () =>
             const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
@@ -55,78 +100,135 @@ class ExerciseLibraryScreen extends ConsumerWidget {
     );
   }
 
+  static const _bodyParts = [
+    'Chest', 'Back', 'Legs', 'Shoulders',
+    'Biceps', 'Triceps', 'Core', 'Whole Body',
+  ];
+
+  static const _equipment = [
+    'Barbell', 'Dumbbell', 'Cable', 'Machine',
+    'Body Weight', 'Kettlebell', 'Resistance Band', 'Other',
+  ];
+
+  static const _metricTypes = [
+    ('weightReps', 'Weight + Reps'),
+    ('bodyweightReps', 'Bodyweight Reps'),
+    ('timeOnly', 'Time Only (e.g. Plank)'),
+    ('distanceTime', 'Distance + Time (e.g. Run)'),
+  ];
+
   void _showAddExerciseDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
-    final bodyPartController = TextEditingController();
-    final equipmentController = TextEditingController();
+    String? selectedBodyPart;
+    String? selectedEquipment;
+    String selectedMetricType = 'weightReps';
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New Exercise'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Exercise Name',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('New Exercise'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'Exercise Name'),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: bodyPartController,
-                decoration: const InputDecoration(
-                  labelText: 'Body Part',
-                  hintText: 'e.g. Chest, Back, Legs',
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedBodyPart,
+                  decoration: const InputDecoration(labelText: 'Body Part'),
+                  dropdownColor: OneRepColors.surfaceElevated,
+                  items: _bodyParts
+                      .map((bp) => DropdownMenuItem(value: bp, child: Text(bp)))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => selectedBodyPart = v),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: equipmentController,
-                decoration: const InputDecoration(
-                  labelText: 'Equipment',
-                  hintText: 'e.g. Barbell, Dumbbell',
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedEquipment,
+                  decoration: const InputDecoration(labelText: 'Equipment'),
+                  dropdownColor: OneRepColors.surfaceElevated,
+                  items: _equipment
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (v) => setDialogState(() => selectedEquipment = v),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedMetricType,
+                  decoration: const InputDecoration(labelText: 'Metric Type'),
+                  dropdownColor: OneRepColors.surfaceElevated,
+                  items: _metricTypes
+                      .map((mt) => DropdownMenuItem(
+                            value: mt.$1,
+                            child: Text(mt.$2),
+                          ))
+                      .toList(),
+                  onChanged: (v) =>
+                      setDialogState(() => selectedMetricType = v ?? 'weightReps'),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isNotEmpty &&
+                    selectedBodyPart != null &&
+                    selectedEquipment != null) {
+                  await ref
+                      .read(exerciseRepositoryProvider.notifier)
+                      .addExercise(
+                        nameController.text,
+                        selectedBodyPart!,
+                        selectedEquipment!,
+                        metricType: selectedMetricType,
+                      );
+
+                  final prCount = await ref
+                      .read(personalBestRepositoryProvider.notifier)
+                      .getTotalPrCount();
+
+                  await ref
+                      .read(badgeServiceProvider.notifier)
+                      .evaluateAll(totalPrCount: prCount);
+
+                  if (context.mounted) Navigator.pop(context);
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isNotEmpty) {
-                await ref
-                    .read(exerciseRepositoryProvider.notifier)
-                    .addExercise(
-                      nameController.text,
-                      bodyPartController.text,
-                      equipmentController.text,
-                    );
-
-                final prCount = await ref
-                    .read(personalBestRepositoryProvider.notifier)
-                    .getTotalPrCount();
-
-                await ref
-                    .read(badgeServiceProvider.notifier)
-                    .evaluateAll(totalPrCount: prCount);
-
-                if (context.mounted) Navigator.pop(context);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Library list item — either a section header or an exercise card
+// ---------------------------------------------------------------------------
+
+class _LibraryItem {
+  final bool isHeader;
+  final String? header;
+  final dynamic exercise;
+
+  const _LibraryItem._({required this.isHeader, this.header, this.exercise});
+
+  factory _LibraryItem.header(String title) =>
+      _LibraryItem._(isHeader: true, header: title);
+
+  factory _LibraryItem.exercise(dynamic ex) =>
+      _LibraryItem._(isHeader: false, exercise: ex);
 }
 
 // ---------------------------------------------------------------------------
