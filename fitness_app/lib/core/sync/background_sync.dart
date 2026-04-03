@@ -34,10 +34,7 @@ void callbackDispatcher() {
 /// Register the periodic background sync task.
 /// Call once on app startup after Supabase.initialize().
 Future<void> registerBackgroundSync() async {
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: false,
-  );
+  await Workmanager().initialize(callbackDispatcher);
 
   await Workmanager().registerPeriodicTask(
     kWeeklySyncTask,

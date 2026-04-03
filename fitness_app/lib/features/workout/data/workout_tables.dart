@@ -19,16 +19,11 @@ class Exercises extends Table {
   TextColumn get equipmentType => text()();
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
   TextColumn get notes => text().nullable()();
-<<<<<<< HEAD
-  // Sync columns — only used for custom exercises (isCustom == true).
-  // Seeded default exercises are global and never synced per-user.
-=======
   // metricType — one of: weightReps, timeOnly, distanceTime, bodyweightReps
   // Defaults to weightReps so existing exercises are unaffected.
   TextColumn get metricType =>
       text().withDefault(const Constant('weightReps'))();
   // Sync columns — only used for custom exercises (isCustom == true).
->>>>>>> develop
   TextColumn get remoteId => text().nullable()();
   TextColumn get userId => text().nullable()();
   DateTimeColumn get syncedAt => dateTime().nullable()();
@@ -152,37 +147,6 @@ class Badges extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get badgeKey => text().unique()();
   DateTimeColumn get earnedAt => dateTime().nullable()();
-  TextColumn get remoteId => text().nullable()();
-  TextColumn get userId => text().nullable()();
-  DateTimeColumn get syncedAt => dateTime().nullable()();
-  DateTimeColumn get deletedAt => dateTime().nullable()();
-}
-
-// THE RECORD: Best weight ever lifted for a given exercise + rep count.
-class PersonalBests extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get exerciseId => integer().references(Exercises, #id)();
-  IntColumn get reps => integer()();
-  RealColumn get weight => real()();
-  DateTimeColumn get achievedAt => dateTime()();
-  // Sync columns
-  TextColumn get remoteId => text().nullable()();
-  TextColumn get userId => text().nullable()();
-  DateTimeColumn get syncedAt => dateTime().nullable()();
-  DateTimeColumn get deletedAt => dateTime().nullable()();
-
-  @override
-  List<Set<Column>> get uniqueKeys => [
-        {exerciseId, reps},
-      ];
-}
-
-// THE ACHIEVEMENT: A badge earned (or not yet earned) by the user.
-class Badges extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  TextColumn get badgeKey => text().unique()();
-  DateTimeColumn get earnedAt => dateTime().nullable()();
-  // Sync columns
   TextColumn get remoteId => text().nullable()();
   TextColumn get userId => text().nullable()();
   DateTimeColumn get syncedAt => dateTime().nullable()();

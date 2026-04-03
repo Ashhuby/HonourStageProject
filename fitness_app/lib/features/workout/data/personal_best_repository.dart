@@ -7,11 +7,6 @@ import 'package:fitness_app/core/database/local_database.dart';
 part 'personal_best_repository.g.dart';
 
 // ---------------------------------------------------------------------------
-<<<<<<< HEAD
-// Data class returned to the UI when a new PR is detected.
-// Kept separate from the Drift-generated PersonalBest row so the UI layer
-// has a clean, intention-revealing type to pattern-match on.
-=======
 // Metric type constants — mirrors workout_tables.dart metricType values.
 // ---------------------------------------------------------------------------
 class MetricType {
@@ -24,15 +19,10 @@ class MetricType {
 // ---------------------------------------------------------------------------
 // PrResult — returned to UI when a new PR is detected.
 // Fields are nullable because different metric types populate different fields.
->>>>>>> develop
 // ---------------------------------------------------------------------------
 class PrResult {
   final int exerciseId;
   final String exerciseName;
-<<<<<<< HEAD
-  final double weight;
-  final int reps;
-=======
   final String metricType;
   // weightReps / bodyweightReps
   final double? weight;
@@ -41,16 +31,10 @@ class PrResult {
   final int? durationSeconds;
   // distanceTime
   final double? distanceMetres;
->>>>>>> develop
 
   const PrResult({
     required this.exerciseId,
     required this.exerciseName,
-<<<<<<< HEAD
-    required this.weight,
-    required this.reps,
-  });
-=======
     required this.metricType,
     this.weight,
     this.reps,
@@ -86,18 +70,12 @@ class PrResult {
         return '${weight ?? 0}kg × ${reps ?? 0} reps';
     }
   }
->>>>>>> develop
 }
 
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
 
-<<<<<<< HEAD
-/// Watches all PRs for a single exercise, ordered by rep count ascending.
-/// Used on the exercise detail / progress screen.
-=======
->>>>>>> develop
 @riverpod
 Stream<List<PersonalBest>> watchPrsForExercise(Ref ref, int exerciseId) {
   final db = ref.watch(databaseProvider);
@@ -108,11 +86,6 @@ Stream<List<PersonalBest>> watchPrsForExercise(Ref ref, int exerciseId) {
       .watch();
 }
 
-<<<<<<< HEAD
-/// Returns the single heaviest PR for an exercise regardless of rep count.
-/// "Best lift" for use in strength percentile benchmarking.
-=======
->>>>>>> develop
 @riverpod
 Future<PersonalBest?> getBestLiftForExercise(Ref ref, int exerciseId) async {
   final db = ref.watch(databaseProvider);
@@ -124,11 +97,6 @@ Future<PersonalBest?> getBestLiftForExercise(Ref ref, int exerciseId) async {
       .getSingleOrNull();
 }
 
-<<<<<<< HEAD
-/// Watches all PRs across all exercises. Used on the badges screen to count
-/// total PRs earned (for the 'pr_10' badge trigger).
-=======
->>>>>>> develop
 @riverpod
 Stream<List<PersonalBest>> watchAllPrs(Ref ref) {
   final db = ref.watch(databaseProvider);
@@ -146,22 +114,6 @@ class PersonalBestRepository extends _$PersonalBestRepository {
   @override
   void build() {}
 
-<<<<<<< HEAD
-  /// Core PR detection algorithm.
-  ///
-  /// Checks whether [weight] at [reps] for [exerciseId] beats the existing
-  /// record (if any). If it does, upserts the new PR and returns a [PrResult]
-  /// so the caller can notify the user. Returns null if no PR was set.
-  ///
-  /// Definition: a PR is the highest weight lifted for a SPECIFIC rep count.
-  /// 100kg x 5 reps and 80kg x 10 reps are tracked independently.
-  /// Rationale: conflating rep counts (e.g. using 1RM equivalence formulas)
-  /// introduces estimation error and confuses users. Direct comparison is
-  /// unambiguous and matches how athletes naturally think about PRs.
-  Future<PrResult?> checkAndSavePr({
-    required int exerciseId,
-    required String exerciseName,
-=======
   /// Master PR check — routes to the correct algorithm based on metricType.
   Future<PrResult?> checkAndSavePr({
     required int exerciseId,
@@ -225,40 +177,17 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     required int exerciseId,
     required String exerciseName,
     required String metricType,
->>>>>>> develop
     required double weight,
     required int reps,
   }) async {
     final db = ref.read(databaseProvider);
 
-<<<<<<< HEAD
-    // Fetch the existing PR for this exact (exercise, reps) combination.
-=======
->>>>>>> develop
     final existing = await (db.select(db.personalBests)
           ..where((pb) => pb.exerciseId.equals(exerciseId))
           ..where((pb) => pb.reps.equals(reps))
           ..where((pb) => pb.deletedAt.isNull()))
         .getSingleOrNull();
 
-<<<<<<< HEAD
-    // No PR exists yet for this rep count — any completed set is a PR.
-    // Weight is beaten — strictly greater than, not equal.
-    // Equal weight at same reps is not a new PR; it's a match.
-    final isNewPr = existing == null || weight > existing.weight;
-
-    if (!isNewPr) return null;
-
-    // Upsert: insert if no row exists for (exerciseId, reps),
-    // update weight + achievedAt if the new weight is better.
-    // The unique constraint on (exerciseId, reps) defined in workout_tables.dart
-    // makes this a clean single-statement operation.
-    await db.into(db.personalBests).insert(
-      PersonalBestsCompanion.insert(
-        exerciseId: exerciseId,
-        reps: reps,
-        weight: weight,
-=======
     final isNewPr = existing == null || weight > existing.weight;
     if (!isNewPr) return null;
 
@@ -268,7 +197,6 @@ class PersonalBestRepository extends _$PersonalBestRepository {
         reps: Value(reps),
         weight: Value(weight),
         metricType: Value(metricType),
->>>>>>> develop
         achievedAt: DateTime.now(),
       ),
       onConflict: DoUpdate(
@@ -279,27 +207,16 @@ class PersonalBestRepository extends _$PersonalBestRepository {
         target: [db.personalBests.exerciseId, db.personalBests.reps],
       ),
     );
-<<<<<<< HEAD
-    
-=======
->>>>>>> develop
 
     return PrResult(
       exerciseId: exerciseId,
       exerciseName: exerciseName,
-<<<<<<< HEAD
-=======
       metricType: metricType,
->>>>>>> develop
       weight: weight,
       reps: reps,
     );
   }
 
-<<<<<<< HEAD
-  /// Returns the total count of all-time PRs set across all exercises.
-  /// Used by BadgeService to evaluate the 'first_pr' and 'pr_10' triggers.
-=======
   // ---------------------------------------------------------------------------
   // bodyweightReps — most reps in a single set (no added weight)
   // Uses reps=0 as the unique key slot (sentinel for "max reps" record)
@@ -328,7 +245,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
         exerciseId: exerciseId,
         reps: Value(reps),
         weight: const Value(0.0),
-        metricType: Value(MetricType.bodyweightReps),
+        metricType: const Value(MetricType.bodyweightReps),
         achievedAt: DateTime.now(),
       ),
       onConflict: DoUpdate(
@@ -377,7 +294,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
         reps: const Value(0),
         weight: const Value(0.0),
         durationSeconds: Value(durationSeconds),
-        metricType: Value(MetricType.timeOnly),
+        metricType: const Value(MetricType.timeOnly),
         achievedAt: DateTime.now(),
       ),
       onConflict: DoUpdate(
@@ -430,7 +347,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
         weight: const Value(0.0),
         durationSeconds: Value(durationSeconds),
         distanceMetres: Value(distanceMetres),
-        metricType: Value(MetricType.distanceTime),
+        metricType: const Value(MetricType.distanceTime),
         achievedAt: DateTime.now(),
       ),
       onConflict: DoUpdate(
@@ -451,7 +368,6 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     );
   }
 
->>>>>>> develop
   Future<int> getTotalPrCount() async {
     final db = ref.read(databaseProvider);
     final countExpr = db.personalBests.id.count();

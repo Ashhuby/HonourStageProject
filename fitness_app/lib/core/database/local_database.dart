@@ -25,11 +25,7 @@ class AppDatabase extends _$AppDatabase {
   final bool _isTesting;
 
   @override
-<<<<<<< HEAD
-  int get schemaVersion => 5;
-=======
   int get schemaVersion => 6;
->>>>>>> develop
 
   @override
   MigrationStrategy get migration {
@@ -37,44 +33,7 @@ class AppDatabase extends _$AppDatabase {
       onCreate: (Migrator m) async {
         await m.createAll();
         if (!_isTesting) {
-<<<<<<< HEAD
-          await batch((b) {
-            b.insertAll(exercises, [
-              ExercisesCompanion.insert(
-                name: 'Bench Press',
-                bodyPart: 'Chest',
-                equipmentType: 'Barbell',
-              ),
-              ExercisesCompanion.insert(
-                name: 'Squat',
-                bodyPart: 'Legs',
-                equipmentType: 'Barbell',
-              ),
-              ExercisesCompanion.insert(
-                name: 'Deadlift',
-                bodyPart: 'Back',
-                equipmentType: 'Barbell',
-              ),
-              ExercisesCompanion.insert(
-                name: 'Shoulder Press',
-                bodyPart: 'Shoulders',
-                equipmentType: 'Dumbbell',
-              ),
-              ExercisesCompanion.insert(
-                name: 'Overhead Press',
-                bodyPart: 'Shoulders',
-                equipmentType: 'Barbell',
-              ),
-              ExercisesCompanion.insert(
-                name: 'Barbell Row',
-                bodyPart: 'Back',
-                equipmentType: 'Barbell',
-              ),
-            ]);
-          });
-=======
           await _seedExercises();
->>>>>>> develop
           await _seedBadges();
         }
       },
@@ -110,24 +69,6 @@ class AppDatabase extends _$AppDatabase {
           await _seedBadges();
         }
         if (from < 5) {
-<<<<<<< HEAD
-          // Add sync columns to Exercises for custom exercise sync support.
-          // Using raw SQL because m.addColumn requires GeneratedColumn types
-          // from codegen, but these columns are new and not yet in the
-          // generated file at migration time.
-          await customStatement(
-            'ALTER TABLE exercises ADD COLUMN remote_id TEXT',
-          );
-          await customStatement(
-            'ALTER TABLE exercises ADD COLUMN user_id TEXT',
-          );
-          await customStatement(
-            'ALTER TABLE exercises ADD COLUMN synced_at INTEGER',
-          );
-          await customStatement(
-            'ALTER TABLE exercises ADD COLUMN deleted_at INTEGER',
-          );
-=======
           await customStatement(
               'ALTER TABLE exercises ADD COLUMN remote_id TEXT');
           await customStatement(
@@ -166,7 +107,6 @@ class AppDatabase extends _$AppDatabase {
           // insertOnConflictUpdate on name means existing exercises are
           // updated with the new metricType but not duplicated.
           await _seedExercises();
->>>>>>> develop
         }
       },
       beforeOpen: (details) async {
@@ -175,8 +115,6 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-<<<<<<< HEAD
-=======
   Future<void> _seedExercises() async {
     // Helper — insert or update by name
     Future<void> seed(String name, String bodyPart, String equipment,
@@ -247,7 +185,6 @@ class AppDatabase extends _$AppDatabase {
     await seed('Dead Hang', 'Back', 'Body Weight', 'timeOnly');
   }
 
->>>>>>> develop
   Future<void> _seedBadges() async {
     const badgeKeys = [
       'first_workout',

@@ -68,15 +68,12 @@ class SyncService {
       errors.add('badges: $e');
     }
 
-<<<<<<< HEAD
-=======
     try {
       uploaded += await _syncCustomExercises(userId);
     } catch (e) {
       errors.add('customExercises: $e');
     }
 
->>>>>>> develop
     return SyncResult(
       uploaded: uploaded,
       errors: errors,
@@ -375,8 +372,6 @@ class SyncService {
   // add noise to Supabase with no value.
   // The UNIQUE (user_id, badge_key) constraint handles conflict resolution.
 
-<<<<<<< HEAD
-=======
   // ---------------------------------------------------------------------------
   // Custom Exercises
   // ---------------------------------------------------------------------------
@@ -422,7 +417,6 @@ class SyncService {
     return dirty.length;
   }
 
->>>>>>> develop
   Future<int> _syncBadges(String userId) async {
     final dirty = await (db.select(db.badges)
           ..where((b) => b.syncedAt.isNull())
@@ -471,14 +465,11 @@ class SyncService {
       await db.delete(db.workoutSplits).go();
       await db.delete(db.personalBests).go();
 
-<<<<<<< HEAD
-=======
       // Delete custom exercises — seeded exercises (isCustom == false) stay.
       await (db.delete(db.exercises)
             ..where((e) => e.isCustom.equals(true)))
           .go();
 
->>>>>>> develop
       await db.update(db.badges).write(const BadgesCompanion(
         earnedAt: Value(null),
         remoteId: Value(null),
@@ -503,10 +494,7 @@ class SyncService {
     await _downloadSets(userId);
     await _downloadPersonalBests(userId);
     await _downloadBadges(userId);
-<<<<<<< HEAD
-=======
     await _downloadCustomExercises(userId);
->>>>>>> develop
   }
 
   Future<void> _downloadSplits(String userId) async {
@@ -632,13 +620,8 @@ class SyncService {
             WorkoutSetsCompanion.insert(
               sessionId: session.id,
               exerciseId: row['exercise_id'] as int,
-<<<<<<< HEAD
-              weight: (row['weight'] as num).toDouble(),
-              reps: row['reps'] as int,
-=======
               weight: Value((row['weight'] as num).toDouble()),
               reps: Value(row['reps'] as int),
->>>>>>> develop
               isCompleted: Value(row['is_completed'] as bool? ?? false),
               timestamp: Value(row['timestamp'] != null
                   ? DateTime.parse(row['timestamp'] as String)
@@ -662,13 +645,8 @@ class SyncService {
       await db.into(db.personalBests).insertOnConflictUpdate(
             PersonalBestsCompanion.insert(
               exerciseId: row['exercise_id'] as int,
-<<<<<<< HEAD
-              reps: row['reps'] as int,
-              weight: (row['weight'] as num).toDouble(),
-=======
               reps: Value(row['reps'] as int),
               weight: Value((row['weight'] as num).toDouble()),
->>>>>>> develop
               achievedAt: DateTime.parse(row['achieved_at'] as String),
               remoteId: Value(row['id'] as String),
               userId: Value(userId),
@@ -678,8 +656,6 @@ class SyncService {
     }
   }
 
-<<<<<<< HEAD
-=======
   Future<void> _downloadCustomExercises(String userId) async {
     final rows = await supabase
         .from('exercises')
@@ -703,7 +679,6 @@ class SyncService {
     }
   }
 
->>>>>>> develop
   Future<void> _downloadBadges(String userId) async {
     final rows = await supabase
         .from('badges')
