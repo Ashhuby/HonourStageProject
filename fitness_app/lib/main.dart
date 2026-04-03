@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/sync/background_sync.dart';
 import 'features/auth/presentation/auth_screen.dart';
+import 'features/auth/presentation/splash_screen.dart';
 import 'features/auth/providers/auth_providers.dart';
 import 'features/workout/presentation/home_screen.dart';
 
@@ -74,7 +75,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'One Rep',
       theme: _buildTheme(),
-      home: const AuthGate(),
+      home: const SplashScreen(child: AuthGate()),
     );
   }
 
