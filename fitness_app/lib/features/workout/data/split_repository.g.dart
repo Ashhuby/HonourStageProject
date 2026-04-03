@@ -7,7 +7,7 @@ part of 'split_repository.dart';
 // **************************************************************************
 
 String _$watchExercisesForRoutineWithNamesHash() =>
-    r'9eb07be70362f3e222faf10fc8012ccb3a0919bb';
+    r'8acfebd78ddbc858cfb45ffeec9a5600a5043111';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -434,7 +434,7 @@ class _WatchExercisesForRoutineProviderElement
   int get routineId => (origin as WatchExercisesForRoutineProvider).routineId;
 }
 
-String _$splitRepositoryHash() => r'04be9467f14f7720292927ac33c10710d7f97bfc';
+String _$splitRepositoryHash() => r'96c078d37c3201e19fe0ae493ffcd2905cb0520d';
 
 /// See also [SplitRepository].
 @ProviderFor(SplitRepository)

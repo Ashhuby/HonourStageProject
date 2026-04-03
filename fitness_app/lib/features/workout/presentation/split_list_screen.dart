@@ -14,7 +14,7 @@ class SplitListScreen extends ConsumerWidget {
     return Scaffold(
       body: splitsAsync.when(
         data: (splits) => splits.isEmpty
-            ? _EmptyState(
+            ? const _EmptyState(
                 icon: Icons.view_week_outlined,
                 message: 'No splits yet.',
                 sub: 'Create a training split to organise your workouts.',

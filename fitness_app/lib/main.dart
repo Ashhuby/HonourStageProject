@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/sync/background_sync.dart';
 import 'features/auth/presentation/auth_screen.dart';
+import 'features/auth/presentation/splash_screen.dart';
 import 'features/auth/providers/auth_providers.dart';
 import 'features/workout/presentation/home_screen.dart';
 
@@ -74,7 +75,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'One Rep',
       theme: _buildTheme(),
-      home: const AuthGate(),
+      home: const SplashScreen(child: AuthGate()),
     );
   }
 
@@ -83,7 +84,7 @@ class MyApp extends StatelessWidget {
     const surface = OneRepColors.surface;
     const accent = OneRepColors.accent;
 
-    final colorScheme = ColorScheme.dark(
+    const colorScheme = ColorScheme.dark(
       brightness: Brightness.dark,
       primary: accent,
       onPrimary: OneRepColors.background,
@@ -125,18 +126,18 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      tabBarTheme: TabBarThemeData(
+      tabBarTheme: const TabBarThemeData(
         labelColor: OneRepColors.gold,
         unselectedLabelColor: OneRepColors.textSecondary,
         indicatorColor: OneRepColors.gold,
         indicatorSize: TabBarIndicatorSize.label,
         dividerColor: OneRepColors.surfaceElevated,
-        labelStyle: const TextStyle(
+        labelStyle: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
         ),
-        unselectedLabelStyle: const TextStyle(fontSize: 11),
+        unselectedLabelStyle: TextStyle(fontSize: 11),
       ),
 
       cardTheme: CardThemeData(

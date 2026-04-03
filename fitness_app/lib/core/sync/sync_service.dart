@@ -68,6 +68,12 @@ class SyncService {
       errors.add('badges: $e');
     }
 
+    try {
+      uploaded += await _syncCustomExercises(userId);
+    } catch (e) {
+      errors.add('customExercises: $e');
+    }
+
     return SyncResult(
       uploaded: uploaded,
       errors: errors,
@@ -366,6 +372,51 @@ class SyncService {
   // add noise to Supabase with no value.
   // The UNIQUE (user_id, badge_key) constraint handles conflict resolution.
 
+  // ---------------------------------------------------------------------------
+  // Custom Exercises
+  // ---------------------------------------------------------------------------
+  // Only syncs exercises where isCustom == true — seeded exercises are
+  // identical for all users and do not need to be synced per-user.
+
+  Future<int> _syncCustomExercises(String userId) async {
+    final dirty = await (db.select(db.exercises)
+          ..where((e) => e.isCustom.equals(true))
+          ..where((e) => e.syncedAt.isNull()))
+        .get();
+
+    for (final exercise in dirty) {
+      final remoteId = exercise.remoteId ?? _uuid.v4();
+
+      await supabase.from('exercises').upsert({
+        'id': remoteId,
+        'user_id': userId,
+        'local_id': exercise.id,
+        'name': exercise.name,
+        'body_part': exercise.bodyPart,
+        'equipment_type': exercise.equipmentType,
+        'notes': exercise.notes,
+        'deleted_at': exercise.deletedAt?.toIso8601String(),
+        'synced_at': DateTime.now().toIso8601String(),
+      });
+
+      await (db.update(db.exercises)
+            ..where((e) => e.id.equals(exercise.id)))
+          .write(ExercisesCompanion(
+        remoteId: Value(remoteId),
+        userId: Value(userId),
+        syncedAt: Value(DateTime.now()),
+      ));
+
+      if (exercise.deletedAt != null) {
+        await (db.delete(db.exercises)
+              ..where((e) => e.id.equals(exercise.id)))
+            .go();
+      }
+    }
+
+    return dirty.length;
+  }
+
   Future<int> _syncBadges(String userId) async {
     final dirty = await (db.select(db.badges)
           ..where((b) => b.syncedAt.isNull())
@@ -414,6 +465,11 @@ class SyncService {
       await db.delete(db.workoutSplits).go();
       await db.delete(db.personalBests).go();
 
+      // Delete custom exercises — seeded exercises (isCustom == false) stay.
+      await (db.delete(db.exercises)
+            ..where((e) => e.isCustom.equals(true)))
+          .go();
+
       await db.update(db.badges).write(const BadgesCompanion(
         earnedAt: Value(null),
         remoteId: Value(null),
@@ -438,6 +494,7 @@ class SyncService {
     await _downloadSets(userId);
     await _downloadPersonalBests(userId);
     await _downloadBadges(userId);
+    await _downloadCustomExercises(userId);
   }
 
   Future<void> _downloadSplits(String userId) async {
@@ -563,8 +620,8 @@ class SyncService {
             WorkoutSetsCompanion.insert(
               sessionId: session.id,
               exerciseId: row['exercise_id'] as int,
-              weight: (row['weight'] as num).toDouble(),
-              reps: row['reps'] as int,
+              weight: Value((row['weight'] as num).toDouble()),
+              reps: Value(row['reps'] as int),
               isCompleted: Value(row['is_completed'] as bool? ?? false),
               timestamp: Value(row['timestamp'] != null
                   ? DateTime.parse(row['timestamp'] as String)
@@ -588,9 +645,32 @@ class SyncService {
       await db.into(db.personalBests).insertOnConflictUpdate(
             PersonalBestsCompanion.insert(
               exerciseId: row['exercise_id'] as int,
-              reps: row['reps'] as int,
-              weight: (row['weight'] as num).toDouble(),
+              reps: Value(row['reps'] as int),
+              weight: Value((row['weight'] as num).toDouble()),
               achievedAt: DateTime.parse(row['achieved_at'] as String),
+              remoteId: Value(row['id'] as String),
+              userId: Value(userId),
+              syncedAt: Value(DateTime.now()),
+            ),
+          );
+    }
+  }
+
+  Future<void> _downloadCustomExercises(String userId) async {
+    final rows = await supabase
+        .from('exercises')
+        .select()
+        .eq('user_id', userId)
+        .isFilter('deleted_at', null);
+
+    for (final row in rows) {
+      await db.into(db.exercises).insertOnConflictUpdate(
+            ExercisesCompanion.insert(
+              name: row['name'] as String,
+              bodyPart: row['body_part'] as String,
+              equipmentType: row['equipment_type'] as String,
+              isCustom: const Value(true),
+              notes: Value(row['notes'] as String?),
               remoteId: Value(row['id'] as String),
               userId: Value(userId),
               syncedAt: Value(DateTime.now()),

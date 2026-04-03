@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import 'package:fitness_app/core/database/local_database.dart';
 import '../../../main.dart';
 import '../data/session_repository.dart';
 import '../data/exercise_repository.dart';
+import '../../../core/database/database_provider.dart';
 
 class ProgressScreen extends ConsumerStatefulWidget {
   const ProgressScreen({super.key});
@@ -92,14 +94,14 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
         ),
 
         // ----------------------------------------------------------------
-        // Volume tracker
+        // PR Progression tracker
         // ----------------------------------------------------------------
-        const _SectionLabel(title: 'VOLUME TRACKER'),
+        const _SectionLabel(title: 'PR PROGRESSION'),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: exercisesAsync.when(
             data: (exercises) => DropdownButtonFormField<Exercise>(
-              value: _selectedExercise,
+              initialValue: _selectedExercise,
               decoration: const InputDecoration(
                 labelText: 'Select Exercise',
                 prefixIcon: Icon(Icons.fitness_center, size: 18),
@@ -121,7 +123,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
         ),
         const SizedBox(height: 12),
         if (_selectedExercise != null)
-          _VolumeChart(exerciseId: _selectedExercise!.id),
+          _PrChart(exercise: _selectedExercise!),
 
         // ----------------------------------------------------------------
         // Session history
@@ -146,9 +148,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   itemCount: sessions.length,
                   itemBuilder: (context, index) {
                     final session = sessions[index];
-                    final duration = session.endTime != null
-                        ? session.endTime!.difference(session.startTime)
-                        : null;
+                    final duration = session.endTime?.difference(session.startTime);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _SessionRow(
@@ -491,148 +491,258 @@ class _AttendanceHeatmap extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Volume chart
+// PR Progression chart — plots best performance over time for an exercise.
+// For weightReps: shows heaviest weight across all rep counts per session.
+// For timeOnly: shows longest duration per session.
+// For distanceTime: shows fastest time for any distance per session.
+// For bodyweightReps: shows most reps in a single set per session.
 // ---------------------------------------------------------------------------
 
-class _VolumeChart extends ConsumerWidget {
-  final int exerciseId;
+class _PrChart extends ConsumerWidget {
+  final Exercise exercise;
 
-  const _VolumeChart({required this.exerciseId});
+  const _PrChart({required this.exercise});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final volumeAsync = ref.watch(getVolumeForExerciseProvider(exerciseId));
+    final db = ref.watch(databaseProvider);
 
-    return SizedBox(
-      height: 200,
-      child: volumeAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Error: $err')),
-        data: (dataPoints) {
-          if (dataPoints.isEmpty) {
-            return const Center(
+    return FutureBuilder(
+      future: _loadPrHistory(db, exercise),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final points = snapshot.data ?? [];
+        if (points.isEmpty) {
+          return const SizedBox(
+            height: 80,
+            child: Center(
               child: Text(
-                'No data yet for this exercise.',
+                'No PRs recorded yet for this exercise.',
                 style: TextStyle(color: OneRepColors.textSecondary),
               ),
-            );
-          }
+            ),
+          );
+        }
 
-          final sorted = [...dataPoints]
-            ..sort((a, b) => a.date.compareTo(b.date));
+        final metricType = exercise.metricType;
+        final yLabel = _yAxisLabel(metricType);
 
-          final spots = sorted.asMap().entries
-              .map((e) => FlSpot(
-                    e.key.toDouble(),
-                    e.value.totalVolume,
-                  ))
-              .toList();
+        final spots = points.asMap().entries
+            .map((e) => FlSpot(e.key.toDouble(), e.value.value))
+            .toList();
 
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  getDrawingHorizontalLine: (_) => const FlLine(
-                    color: OneRepColors.surfaceElevated,
-                    strokeWidth: 1,
-                  ),
-                  getDrawingVerticalLine: (_) => const FlLine(
-                    color: Colors.transparent,
-                    strokeWidth: 0,
-                  ),
+        final minY = spots.map((s) => s.y).reduce((a, b) => a < b ? a : b);
+        final maxY = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
+        final padding = (maxY - minY) * 0.15;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Text(
+                yLabel,
+                style: const TextStyle(
+                  color: OneRepColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
                 ),
-                titlesData: FlTitlesData(
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        final index = value.toInt();
-                        if (index < 0 || index >= sorted.length) {
-                          return const SizedBox();
-                        }
-                        final date = sorted[index].date;
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            '${date.day}/${date.month}',
+              ),
+            ),
+            SizedBox(
+              height: 200,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
+                child: LineChart(
+                  LineChartData(
+                    minY: (minY - padding).clamp(0, double.infinity),
+                    maxY: maxY + padding,
+                    gridData: FlGridData(
+                      show: true,
+                      getDrawingHorizontalLine: (_) => const FlLine(
+                        color: OneRepColors.surfaceElevated,
+                        strokeWidth: 1,
+                      ),
+                      getDrawingVerticalLine: (_) => const FlLine(
+                        color: Colors.transparent,
+                        strokeWidth: 0,
+                      ),
+                    ),
+                    titlesData: FlTitlesData(
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          interval: (points.length / 5).ceilToDouble().clamp(1, double.infinity),
+                          getTitlesWidget: (value, meta) {
+                            final index = value.toInt();
+                            if (index < 0 || index >= points.length) {
+                              return const SizedBox();
+                            }
+                            final date = points[index].date;
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                '${date.day}/${date.month}',
+                                style: const TextStyle(
+                                  color: OneRepColors.textSecondary,
+                                  fontSize: 9,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 44,
+                          getTitlesWidget: (value, meta) => Text(
+                            _formatYValue(value, metricType),
                             style: const TextStyle(
                               color: OneRepColors.textSecondary,
                               fontSize: 9,
                             ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 44,
-                      getTitlesWidget: (value, meta) => Text(
-                        '${value.toInt()}',
-                        style: const TextStyle(
-                          color: OneRepColors.textSecondary,
-                          fontSize: 9,
                         ),
                       ),
-                    ),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                ),
-                borderData: FlBorderData(
-                  show: true,
-                  border: const Border(
-                    bottom: BorderSide(
-                      color: OneRepColors.surfaceElevated,
-                    ),
-                    left: BorderSide(
-                      color: OneRepColors.surfaceElevated,
-                    ),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    color: OneRepColors.gold,
-                    barWidth: 2.5,
-                    dotData: FlDotData(
-                      getDotPainter: (spot, percent, bar, index) =>
-                          FlDotCirclePainter(
-                        radius: 3,
-                        color: OneRepColors.gold,
-                        strokeColor: OneRepColors.background,
-                        strokeWidth: 1.5,
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
                       ),
                     ),
-                    belowBarData: BarAreaData(
+                    borderData: FlBorderData(
                       show: true,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          OneRepColors.gold.withValues(alpha: 0.2),
-                          OneRepColors.gold.withValues(alpha: 0.0),
-                        ],
+                      border: const Border(
+                        bottom: BorderSide(color: OneRepColors.surfaceElevated),
+                        left: BorderSide(color: OneRepColors.surfaceElevated),
                       ),
                     ),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: spots,
+                        isCurved: false,
+                        color: OneRepColors.gold,
+                        barWidth: 2,
+                        dotData: FlDotData(
+                          getDotPainter: (spot, percent, bar, index) =>
+                              FlDotCirclePainter(
+                            radius: 4,
+                            color: OneRepColors.gold,
+                            strokeColor: OneRepColors.background,
+                            strokeWidth: 1.5,
+                          ),
+                        ),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              OneRepColors.gold.withValues(alpha: 0.2),
+                              OneRepColors.gold.withValues(alpha: 0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          );
-        },
-      ),
+          ],
+        );
+      },
     );
   }
+
+  String _yAxisLabel(String metricType) {
+    return switch (metricType) {
+      'timeOnly' => 'DURATION (seconds)',
+      'distanceTime' => 'BEST TIME (seconds)',
+      'bodyweightReps' => 'MAX REPS',
+      _ => 'BEST WEIGHT (kg)',
+    };
+  }
+
+  String _formatYValue(double value, String metricType) {
+    if (metricType == 'timeOnly' || metricType == 'distanceTime') {
+      final secs = value.toInt();
+      final m = secs ~/ 60;
+      final s = secs % 60;
+      return m > 0 ? '${m}m${s}s' : '${s}s';
+    }
+    return '${value.toInt()}';
+  }
+
+  Future<List<_PrPoint>> _loadPrHistory(
+      AppDatabase db, Exercise exercise) async {
+    // Fetch all sets for this exercise that have a non-zero performance value,
+    // grouped by session date. Plot the best value per session date.
+    final query = db.select(db.workoutSets).join([
+      innerJoin(
+        db.workoutSessions,
+        db.workoutSessions.id.equalsExp(db.workoutSets.sessionId),
+      ),
+    ])
+      ..where(db.workoutSets.exerciseId.equals(exercise.id))
+      ..where(db.workoutSessions.endTime.isNotNull())
+      ..where(db.workoutSessions.deletedAt.isNull())
+      ..where(db.workoutSets.deletedAt.isNull())
+      ..orderBy([OrderingTerm.asc(db.workoutSessions.startTime)]);
+
+    final rows = await query.get();
+
+    final Map<String, double> bestPerDay = {};
+    final Map<String, DateTime> dateByKey = {};
+
+    for (final row in rows) {
+      final set = row.readTable(db.workoutSets);
+      final session = row.readTable(db.workoutSessions);
+      final day =
+          '${session.startTime.year}-${session.startTime.month.toString().padLeft(2, '0')}-${session.startTime.day.toString().padLeft(2, '0')}';
+      dateByKey[day] = session.startTime;
+
+      double value;
+      switch (exercise.metricType) {
+        case 'timeOnly':
+          value = (set.durationSeconds ?? 0).toDouble();
+        case 'distanceTime':
+          // Lower is better — store as negative so chart trends upward
+          final secs = set.durationSeconds ?? 0;
+          value = secs > 0 ? secs.toDouble() : 0;
+        case 'bodyweightReps':
+          value = set.reps.toDouble();
+        default: // weightReps
+          value = set.weight;
+      }
+
+      if (value > 0) {
+        final existing = bestPerDay[day] ?? 0;
+        if (value > existing) bestPerDay[day] = value;
+      }
+    }
+
+    final sorted = bestPerDay.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return sorted
+        .map((e) => _PrPoint(date: dateByKey[e.key]!, value: e.value))
+        .toList();
+  }
+}
+
+class _PrPoint {
+  final DateTime date;
+  final double value;
+  const _PrPoint({required this.date, required this.value});
 }
 
 // ---------------------------------------------------------------------------
@@ -783,7 +893,7 @@ class SessionDetailSheet extends ConsumerWidget {
                                   ),
                                   const SizedBox(width: 10),
                                   Text(
-                                    '${set.set.weight}kg × ${set.set.reps} reps',
+                                    _formatSet(set.set),
                                     style: const TextStyle(
                                       color: OneRepColors.textPrimary,
                                       fontSize: 14,
@@ -808,6 +918,27 @@ class SessionDetailSheet extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _formatSet(WorkoutSet set) {
+    if (set.durationSeconds != null) {
+      final secs = set.durationSeconds!;
+      final m = secs ~/ 60;
+      final s = secs % 60;
+      final timeStr = m > 0
+          ? '${m}m ${s.toString().padLeft(2, '0')}s'
+          : '${s}s';
+      if (set.distanceMetres != null && set.distanceMetres! > 0) {
+        final dist = set.distanceMetres!;
+        final distStr = dist >= 1000
+            ? '${(dist / 1000).toStringAsFixed(1)}km'
+            : '${dist.toStringAsFixed(0)}m';
+        return '$distStr in $timeStr';
+      }
+      return timeStr;
+    }
+    if (set.weight == 0.0) return '${set.reps} reps';
+    return '${set.weight}kg × ${set.reps} reps';
   }
 
   String _formatDate(DateTime date) {

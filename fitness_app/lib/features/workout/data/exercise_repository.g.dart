@@ -25,7 +25,7 @@ final watchExercisesProvider =
 // ignore: unused_element
 typedef WatchExercisesRef = AutoDisposeStreamProviderRef<List<Exercise>>;
 String _$exerciseRepositoryHash() =>
-    r'31538bfdd511ea2c987de2e922ccca2744c8443f';
+    r'8aaa3d261090673d2e8765c368e2cf0b1d6c1467';
 
 /// See also [ExerciseRepository].
 @ProviderFor(ExerciseRepository)

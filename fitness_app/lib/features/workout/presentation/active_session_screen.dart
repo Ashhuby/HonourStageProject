@@ -32,6 +32,11 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   Exercise? _selectedExercise;
   final _weightController = TextEditingController();
   final _repsController = TextEditingController();
+  // Duration controllers for timeOnly / distanceTime
+  final _minutesController = TextEditingController();
+  final _secondsController = TextEditingController();
+  // Distance controller for distanceTime
+  final _distanceController = TextEditingController();
 
   // Rest timer
   static const int _defaultRestSeconds = 90;
@@ -49,6 +54,9 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   void dispose() {
     _weightController.dispose();
     _repsController.dispose();
+    _minutesController.dispose();
+    _secondsController.dispose();
+    _distanceController.dispose();
     _timer?.cancel();
     _prBannerTimer?.cancel();
     super.dispose();
@@ -224,7 +232,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         child: routineExAsync.when(
           data: (routineExercises) => DropdownButtonFormField<Exercise>(
-            value: _selectedExercise,
+            initialValue: _selectedExercise,
             decoration: const InputDecoration(
               labelText: 'Exercise',
               prefixIcon: Icon(Icons.fitness_center, size: 18),
@@ -239,6 +247,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   bodyPart: re.bodyPart,
                   equipmentType: re.equipmentType,
                   isCustom: false,
+                  metricType: re.metricType,
                 ),
                 child: Text(re.exerciseName),
               );
@@ -247,6 +256,9 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
               _selectedExercise = exercise;
               _weightController.clear();
               _repsController.clear();
+              _minutesController.clear();
+              _secondsController.clear();
+              _distanceController.clear();
             }),
           ),
           loading: () => const LinearProgressIndicator(),
@@ -260,7 +272,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: exercisesAsync.when(
         data: (exercises) => DropdownButtonFormField<Exercise>(
-          value: _selectedExercise,
+          initialValue: _selectedExercise,
           decoration: const InputDecoration(
             labelText: 'Exercise',
             prefixIcon: Icon(Icons.fitness_center, size: 18),
@@ -274,6 +286,9 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
             _selectedExercise = exercise;
             _weightController.clear();
             _repsController.clear();
+            _minutesController.clear();
+            _secondsController.clear();
+            _distanceController.clear();
           }),
         ),
         loading: () => const LinearProgressIndicator(),
@@ -287,51 +302,119 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _buildSetLogger() {
+    final metricType = _selectedExercise?.metricType ?? 'weightReps';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: TextField(
-              controller: _weightController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(
-                color: OneRepColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              // ---- weightReps ----
+              if (metricType == 'weightReps') ...[
+                Expanded(
+                  child: TextField(
+                    controller: _weightController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                    decoration: const InputDecoration(labelText: 'Weight', suffixText: 'kg'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _repsController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                    decoration: const InputDecoration(labelText: 'Reps'),
+                  ),
+                ),
+              ],
+
+              // ---- bodyweightReps ----
+              if (metricType == 'bodyweightReps') ...[
+                Expanded(
+                  child: TextField(
+                    controller: _repsController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                    decoration: const InputDecoration(labelText: 'Reps'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _weightController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                    decoration: const InputDecoration(labelText: 'Added Weight', suffixText: 'kg', hintText: 'Optional'),
+                  ),
+                ),
+              ],
+
+              // ---- timeOnly ----
+              if (metricType == 'timeOnly') ...[
+                Expanded(
+                  child: TextField(
+                    controller: _minutesController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                    decoration: const InputDecoration(labelText: 'Minutes', suffixText: 'min'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _secondsController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                    decoration: const InputDecoration(labelText: 'Seconds', suffixText: 'sec'),
+                  ),
+                ),
+              ],
+
+              // ---- distanceTime ----
+              if (metricType == 'distanceTime') ...[
+                Expanded(
+                  child: TextField(
+                    controller: _distanceController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                    decoration: const InputDecoration(labelText: 'Distance', suffixText: 'm'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _minutesController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                    decoration: const InputDecoration(labelText: 'Minutes', suffixText: 'min'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _secondsController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                    decoration: const InputDecoration(labelText: 'Seconds', suffixText: 'sec'),
+                  ),
+                ),
+              ],
+
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _logSet,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                  ),
+                  child: const Text('LOG'),
+                ),
               ),
-              decoration: const InputDecoration(
-                labelText: 'Weight',
-                suffixText: 'kg',
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: _repsController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(
-                color: OneRepColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Reps',
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(
-            height: 50,
-            child: ElevatedButton(
-              onPressed: _logSet,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-              ),
-              child: const Text('LOG'),
-            ),
+            ],
           ),
         ],
       ),
@@ -423,24 +506,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            '${s.set.weight}kg',
-                            style: const TextStyle(
-                              color: OneRepColors.textPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Text(
-                            '×',
-                            style: TextStyle(
-                              color: OneRepColors.textSecondary,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${s.set.reps} reps',
+                            _formatSetDisplay(s.set),
                             style: const TextStyle(
                               color: OneRepColors.textPrimary,
                               fontSize: 15,
@@ -464,17 +530,89 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   // Log set
   // ---------------------------------------------------------------------------
 
-  Future<void> _logSet() async {
-    final weight = double.tryParse(_weightController.text);
-    final reps = int.tryParse(_repsController.text);
+  // ---------------------------------------------------------------------------
+  // Set display helper — formats a logged set for the sets list
+  // ---------------------------------------------------------------------------
 
-    if (weight == null || reps == null || _selectedExercise == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Select an exercise and enter valid weight and reps.'),
-        ),
-      );
-      return;
+  String _formatSetDisplay(WorkoutSet set) {
+    // If durationSeconds is set, this is a time-based exercise
+    if (set.durationSeconds != null) {
+      final secs = set.durationSeconds!;
+      final m = secs ~/ 60;
+      final s = secs % 60;
+      final timeStr = m > 0
+          ? '${m}m ${s.toString().padLeft(2, '0')}s'
+          : '${s}s';
+      // distanceTime: show distance + time
+      if (set.distanceMetres != null && set.distanceMetres! > 0) {
+        final dist = set.distanceMetres!;
+        final distStr = dist >= 1000
+            ? '${(dist / 1000).toStringAsFixed(1)}km'
+            : '${dist.toStringAsFixed(0)}m';
+        return '$distStr in $timeStr';
+      }
+      return timeStr;
+    }
+    // bodyweightReps or weightReps with weight=0 — show reps only
+    if (set.weight == 0.0) {
+      return '${set.reps} reps';
+    }
+    // weightReps — show weight × reps
+    return '${set.weight}kg × ${set.reps} reps';
+  }
+
+  Future<void> _logSet() async {
+    if (_selectedExercise == null) return;
+    final metricType = _selectedExercise!.metricType;
+
+    double weight = 0.0;
+    int reps = 0;
+    int? durationSeconds;
+    double? distanceMetres;
+
+    switch (metricType) {
+      case 'weightReps':
+        final w = double.tryParse(_weightController.text);
+        final r = int.tryParse(_repsController.text);
+        if (w == null || r == null) {
+          _showInputError('Enter valid weight and reps.');
+          return;
+        }
+        weight = w;
+        reps = r;
+        break;
+
+      case 'bodyweightReps':
+        final r = int.tryParse(_repsController.text);
+        if (r == null) {
+          _showInputError('Enter valid reps.');
+          return;
+        }
+        reps = r;
+        weight = double.tryParse(_weightController.text) ?? 0.0;
+        break;
+
+      case 'timeOnly':
+        final mins = int.tryParse(_minutesController.text) ?? 0;
+        final secs = int.tryParse(_secondsController.text) ?? 0;
+        if (mins == 0 && secs == 0) {
+          _showInputError('Enter a duration.');
+          return;
+        }
+        durationSeconds = mins * 60 + secs;
+        break;
+
+      case 'distanceTime':
+        final dist = double.tryParse(_distanceController.text);
+        final mins = int.tryParse(_minutesController.text) ?? 0;
+        final secs = int.tryParse(_secondsController.text) ?? 0;
+        if (dist == null || (mins == 0 && secs == 0)) {
+          _showInputError('Enter valid distance and time.');
+          return;
+        }
+        distanceMetres = dist;
+        durationSeconds = mins * 60 + secs;
+        break;
     }
 
     _startTimer();
@@ -485,12 +623,24 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
           sessionId: widget.sessionId,
           exerciseId: _selectedExercise!.id,
           exerciseName: _selectedExercise!.name,
+          metricType: metricType,
           weight: weight,
           reps: reps,
+          durationSeconds: durationSeconds,
+          distanceMetres: distanceMetres,
         );
 
     if (mounted && prResult != null) _showPrBanner(prResult);
     _repsController.clear();
+    _minutesController.clear();
+    _secondsController.clear();
+    _distanceController.clear();
+  }
+
+  void _showInputError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -634,7 +784,7 @@ class _PrBanner extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${pr.exerciseName}  ${pr.weight}kg × ${pr.reps} reps',
+                    '${pr.exerciseName}  ${pr.summary}',
                     style: const TextStyle(
                       color: OneRepColors.textPrimary,
                       fontSize: 14,
