@@ -679,29 +679,6 @@ class SyncService {
     }
   }
 
-  Future<void> _downloadCustomExercises(String userId) async {
-    final rows = await supabase
-        .from('exercises')
-        .select()
-        .eq('user_id', userId)
-        .isFilter('deleted_at', null);
-
-    for (final row in rows) {
-      await db.into(db.exercises).insertOnConflictUpdate(
-            ExercisesCompanion.insert(
-              name: row['name'] as String,
-              bodyPart: row['body_part'] as String,
-              equipmentType: row['equipment_type'] as String,
-              isCustom: const Value(true),
-              notes: Value(row['notes'] as String?),
-              remoteId: Value(row['id'] as String),
-              userId: Value(userId),
-              syncedAt: Value(DateTime.now()),
-            ),
-          );
-    }
-  }
-
   Future<void> _downloadBadges(String userId) async {
     final rows = await supabase
         .from('badges')
