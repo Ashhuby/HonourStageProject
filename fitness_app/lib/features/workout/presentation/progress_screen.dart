@@ -370,14 +370,29 @@ class _AttendanceHeatmap extends StatelessWidget {
 
   const _AttendanceHeatmap({required this.attendance});
 
+  // Convert attendance map (DateTime keys) to string keys to avoid
+  // any DateTime isUtc equality issues.
+  Map<String, int> _toStringMap(Map<DateTime, int> attendance) {
+    return {
+      for (final e in attendance.entries)
+        '${e.key.year}-${e.key.month.toString().padLeft(2, '0')}-${e.key.day.toString().padLeft(2, '0')}': e.value
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
+    final stringMap = _toStringMap(attendance);
     final today = DateTime.now();
+    final todayNorm = DateTime(today.year, today.month, today.day);
 
+    // Align grid to start on Monday
+    final daysToLastMonday = (todayNorm.weekday - 1) % 7;
+    final gridStart = todayNorm.subtract(Duration(days: daysToLastMonday + 77));
+
+    // Build exactly 12 weeks (84 days) from that Monday
     final List<DateTime> days = List.generate(
       84,
-      (i) => DateTime(today.year, today.month, today.day)
-          .subtract(Duration(days: 83 - i)),
+      (i) => gridStart.add(Duration(days: i)),
     );
 
     final List<List<DateTime>> weeks = [];
@@ -414,10 +429,11 @@ class _AttendanceHeatmap extends StatelessWidget {
                 child: Row(
                   children: [
                     ...week.map((day) {
-                      final count = attendance[day] ?? 0;
-                      final isToday = day.year == today.year &&
-                          day.month == today.month &&
-                          day.day == today.day;
+                      final key = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+                      final count = stringMap[key] ?? 0;
+                      final isToday = day.year == todayNorm.year &&
+                          day.month == todayNorm.month &&
+                          day.day == todayNorm.day;
                       return Expanded(
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -666,15 +682,22 @@ class _PrChart extends ConsumerWidget {
   String _yAxisLabel(String metricType) {
     return switch (metricType) {
       'timeOnly' => 'DURATION (seconds)',
-      'distanceTime' => 'BEST TIME (seconds)',
+      'distanceTime' => 'PACE (lower time = higher)',
       'bodyweightReps' => 'MAX REPS',
       _ => 'BEST WEIGHT (kg)',
     };
   }
 
   String _formatYValue(double value, String metricType) {
-    if (metricType == 'timeOnly' || metricType == 'distanceTime') {
+    if (metricType == 'timeOnly') {
       final secs = value.toInt();
+      final m = secs ~/ 60;
+      final s = secs % 60;
+      return m > 0 ? '${m}m${s}s' : '${s}s';
+    }
+    if (metricType == 'distanceTime') {
+      // Uninvert to show actual time
+      final secs = (10000 - value).toInt();
       final m = secs ~/ 60;
       final s = secs % 60;
       return m > 0 ? '${m}m${s}s' : '${s}s';
@@ -715,9 +738,10 @@ class _PrChart extends ConsumerWidget {
         case 'timeOnly':
           value = (set.durationSeconds ?? 0).toDouble();
         case 'distanceTime':
-          // Lower is better — store as negative so chart trends upward
+          // Lower time is better — invert so improvement trends upward on chart
           final secs = set.durationSeconds ?? 0;
-          value = secs > 0 ? secs.toDouble() : 0;
+          // Use negative so shorter time = higher on chart
+          value = secs > 0 ? (10000 - secs).toDouble() : 0;
         case 'bodyweightReps':
           value = set.reps.toDouble();
         default: // weightReps

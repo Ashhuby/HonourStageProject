@@ -6,7 +6,7 @@ part of 'exercise_repository.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$watchExercisesHash() => r'2ddb8979c49a81aa4f09697acf635a9c293c828e';
+String _$watchExercisesHash() => r'7996c50d964a6ee036191e1dd080e96ccabb51c1';
 
 /// See also [watchExercises].
 @ProviderFor(watchExercises)
@@ -25,7 +25,7 @@ final watchExercisesProvider =
 // ignore: unused_element
 typedef WatchExercisesRef = AutoDisposeStreamProviderRef<List<Exercise>>;
 String _$exerciseRepositoryHash() =>
-    r'8aaa3d261090673d2e8765c368e2cf0b1d6c1467';
+    r'70bebcb6938632098e1662b7c3b22ef094d519b0';
 
 /// See also [ExerciseRepository].
 @ProviderFor(ExerciseRepository)

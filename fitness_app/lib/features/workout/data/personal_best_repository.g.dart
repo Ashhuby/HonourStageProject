@@ -296,7 +296,7 @@ final watchAllPrsProvider =
 // ignore: unused_element
 typedef WatchAllPrsRef = AutoDisposeStreamProviderRef<List<PersonalBest>>;
 String _$personalBestRepositoryHash() =>
-    r'5caf416de8c1c12c2cbf4a77deca02e9ab82080a';
+    r'd74fea9c38b2e6f9e1f13ecd39da296024a25c49';
 
 /// See also [PersonalBestRepository].
 @ProviderFor(PersonalBestRepository)

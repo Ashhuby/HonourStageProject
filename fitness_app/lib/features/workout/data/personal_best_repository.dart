@@ -170,7 +170,10 @@ class PersonalBestRepository extends _$PersonalBestRepository {
   }
 
   // ---------------------------------------------------------------------------
-  // weightReps — highest weight for a given rep count
+  // weightReps — weight is king. One PR row per exercise.
+  // A new PR is set when:
+  //   1. Weight is higher than the current best (regardless of reps), OR
+  //   2. Weight equals current best AND reps are higher.
   // ---------------------------------------------------------------------------
 
   Future<PrResult?> _checkWeightRepsPr({
@@ -182,15 +185,31 @@ class PersonalBestRepository extends _$PersonalBestRepository {
   }) async {
     final db = ref.read(databaseProvider);
 
+    // One row per exercise — find any existing PR for this exercise
     final existing = await (db.select(db.personalBests)
           ..where((pb) => pb.exerciseId.equals(exerciseId))
-          ..where((pb) => pb.reps.equals(reps))
-          ..where((pb) => pb.deletedAt.isNull()))
+          ..where((pb) => pb.metricType.equals(metricType))
+          ..where((pb) => pb.deletedAt.isNull())
+          ..orderBy([(pb) => OrderingTerm.desc(pb.weight)])
+          ..limit(1))
         .getSingleOrNull();
 
-    final isNewPr = existing == null || weight > existing.weight;
+    bool isNewPr;
+    if (existing == null) {
+      isNewPr = true;
+    } else if (weight > existing.weight) {
+      // Higher weight always wins
+      isNewPr = true;
+    } else if (weight == existing.weight && reps > existing.reps) {
+      // Same weight, more reps
+      isNewPr = true;
+    } else {
+      isNewPr = false;
+    }
+
     if (!isNewPr) return null;
 
+    // Upsert — use reps=0 sentinel as the unique key so one row per exercise
     await db.into(db.personalBests).insert(
       PersonalBestsCompanion.insert(
         exerciseId: exerciseId,
@@ -202,9 +221,10 @@ class PersonalBestRepository extends _$PersonalBestRepository {
       onConflict: DoUpdate(
         (old) => PersonalBestsCompanion.custom(
           weight: Variable(weight),
+          reps: Variable(reps),
           achievedAt: Variable(DateTime.now()),
         ),
-        target: [db.personalBests.exerciseId, db.personalBests.reps],
+        target: [db.personalBests.exerciseId, db.personalBests.metricType],
       ),
     );
 
@@ -253,7 +273,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
           reps: Variable(reps),
           achievedAt: Variable(DateTime.now()),
         ),
-        target: [db.personalBests.exerciseId, db.personalBests.reps],
+        target: [db.personalBests.exerciseId, db.personalBests.metricType],
       ),
     );
 

@@ -508,7 +508,7 @@ class SyncService {
       await db.into(db.workoutSplits).insertOnConflictUpdate(
             WorkoutSplitsCompanion.insert(
               name: row['name'] as String,
-              createdAt: Value(DateTime.parse(row['created_at'] as String)),
+              createdAt: Value(_parseLocal(row['created_at'] as String)),
               remoteId: Value(row['id'] as String),
               userId: Value(userId),
               syncedAt: Value(DateTime.now()),
@@ -589,9 +589,9 @@ class SyncService {
 
       await db.into(db.workoutSessions).insertOnConflictUpdate(
             WorkoutSessionsCompanion.insert(
-              startTime: DateTime.parse(row['start_time'] as String),
+              startTime: _parseLocal(row['start_time'] as String),
               endTime: Value(row['end_time'] != null
-                  ? DateTime.parse(row['end_time'] as String)
+                  ? _parseLocal(row['end_time'] as String)
                   : null),
               routineId: Value(localRoutineId),
               sessionNote: Value(row['session_note'] as String?),
@@ -624,7 +624,7 @@ class SyncService {
               reps: Value(row['reps'] as int),
               isCompleted: Value(row['is_completed'] as bool? ?? false),
               timestamp: Value(row['timestamp'] != null
-                  ? DateTime.parse(row['timestamp'] as String)
+                  ? _parseLocal(row['timestamp'] as String)
                   : DateTime.now()),
               remoteId: Value(row['id'] as String),
               userId: Value(userId),
@@ -647,7 +647,7 @@ class SyncService {
               exerciseId: row['exercise_id'] as int,
               reps: Value(row['reps'] as int),
               weight: Value((row['weight'] as num).toDouble()),
-              achievedAt: DateTime.parse(row['achieved_at'] as String),
+              achievedAt: _parseLocal(row['achieved_at'] as String),
               remoteId: Value(row['id'] as String),
               userId: Value(userId),
               syncedAt: Value(DateTime.now()),
@@ -690,7 +690,7 @@ class SyncService {
             ..where((b) => b.badgeKey.equals(row['badge_key'] as String)))
           .write(BadgesCompanion(
         earnedAt: Value(row['earned_at'] != null
-            ? DateTime.parse(row['earned_at'] as String)
+            ? _parseLocal(row['earned_at'] as String)
             : null),
         remoteId: Value(row['id'] as String),
         userId: Value(userId),
@@ -698,6 +698,18 @@ class SyncService {
       ));
     }
   }
+}
+
+
+// Parses a Supabase ISO8601 timestamp as LOCAL time regardless of the UTC
+// offset suffix. Supabase stores timestamps in UTC but the seeder inserted
+// times as local DateTime — stripping the offset preserves the intended date.
+DateTime _parseLocal(String iso) {
+  // Remove timezone suffix (+00:00, Z, etc.) then parse as local
+  final stripped = iso
+      .replaceAll(RegExp(r'[+-]\d{2}:\d{2}$'), '')
+      .replaceAll('Z', '');
+  return DateTime.parse(stripped);
 }
 
 // ---------------------------------------------------------------------------

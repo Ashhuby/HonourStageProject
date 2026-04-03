@@ -90,25 +90,26 @@ class VolumeDataPoint {
 }
 
 @riverpod
-Future<Map<DateTime, int>> getAttendanceData(Ref ref) async {
-  final db = ref.read(databaseProvider);
+Stream<Map<DateTime, int>> getAttendanceData(Ref ref) {
+  final db = ref.watch(databaseProvider);
 
-  final sessions = await (db.select(db.workoutSessions)
+  final sessionsStream = (db.select(db.workoutSessions)
         ..where((s) => s.endTime.isNotNull())
         ..where((s) => s.deletedAt.isNull()))
-      .get();
+      .watch();
 
-  final Map<DateTime, int> attendanceMap = {};
-  for (final session in sessions) {
-    final date = DateTime(
-      session.startTime.year,
-      session.startTime.month,
-      session.startTime.day,
-    );
-    attendanceMap[date] = (attendanceMap[date] ?? 0) + 1;
-  }
-
-  return attendanceMap;
+  return sessionsStream.map((sessions) {
+    final Map<DateTime, int> attendanceMap = {};
+    for (final session in sessions) {
+      final date = DateTime(
+        session.startTime.year,
+        session.startTime.month,
+        session.startTime.day,
+      );
+      attendanceMap[date] = (attendanceMap[date] ?? 0) + 1;
+    }
+    return attendanceMap;
+  });
 }
 
 @riverpod

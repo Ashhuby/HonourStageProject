@@ -174,12 +174,12 @@ class _GetVolumeForExerciseProviderElement
   int get exerciseId => (origin as GetVolumeForExerciseProvider).exerciseId;
 }
 
-String _$getAttendanceDataHash() => r'3e2c4df1c364d157c7690f3d8aa0c24f6d001880';
+String _$getAttendanceDataHash() => r'3cac6246a31b12e502c48c537e8049e60ae0353b';
 
 /// See also [getAttendanceData].
 @ProviderFor(getAttendanceData)
 final getAttendanceDataProvider =
-    AutoDisposeFutureProvider<Map<DateTime, int>>.internal(
+    AutoDisposeStreamProvider<Map<DateTime, int>>.internal(
       getAttendanceData,
       name: r'getAttendanceDataProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -191,7 +191,7 @@ final getAttendanceDataProvider =
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-typedef GetAttendanceDataRef = AutoDisposeFutureProviderRef<Map<DateTime, int>>;
+typedef GetAttendanceDataRef = AutoDisposeStreamProviderRef<Map<DateTime, int>>;
 String _$getWeeklyStreakHash() => r'527845ffb6f520fc1695c09fa8373a26ff5da48f';
 
 /// See also [getWeeklyStreak].
