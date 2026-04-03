@@ -3,6 +3,10 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> develop
 /// Tests for badge trigger logic.
 /// Each test seeds the minimum data needed to trigger the badge under test,
 /// then calls the evaluation logic directly against the in-memory DB.
@@ -198,8 +202,13 @@ void main() {
               WorkoutSetsCompanion.insert(
                 sessionId: sessionId,
                 exerciseId: exId,
+<<<<<<< HEAD
                 weight: 100,
                 reps: 5,
+=======
+                weight: const Value(100.0),
+                reps: const Value(5),
+>>>>>>> develop
               ),
             );
       }
@@ -216,8 +225,13 @@ void main() {
               WorkoutSetsCompanion.insert(
                 sessionId: sessionId,
                 exerciseId: exId,
+<<<<<<< HEAD
                 weight: 100,
                 reps: 5,
+=======
+                weight: const Value(100.0),
+                reps: const Value(5),
+>>>>>>> develop
               ),
             );
       }
@@ -236,8 +250,13 @@ void main() {
               WorkoutSetsCompanion.insert(
                 sessionId: sessionId,
                 exerciseId: exId,
+<<<<<<< HEAD
                 weight: 100,
                 reps: 5,
+=======
+                weight: const Value(100.0),
+                reps: const Value(5),
+>>>>>>> develop
               ),
             );
       }

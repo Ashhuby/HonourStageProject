@@ -30,7 +30,7 @@ class $ExercisesTable extends Exercises
     false,
     additionalChecks: GeneratedColumn.checkTextLength(
       minTextLength: 1,
-      maxTextLength: 50,
+      maxTextLength: 100,
     ),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
@@ -81,6 +81,60 @@ class $ExercisesTable extends Exercises
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _metricTypeMeta = const VerificationMeta(
+    'metricType',
+  );
+  @override
+  late final GeneratedColumn<String> metricType = GeneratedColumn<String>(
+    'metric_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('weightReps'),
+  );
+  static const VerificationMeta _remoteIdMeta = const VerificationMeta(
+    'remoteId',
+  );
+  @override
+  late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
+    'remote_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -89,6 +143,11 @@ class $ExercisesTable extends Exercises
     equipmentType,
     isCustom,
     notes,
+    metricType,
+    remoteId,
+    userId,
+    syncedAt,
+    deletedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -144,6 +203,36 @@ class $ExercisesTable extends Exercises
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('metric_type')) {
+      context.handle(
+        _metricTypeMeta,
+        metricType.isAcceptableOrUnknown(data['metric_type']!, _metricTypeMeta),
+      );
+    }
+    if (data.containsKey('remote_id')) {
+      context.handle(
+        _remoteIdMeta,
+        remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
+      );
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -177,6 +266,26 @@ class $ExercisesTable extends Exercises
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      metricType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}metric_type'],
+      )!,
+      remoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_id'],
+      ),
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
     );
   }
 
@@ -193,6 +302,11 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   final String equipmentType;
   final bool isCustom;
   final String? notes;
+  final String metricType;
+  final String? remoteId;
+  final String? userId;
+  final DateTime? syncedAt;
+  final DateTime? deletedAt;
   const Exercise({
     required this.id,
     required this.name,
@@ -200,6 +314,11 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     required this.equipmentType,
     required this.isCustom,
     this.notes,
+    required this.metricType,
+    this.remoteId,
+    this.userId,
+    this.syncedAt,
+    this.deletedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -211,6 +330,19 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     map['is_custom'] = Variable<bool>(isCustom);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    map['metric_type'] = Variable<String>(metricType);
+    if (!nullToAbsent || remoteId != null) {
+      map['remote_id'] = Variable<String>(remoteId);
+    }
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    if (!nullToAbsent || syncedAt != null) {
+      map['synced_at'] = Variable<DateTime>(syncedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
     return map;
   }
@@ -225,6 +357,19 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      metricType: Value(metricType),
+      remoteId: remoteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteId),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      syncedAt: syncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
     );
   }
 
@@ -240,6 +385,11 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       equipmentType: serializer.fromJson<String>(json['equipmentType']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       notes: serializer.fromJson<String?>(json['notes']),
+      metricType: serializer.fromJson<String>(json['metricType']),
+      remoteId: serializer.fromJson<String?>(json['remoteId']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
     );
   }
   @override
@@ -252,6 +402,11 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'equipmentType': serializer.toJson<String>(equipmentType),
       'isCustom': serializer.toJson<bool>(isCustom),
       'notes': serializer.toJson<String?>(notes),
+      'metricType': serializer.toJson<String>(metricType),
+      'remoteId': serializer.toJson<String?>(remoteId),
+      'userId': serializer.toJson<String?>(userId),
+      'syncedAt': serializer.toJson<DateTime?>(syncedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
     };
   }
 
@@ -262,6 +417,11 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     String? equipmentType,
     bool? isCustom,
     Value<String?> notes = const Value.absent(),
+    String? metricType,
+    Value<String?> remoteId = const Value.absent(),
+    Value<String?> userId = const Value.absent(),
+    Value<DateTime?> syncedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
   }) => Exercise(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -269,6 +429,11 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     equipmentType: equipmentType ?? this.equipmentType,
     isCustom: isCustom ?? this.isCustom,
     notes: notes.present ? notes.value : this.notes,
+    metricType: metricType ?? this.metricType,
+    remoteId: remoteId.present ? remoteId.value : this.remoteId,
+    userId: userId.present ? userId.value : this.userId,
+    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
     return Exercise(
@@ -280,6 +445,13 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           : this.equipmentType,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
       notes: data.notes.present ? data.notes.value : this.notes,
+      metricType: data.metricType.present
+          ? data.metricType.value
+          : this.metricType,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
     );
   }
 
@@ -291,14 +463,30 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('bodyPart: $bodyPart, ')
           ..write('equipmentType: $equipmentType, ')
           ..write('isCustom: $isCustom, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('metricType: $metricType, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('userId: $userId, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, bodyPart, equipmentType, isCustom, notes);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    bodyPart,
+    equipmentType,
+    isCustom,
+    notes,
+    metricType,
+    remoteId,
+    userId,
+    syncedAt,
+    deletedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -308,7 +496,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.bodyPart == this.bodyPart &&
           other.equipmentType == this.equipmentType &&
           other.isCustom == this.isCustom &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.metricType == this.metricType &&
+          other.remoteId == this.remoteId &&
+          other.userId == this.userId &&
+          other.syncedAt == this.syncedAt &&
+          other.deletedAt == this.deletedAt);
 }
 
 class ExercisesCompanion extends UpdateCompanion<Exercise> {
@@ -318,6 +511,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<String> equipmentType;
   final Value<bool> isCustom;
   final Value<String?> notes;
+  final Value<String> metricType;
+  final Value<String?> remoteId;
+  final Value<String?> userId;
+  final Value<DateTime?> syncedAt;
+  final Value<DateTime?> deletedAt;
   const ExercisesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -325,6 +523,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.equipmentType = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.notes = const Value.absent(),
+    this.metricType = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
   });
   ExercisesCompanion.insert({
     this.id = const Value.absent(),
@@ -333,6 +536,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     required String equipmentType,
     this.isCustom = const Value.absent(),
     this.notes = const Value.absent(),
+    this.metricType = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
   }) : name = Value(name),
        bodyPart = Value(bodyPart),
        equipmentType = Value(equipmentType);
@@ -343,6 +551,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<String>? equipmentType,
     Expression<bool>? isCustom,
     Expression<String>? notes,
+    Expression<String>? metricType,
+    Expression<String>? remoteId,
+    Expression<String>? userId,
+    Expression<DateTime>? syncedAt,
+    Expression<DateTime>? deletedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -351,6 +564,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (equipmentType != null) 'equipment_type': equipmentType,
       if (isCustom != null) 'is_custom': isCustom,
       if (notes != null) 'notes': notes,
+      if (metricType != null) 'metric_type': metricType,
+      if (remoteId != null) 'remote_id': remoteId,
+      if (userId != null) 'user_id': userId,
+      if (syncedAt != null) 'synced_at': syncedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
     });
   }
 
@@ -361,6 +579,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<String>? equipmentType,
     Value<bool>? isCustom,
     Value<String?>? notes,
+    Value<String>? metricType,
+    Value<String?>? remoteId,
+    Value<String?>? userId,
+    Value<DateTime?>? syncedAt,
+    Value<DateTime?>? deletedAt,
   }) {
     return ExercisesCompanion(
       id: id ?? this.id,
@@ -369,6 +592,11 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       equipmentType: equipmentType ?? this.equipmentType,
       isCustom: isCustom ?? this.isCustom,
       notes: notes ?? this.notes,
+      metricType: metricType ?? this.metricType,
+      remoteId: remoteId ?? this.remoteId,
+      userId: userId ?? this.userId,
+      syncedAt: syncedAt ?? this.syncedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 
@@ -393,6 +621,21 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (metricType.present) {
+      map['metric_type'] = Variable<String>(metricType.value);
+    }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<String>(remoteId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     return map;
   }
 
@@ -404,7 +647,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('bodyPart: $bodyPart, ')
           ..write('equipmentType: $equipmentType, ')
           ..write('isCustom: $isCustom, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('metricType: $metricType, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('userId: $userId, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('deletedAt: $deletedAt')
           ..write(')'))
         .toString();
   }
@@ -2589,7 +2837,8 @@ class $WorkoutSetsTable extends WorkoutSets
     aliasedName,
     false,
     type: DriftSqlType.double,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
   );
   static const VerificationMeta _repsMeta = const VerificationMeta('reps');
   @override
@@ -2598,7 +2847,30 @@ class $WorkoutSetsTable extends WorkoutSets
     aliasedName,
     false,
     type: DriftSqlType.int,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _durationSecondsMeta = const VerificationMeta(
+    'durationSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> durationSeconds = GeneratedColumn<int>(
+    'duration_seconds',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _distanceMetresMeta = const VerificationMeta(
+    'distanceMetres',
+  );
+  @override
+  late final GeneratedColumn<double> distanceMetres = GeneratedColumn<double>(
+    'distance_metres',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _isCompletedMeta = const VerificationMeta(
     'isCompleted',
@@ -2676,6 +2948,8 @@ class $WorkoutSetsTable extends WorkoutSets
     exerciseId,
     weight,
     reps,
+    durationSeconds,
+    distanceMetres,
     isCompleted,
     timestamp,
     remoteId,
@@ -2719,16 +2993,30 @@ class $WorkoutSetsTable extends WorkoutSets
         _weightMeta,
         weight.isAcceptableOrUnknown(data['weight']!, _weightMeta),
       );
-    } else if (isInserting) {
-      context.missing(_weightMeta);
     }
     if (data.containsKey('reps')) {
       context.handle(
         _repsMeta,
         reps.isAcceptableOrUnknown(data['reps']!, _repsMeta),
       );
-    } else if (isInserting) {
-      context.missing(_repsMeta);
+    }
+    if (data.containsKey('duration_seconds')) {
+      context.handle(
+        _durationSecondsMeta,
+        durationSeconds.isAcceptableOrUnknown(
+          data['duration_seconds']!,
+          _durationSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('distance_metres')) {
+      context.handle(
+        _distanceMetresMeta,
+        distanceMetres.isAcceptableOrUnknown(
+          data['distance_metres']!,
+          _distanceMetresMeta,
+        ),
+      );
     }
     if (data.containsKey('is_completed')) {
       context.handle(
@@ -2798,6 +3086,14 @@ class $WorkoutSetsTable extends WorkoutSets
         DriftSqlType.int,
         data['${effectivePrefix}reps'],
       )!,
+      durationSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_seconds'],
+      ),
+      distanceMetres: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}distance_metres'],
+      ),
       isCompleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_completed'],
@@ -2837,6 +3133,8 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
   final int exerciseId;
   final double weight;
   final int reps;
+  final int? durationSeconds;
+  final double? distanceMetres;
   final bool isCompleted;
   final DateTime timestamp;
   final String? remoteId;
@@ -2849,6 +3147,8 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
     required this.exerciseId,
     required this.weight,
     required this.reps,
+    this.durationSeconds,
+    this.distanceMetres,
     required this.isCompleted,
     required this.timestamp,
     this.remoteId,
@@ -2864,6 +3164,12 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
     map['exercise_id'] = Variable<int>(exerciseId);
     map['weight'] = Variable<double>(weight);
     map['reps'] = Variable<int>(reps);
+    if (!nullToAbsent || durationSeconds != null) {
+      map['duration_seconds'] = Variable<int>(durationSeconds);
+    }
+    if (!nullToAbsent || distanceMetres != null) {
+      map['distance_metres'] = Variable<double>(distanceMetres);
+    }
     map['is_completed'] = Variable<bool>(isCompleted);
     map['timestamp'] = Variable<DateTime>(timestamp);
     if (!nullToAbsent || remoteId != null) {
@@ -2888,6 +3194,12 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
       exerciseId: Value(exerciseId),
       weight: Value(weight),
       reps: Value(reps),
+      durationSeconds: durationSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(durationSeconds),
+      distanceMetres: distanceMetres == null && nullToAbsent
+          ? const Value.absent()
+          : Value(distanceMetres),
       isCompleted: Value(isCompleted),
       timestamp: Value(timestamp),
       remoteId: remoteId == null && nullToAbsent
@@ -2916,6 +3228,8 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
       exerciseId: serializer.fromJson<int>(json['exerciseId']),
       weight: serializer.fromJson<double>(json['weight']),
       reps: serializer.fromJson<int>(json['reps']),
+      durationSeconds: serializer.fromJson<int?>(json['durationSeconds']),
+      distanceMetres: serializer.fromJson<double?>(json['distanceMetres']),
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
@@ -2933,6 +3247,8 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
       'exerciseId': serializer.toJson<int>(exerciseId),
       'weight': serializer.toJson<double>(weight),
       'reps': serializer.toJson<int>(reps),
+      'durationSeconds': serializer.toJson<int?>(durationSeconds),
+      'distanceMetres': serializer.toJson<double?>(distanceMetres),
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'timestamp': serializer.toJson<DateTime>(timestamp),
       'remoteId': serializer.toJson<String?>(remoteId),
@@ -2948,6 +3264,8 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
     int? exerciseId,
     double? weight,
     int? reps,
+    Value<int?> durationSeconds = const Value.absent(),
+    Value<double?> distanceMetres = const Value.absent(),
     bool? isCompleted,
     DateTime? timestamp,
     Value<String?> remoteId = const Value.absent(),
@@ -2960,6 +3278,12 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
     exerciseId: exerciseId ?? this.exerciseId,
     weight: weight ?? this.weight,
     reps: reps ?? this.reps,
+    durationSeconds: durationSeconds.present
+        ? durationSeconds.value
+        : this.durationSeconds,
+    distanceMetres: distanceMetres.present
+        ? distanceMetres.value
+        : this.distanceMetres,
     isCompleted: isCompleted ?? this.isCompleted,
     timestamp: timestamp ?? this.timestamp,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
@@ -2976,6 +3300,12 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
           : this.exerciseId,
       weight: data.weight.present ? data.weight.value : this.weight,
       reps: data.reps.present ? data.reps.value : this.reps,
+      durationSeconds: data.durationSeconds.present
+          ? data.durationSeconds.value
+          : this.durationSeconds,
+      distanceMetres: data.distanceMetres.present
+          ? data.distanceMetres.value
+          : this.distanceMetres,
       isCompleted: data.isCompleted.present
           ? data.isCompleted.value
           : this.isCompleted,
@@ -2995,6 +3325,8 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
           ..write('exerciseId: $exerciseId, ')
           ..write('weight: $weight, ')
           ..write('reps: $reps, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('distanceMetres: $distanceMetres, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('timestamp: $timestamp, ')
           ..write('remoteId: $remoteId, ')
@@ -3012,6 +3344,8 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
     exerciseId,
     weight,
     reps,
+    durationSeconds,
+    distanceMetres,
     isCompleted,
     timestamp,
     remoteId,
@@ -3028,6 +3362,8 @@ class WorkoutSet extends DataClass implements Insertable<WorkoutSet> {
           other.exerciseId == this.exerciseId &&
           other.weight == this.weight &&
           other.reps == this.reps &&
+          other.durationSeconds == this.durationSeconds &&
+          other.distanceMetres == this.distanceMetres &&
           other.isCompleted == this.isCompleted &&
           other.timestamp == this.timestamp &&
           other.remoteId == this.remoteId &&
@@ -3042,6 +3378,8 @@ class WorkoutSetsCompanion extends UpdateCompanion<WorkoutSet> {
   final Value<int> exerciseId;
   final Value<double> weight;
   final Value<int> reps;
+  final Value<int?> durationSeconds;
+  final Value<double?> distanceMetres;
   final Value<bool> isCompleted;
   final Value<DateTime> timestamp;
   final Value<String?> remoteId;
@@ -3054,6 +3392,8 @@ class WorkoutSetsCompanion extends UpdateCompanion<WorkoutSet> {
     this.exerciseId = const Value.absent(),
     this.weight = const Value.absent(),
     this.reps = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.distanceMetres = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.timestamp = const Value.absent(),
     this.remoteId = const Value.absent(),
@@ -3065,8 +3405,10 @@ class WorkoutSetsCompanion extends UpdateCompanion<WorkoutSet> {
     this.id = const Value.absent(),
     required int sessionId,
     required int exerciseId,
-    required double weight,
-    required int reps,
+    this.weight = const Value.absent(),
+    this.reps = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.distanceMetres = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.timestamp = const Value.absent(),
     this.remoteId = const Value.absent(),
@@ -3074,15 +3416,15 @@ class WorkoutSetsCompanion extends UpdateCompanion<WorkoutSet> {
     this.syncedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
   }) : sessionId = Value(sessionId),
-       exerciseId = Value(exerciseId),
-       weight = Value(weight),
-       reps = Value(reps);
+       exerciseId = Value(exerciseId);
   static Insertable<WorkoutSet> custom({
     Expression<int>? id,
     Expression<int>? sessionId,
     Expression<int>? exerciseId,
     Expression<double>? weight,
     Expression<int>? reps,
+    Expression<int>? durationSeconds,
+    Expression<double>? distanceMetres,
     Expression<bool>? isCompleted,
     Expression<DateTime>? timestamp,
     Expression<String>? remoteId,
@@ -3096,6 +3438,8 @@ class WorkoutSetsCompanion extends UpdateCompanion<WorkoutSet> {
       if (exerciseId != null) 'exercise_id': exerciseId,
       if (weight != null) 'weight': weight,
       if (reps != null) 'reps': reps,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (distanceMetres != null) 'distance_metres': distanceMetres,
       if (isCompleted != null) 'is_completed': isCompleted,
       if (timestamp != null) 'timestamp': timestamp,
       if (remoteId != null) 'remote_id': remoteId,
@@ -3111,6 +3455,8 @@ class WorkoutSetsCompanion extends UpdateCompanion<WorkoutSet> {
     Value<int>? exerciseId,
     Value<double>? weight,
     Value<int>? reps,
+    Value<int?>? durationSeconds,
+    Value<double?>? distanceMetres,
     Value<bool>? isCompleted,
     Value<DateTime>? timestamp,
     Value<String?>? remoteId,
@@ -3124,6 +3470,8 @@ class WorkoutSetsCompanion extends UpdateCompanion<WorkoutSet> {
       exerciseId: exerciseId ?? this.exerciseId,
       weight: weight ?? this.weight,
       reps: reps ?? this.reps,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      distanceMetres: distanceMetres ?? this.distanceMetres,
       isCompleted: isCompleted ?? this.isCompleted,
       timestamp: timestamp ?? this.timestamp,
       remoteId: remoteId ?? this.remoteId,
@@ -3150,6 +3498,12 @@ class WorkoutSetsCompanion extends UpdateCompanion<WorkoutSet> {
     }
     if (reps.present) {
       map['reps'] = Variable<int>(reps.value);
+    }
+    if (durationSeconds.present) {
+      map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (distanceMetres.present) {
+      map['distance_metres'] = Variable<double>(distanceMetres.value);
     }
     if (isCompleted.present) {
       map['is_completed'] = Variable<bool>(isCompleted.value);
@@ -3180,6 +3534,8 @@ class WorkoutSetsCompanion extends UpdateCompanion<WorkoutSet> {
           ..write('exerciseId: $exerciseId, ')
           ..write('weight: $weight, ')
           ..write('reps: $reps, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('distanceMetres: $distanceMetres, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('timestamp: $timestamp, ')
           ..write('remoteId: $remoteId, ')
@@ -3231,7 +3587,12 @@ class $PersonalBestsTable extends PersonalBests
     aliasedName,
     false,
     type: DriftSqlType.int,
+<<<<<<< HEAD
     requiredDuringInsert: true,
+=======
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+>>>>>>> develop
   );
   static const VerificationMeta _weightMeta = const VerificationMeta('weight');
   @override
@@ -3240,7 +3601,46 @@ class $PersonalBestsTable extends PersonalBests
     aliasedName,
     false,
     type: DriftSqlType.double,
+<<<<<<< HEAD
     requiredDuringInsert: true,
+=======
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _durationSecondsMeta = const VerificationMeta(
+    'durationSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> durationSeconds = GeneratedColumn<int>(
+    'duration_seconds',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _distanceMetresMeta = const VerificationMeta(
+    'distanceMetres',
+  );
+  @override
+  late final GeneratedColumn<double> distanceMetres = GeneratedColumn<double>(
+    'distance_metres',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _metricTypeMeta = const VerificationMeta(
+    'metricType',
+  );
+  @override
+  late final GeneratedColumn<String> metricType = GeneratedColumn<String>(
+    'metric_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('weightReps'),
+>>>>>>> develop
   );
   static const VerificationMeta _achievedAtMeta = const VerificationMeta(
     'achievedAt',
@@ -3301,6 +3701,12 @@ class $PersonalBestsTable extends PersonalBests
     exerciseId,
     reps,
     weight,
+<<<<<<< HEAD
+=======
+    durationSeconds,
+    distanceMetres,
+    metricType,
+>>>>>>> develop
     achievedAt,
     remoteId,
     userId,
@@ -3335,16 +3741,46 @@ class $PersonalBestsTable extends PersonalBests
         _repsMeta,
         reps.isAcceptableOrUnknown(data['reps']!, _repsMeta),
       );
+<<<<<<< HEAD
     } else if (isInserting) {
       context.missing(_repsMeta);
+=======
+>>>>>>> develop
     }
     if (data.containsKey('weight')) {
       context.handle(
         _weightMeta,
         weight.isAcceptableOrUnknown(data['weight']!, _weightMeta),
       );
+<<<<<<< HEAD
     } else if (isInserting) {
       context.missing(_weightMeta);
+=======
+    }
+    if (data.containsKey('duration_seconds')) {
+      context.handle(
+        _durationSecondsMeta,
+        durationSeconds.isAcceptableOrUnknown(
+          data['duration_seconds']!,
+          _durationSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('distance_metres')) {
+      context.handle(
+        _distanceMetresMeta,
+        distanceMetres.isAcceptableOrUnknown(
+          data['distance_metres']!,
+          _distanceMetresMeta,
+        ),
+      );
+    }
+    if (data.containsKey('metric_type')) {
+      context.handle(
+        _metricTypeMeta,
+        metricType.isAcceptableOrUnknown(data['metric_type']!, _metricTypeMeta),
+      );
+>>>>>>> develop
     }
     if (data.containsKey('achieved_at')) {
       context.handle(
@@ -3407,6 +3843,21 @@ class $PersonalBestsTable extends PersonalBests
         DriftSqlType.double,
         data['${effectivePrefix}weight'],
       )!,
+<<<<<<< HEAD
+=======
+      durationSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_seconds'],
+      ),
+      distanceMetres: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}distance_metres'],
+      ),
+      metricType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}metric_type'],
+      )!,
+>>>>>>> develop
       achievedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}achieved_at'],
@@ -3441,6 +3892,12 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
   final int exerciseId;
   final int reps;
   final double weight;
+<<<<<<< HEAD
+=======
+  final int? durationSeconds;
+  final double? distanceMetres;
+  final String metricType;
+>>>>>>> develop
   final DateTime achievedAt;
   final String? remoteId;
   final String? userId;
@@ -3451,6 +3908,12 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
     required this.exerciseId,
     required this.reps,
     required this.weight,
+<<<<<<< HEAD
+=======
+    this.durationSeconds,
+    this.distanceMetres,
+    required this.metricType,
+>>>>>>> develop
     required this.achievedAt,
     this.remoteId,
     this.userId,
@@ -3464,6 +3927,16 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
     map['exercise_id'] = Variable<int>(exerciseId);
     map['reps'] = Variable<int>(reps);
     map['weight'] = Variable<double>(weight);
+<<<<<<< HEAD
+=======
+    if (!nullToAbsent || durationSeconds != null) {
+      map['duration_seconds'] = Variable<int>(durationSeconds);
+    }
+    if (!nullToAbsent || distanceMetres != null) {
+      map['distance_metres'] = Variable<double>(distanceMetres);
+    }
+    map['metric_type'] = Variable<String>(metricType);
+>>>>>>> develop
     map['achieved_at'] = Variable<DateTime>(achievedAt);
     if (!nullToAbsent || remoteId != null) {
       map['remote_id'] = Variable<String>(remoteId);
@@ -3486,6 +3959,16 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
       exerciseId: Value(exerciseId),
       reps: Value(reps),
       weight: Value(weight),
+<<<<<<< HEAD
+=======
+      durationSeconds: durationSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(durationSeconds),
+      distanceMetres: distanceMetres == null && nullToAbsent
+          ? const Value.absent()
+          : Value(distanceMetres),
+      metricType: Value(metricType),
+>>>>>>> develop
       achievedAt: Value(achievedAt),
       remoteId: remoteId == null && nullToAbsent
           ? const Value.absent()
@@ -3512,6 +3995,12 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
       exerciseId: serializer.fromJson<int>(json['exerciseId']),
       reps: serializer.fromJson<int>(json['reps']),
       weight: serializer.fromJson<double>(json['weight']),
+<<<<<<< HEAD
+=======
+      durationSeconds: serializer.fromJson<int?>(json['durationSeconds']),
+      distanceMetres: serializer.fromJson<double?>(json['distanceMetres']),
+      metricType: serializer.fromJson<String>(json['metricType']),
+>>>>>>> develop
       achievedAt: serializer.fromJson<DateTime>(json['achievedAt']),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
       userId: serializer.fromJson<String?>(json['userId']),
@@ -3527,6 +4016,12 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
       'exerciseId': serializer.toJson<int>(exerciseId),
       'reps': serializer.toJson<int>(reps),
       'weight': serializer.toJson<double>(weight),
+<<<<<<< HEAD
+=======
+      'durationSeconds': serializer.toJson<int?>(durationSeconds),
+      'distanceMetres': serializer.toJson<double?>(distanceMetres),
+      'metricType': serializer.toJson<String>(metricType),
+>>>>>>> develop
       'achievedAt': serializer.toJson<DateTime>(achievedAt),
       'remoteId': serializer.toJson<String?>(remoteId),
       'userId': serializer.toJson<String?>(userId),
@@ -3540,6 +4035,12 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
     int? exerciseId,
     int? reps,
     double? weight,
+<<<<<<< HEAD
+=======
+    Value<int?> durationSeconds = const Value.absent(),
+    Value<double?> distanceMetres = const Value.absent(),
+    String? metricType,
+>>>>>>> develop
     DateTime? achievedAt,
     Value<String?> remoteId = const Value.absent(),
     Value<String?> userId = const Value.absent(),
@@ -3550,6 +4051,16 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
     exerciseId: exerciseId ?? this.exerciseId,
     reps: reps ?? this.reps,
     weight: weight ?? this.weight,
+<<<<<<< HEAD
+=======
+    durationSeconds: durationSeconds.present
+        ? durationSeconds.value
+        : this.durationSeconds,
+    distanceMetres: distanceMetres.present
+        ? distanceMetres.value
+        : this.distanceMetres,
+    metricType: metricType ?? this.metricType,
+>>>>>>> develop
     achievedAt: achievedAt ?? this.achievedAt,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
     userId: userId.present ? userId.value : this.userId,
@@ -3564,6 +4075,18 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
           : this.exerciseId,
       reps: data.reps.present ? data.reps.value : this.reps,
       weight: data.weight.present ? data.weight.value : this.weight,
+<<<<<<< HEAD
+=======
+      durationSeconds: data.durationSeconds.present
+          ? data.durationSeconds.value
+          : this.durationSeconds,
+      distanceMetres: data.distanceMetres.present
+          ? data.distanceMetres.value
+          : this.distanceMetres,
+      metricType: data.metricType.present
+          ? data.metricType.value
+          : this.metricType,
+>>>>>>> develop
       achievedAt: data.achievedAt.present
           ? data.achievedAt.value
           : this.achievedAt,
@@ -3581,6 +4104,12 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
           ..write('exerciseId: $exerciseId, ')
           ..write('reps: $reps, ')
           ..write('weight: $weight, ')
+<<<<<<< HEAD
+=======
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('distanceMetres: $distanceMetres, ')
+          ..write('metricType: $metricType, ')
+>>>>>>> develop
           ..write('achievedAt: $achievedAt, ')
           ..write('remoteId: $remoteId, ')
           ..write('userId: $userId, ')
@@ -3596,6 +4125,12 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
     exerciseId,
     reps,
     weight,
+<<<<<<< HEAD
+=======
+    durationSeconds,
+    distanceMetres,
+    metricType,
+>>>>>>> develop
     achievedAt,
     remoteId,
     userId,
@@ -3610,6 +4145,12 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
           other.exerciseId == this.exerciseId &&
           other.reps == this.reps &&
           other.weight == this.weight &&
+<<<<<<< HEAD
+=======
+          other.durationSeconds == this.durationSeconds &&
+          other.distanceMetres == this.distanceMetres &&
+          other.metricType == this.metricType &&
+>>>>>>> develop
           other.achievedAt == this.achievedAt &&
           other.remoteId == this.remoteId &&
           other.userId == this.userId &&
@@ -3622,6 +4163,12 @@ class PersonalBestsCompanion extends UpdateCompanion<PersonalBest> {
   final Value<int> exerciseId;
   final Value<int> reps;
   final Value<double> weight;
+<<<<<<< HEAD
+=======
+  final Value<int?> durationSeconds;
+  final Value<double?> distanceMetres;
+  final Value<String> metricType;
+>>>>>>> develop
   final Value<DateTime> achievedAt;
   final Value<String?> remoteId;
   final Value<String?> userId;
@@ -3632,6 +4179,12 @@ class PersonalBestsCompanion extends UpdateCompanion<PersonalBest> {
     this.exerciseId = const Value.absent(),
     this.reps = const Value.absent(),
     this.weight = const Value.absent(),
+<<<<<<< HEAD
+=======
+    this.durationSeconds = const Value.absent(),
+    this.distanceMetres = const Value.absent(),
+    this.metricType = const Value.absent(),
+>>>>>>> develop
     this.achievedAt = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.userId = const Value.absent(),
@@ -3641,22 +4194,39 @@ class PersonalBestsCompanion extends UpdateCompanion<PersonalBest> {
   PersonalBestsCompanion.insert({
     this.id = const Value.absent(),
     required int exerciseId,
+<<<<<<< HEAD
     required int reps,
     required double weight,
+=======
+    this.reps = const Value.absent(),
+    this.weight = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.distanceMetres = const Value.absent(),
+    this.metricType = const Value.absent(),
+>>>>>>> develop
     required DateTime achievedAt,
     this.remoteId = const Value.absent(),
     this.userId = const Value.absent(),
     this.syncedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
   }) : exerciseId = Value(exerciseId),
+<<<<<<< HEAD
        reps = Value(reps),
        weight = Value(weight),
+=======
+>>>>>>> develop
        achievedAt = Value(achievedAt);
   static Insertable<PersonalBest> custom({
     Expression<int>? id,
     Expression<int>? exerciseId,
     Expression<int>? reps,
     Expression<double>? weight,
+<<<<<<< HEAD
+=======
+    Expression<int>? durationSeconds,
+    Expression<double>? distanceMetres,
+    Expression<String>? metricType,
+>>>>>>> develop
     Expression<DateTime>? achievedAt,
     Expression<String>? remoteId,
     Expression<String>? userId,
@@ -3668,6 +4238,12 @@ class PersonalBestsCompanion extends UpdateCompanion<PersonalBest> {
       if (exerciseId != null) 'exercise_id': exerciseId,
       if (reps != null) 'reps': reps,
       if (weight != null) 'weight': weight,
+<<<<<<< HEAD
+=======
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (distanceMetres != null) 'distance_metres': distanceMetres,
+      if (metricType != null) 'metric_type': metricType,
+>>>>>>> develop
       if (achievedAt != null) 'achieved_at': achievedAt,
       if (remoteId != null) 'remote_id': remoteId,
       if (userId != null) 'user_id': userId,
@@ -3681,6 +4257,12 @@ class PersonalBestsCompanion extends UpdateCompanion<PersonalBest> {
     Value<int>? exerciseId,
     Value<int>? reps,
     Value<double>? weight,
+<<<<<<< HEAD
+=======
+    Value<int?>? durationSeconds,
+    Value<double?>? distanceMetres,
+    Value<String>? metricType,
+>>>>>>> develop
     Value<DateTime>? achievedAt,
     Value<String?>? remoteId,
     Value<String?>? userId,
@@ -3692,6 +4274,12 @@ class PersonalBestsCompanion extends UpdateCompanion<PersonalBest> {
       exerciseId: exerciseId ?? this.exerciseId,
       reps: reps ?? this.reps,
       weight: weight ?? this.weight,
+<<<<<<< HEAD
+=======
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      distanceMetres: distanceMetres ?? this.distanceMetres,
+      metricType: metricType ?? this.metricType,
+>>>>>>> develop
       achievedAt: achievedAt ?? this.achievedAt,
       remoteId: remoteId ?? this.remoteId,
       userId: userId ?? this.userId,
@@ -3715,6 +4303,18 @@ class PersonalBestsCompanion extends UpdateCompanion<PersonalBest> {
     if (weight.present) {
       map['weight'] = Variable<double>(weight.value);
     }
+<<<<<<< HEAD
+=======
+    if (durationSeconds.present) {
+      map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (distanceMetres.present) {
+      map['distance_metres'] = Variable<double>(distanceMetres.value);
+    }
+    if (metricType.present) {
+      map['metric_type'] = Variable<String>(metricType.value);
+    }
+>>>>>>> develop
     if (achievedAt.present) {
       map['achieved_at'] = Variable<DateTime>(achievedAt.value);
     }
@@ -3740,6 +4340,12 @@ class PersonalBestsCompanion extends UpdateCompanion<PersonalBest> {
           ..write('exerciseId: $exerciseId, ')
           ..write('reps: $reps, ')
           ..write('weight: $weight, ')
+<<<<<<< HEAD
+=======
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('distanceMetres: $distanceMetres, ')
+          ..write('metricType: $metricType, ')
+>>>>>>> develop
           ..write('achievedAt: $achievedAt, ')
           ..write('remoteId: $remoteId, ')
           ..write('userId: $userId, ')
@@ -4272,6 +4878,11 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       required String equipmentType,
       Value<bool> isCustom,
       Value<String?> notes,
+      Value<String> metricType,
+      Value<String?> remoteId,
+      Value<String?> userId,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
     });
 typedef $$ExercisesTableUpdateCompanionBuilder =
     ExercisesCompanion Function({
@@ -4281,6 +4892,11 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<String> equipmentType,
       Value<bool> isCustom,
       Value<String?> notes,
+      Value<String> metricType,
+      Value<String?> remoteId,
+      Value<String?> userId,
+      Value<DateTime?> syncedAt,
+      Value<DateTime?> deletedAt,
     });
 
 final class $$ExercisesTableReferences
@@ -4386,6 +5002,31 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get metricType => $composableBuilder(
+    column: $table.metricType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4503,6 +5144,31 @@ class $$ExercisesTableOrderingComposer
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get metricType => $composableBuilder(
+    column: $table.metricType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExercisesTableAnnotationComposer
@@ -4533,6 +5199,23 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get metricType => $composableBuilder(
+    column: $table.metricType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   Expression<T> routineExercisesRefs<T extends Object>(
     Expression<T> Function($$RoutineExercisesTableAnnotationComposer a) f,
@@ -4648,6 +5331,11 @@ class $$ExercisesTableTableManager
                 Value<String> equipmentType = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String> metricType = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
               }) => ExercisesCompanion(
                 id: id,
                 name: name,
@@ -4655,6 +5343,11 @@ class $$ExercisesTableTableManager
                 equipmentType: equipmentType,
                 isCustom: isCustom,
                 notes: notes,
+                metricType: metricType,
+                remoteId: remoteId,
+                userId: userId,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
               ),
           createCompanionCallback:
               ({
@@ -4664,6 +5357,11 @@ class $$ExercisesTableTableManager
                 required String equipmentType,
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String> metricType = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
               }) => ExercisesCompanion.insert(
                 id: id,
                 name: name,
@@ -4671,6 +5369,11 @@ class $$ExercisesTableTableManager
                 equipmentType: equipmentType,
                 isCustom: isCustom,
                 notes: notes,
+                metricType: metricType,
+                remoteId: remoteId,
+                userId: userId,
+                syncedAt: syncedAt,
+                deletedAt: deletedAt,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -6735,8 +7438,10 @@ typedef $$WorkoutSetsTableCreateCompanionBuilder =
       Value<int> id,
       required int sessionId,
       required int exerciseId,
-      required double weight,
-      required int reps,
+      Value<double> weight,
+      Value<int> reps,
+      Value<int?> durationSeconds,
+      Value<double?> distanceMetres,
       Value<bool> isCompleted,
       Value<DateTime> timestamp,
       Value<String?> remoteId,
@@ -6751,6 +7456,8 @@ typedef $$WorkoutSetsTableUpdateCompanionBuilder =
       Value<int> exerciseId,
       Value<double> weight,
       Value<int> reps,
+      Value<int?> durationSeconds,
+      Value<double?> distanceMetres,
       Value<bool> isCompleted,
       Value<DateTime> timestamp,
       Value<String?> remoteId,
@@ -6823,6 +7530,16 @@ class $$WorkoutSetsTableFilterComposer
 
   ColumnFilters<int> get reps => $composableBuilder(
     column: $table.reps,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get distanceMetres => $composableBuilder(
+    column: $table.distanceMetres,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6927,6 +7644,16 @@ class $$WorkoutSetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get distanceMetres => $composableBuilder(
+    column: $table.distanceMetres,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isCompleted => $composableBuilder(
     column: $table.isCompleted,
     builder: (column) => ColumnOrderings(column),
@@ -7021,6 +7748,16 @@ class $$WorkoutSetsTableAnnotationComposer
 
   GeneratedColumn<int> get reps =>
       $composableBuilder(column: $table.reps, builder: (column) => column);
+
+  GeneratedColumn<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get distanceMetres => $composableBuilder(
+    column: $table.distanceMetres,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<bool> get isCompleted => $composableBuilder(
     column: $table.isCompleted,
@@ -7122,6 +7859,8 @@ class $$WorkoutSetsTableTableManager
                 Value<int> exerciseId = const Value.absent(),
                 Value<double> weight = const Value.absent(),
                 Value<int> reps = const Value.absent(),
+                Value<int?> durationSeconds = const Value.absent(),
+                Value<double?> distanceMetres = const Value.absent(),
                 Value<bool> isCompleted = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
@@ -7134,6 +7873,8 @@ class $$WorkoutSetsTableTableManager
                 exerciseId: exerciseId,
                 weight: weight,
                 reps: reps,
+                durationSeconds: durationSeconds,
+                distanceMetres: distanceMetres,
                 isCompleted: isCompleted,
                 timestamp: timestamp,
                 remoteId: remoteId,
@@ -7146,8 +7887,10 @@ class $$WorkoutSetsTableTableManager
                 Value<int> id = const Value.absent(),
                 required int sessionId,
                 required int exerciseId,
-                required double weight,
-                required int reps,
+                Value<double> weight = const Value.absent(),
+                Value<int> reps = const Value.absent(),
+                Value<int?> durationSeconds = const Value.absent(),
+                Value<double?> distanceMetres = const Value.absent(),
                 Value<bool> isCompleted = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
@@ -7160,6 +7903,8 @@ class $$WorkoutSetsTableTableManager
                 exerciseId: exerciseId,
                 weight: weight,
                 reps: reps,
+                durationSeconds: durationSeconds,
+                distanceMetres: distanceMetres,
                 isCompleted: isCompleted,
                 timestamp: timestamp,
                 remoteId: remoteId,
@@ -7251,8 +7996,16 @@ typedef $$PersonalBestsTableCreateCompanionBuilder =
     PersonalBestsCompanion Function({
       Value<int> id,
       required int exerciseId,
+<<<<<<< HEAD
       required int reps,
       required double weight,
+=======
+      Value<int> reps,
+      Value<double> weight,
+      Value<int?> durationSeconds,
+      Value<double?> distanceMetres,
+      Value<String> metricType,
+>>>>>>> develop
       required DateTime achievedAt,
       Value<String?> remoteId,
       Value<String?> userId,
@@ -7265,6 +8018,12 @@ typedef $$PersonalBestsTableUpdateCompanionBuilder =
       Value<int> exerciseId,
       Value<int> reps,
       Value<double> weight,
+<<<<<<< HEAD
+=======
+      Value<int?> durationSeconds,
+      Value<double?> distanceMetres,
+      Value<String> metricType,
+>>>>>>> develop
       Value<DateTime> achievedAt,
       Value<String?> remoteId,
       Value<String?> userId,
@@ -7324,6 +8083,24 @@ class $$PersonalBestsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+<<<<<<< HEAD
+=======
+  ColumnFilters<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get distanceMetres => $composableBuilder(
+    column: $table.distanceMetres,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get metricType => $composableBuilder(
+    column: $table.metricType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+>>>>>>> develop
   ColumnFilters<DateTime> get achievedAt => $composableBuilder(
     column: $table.achievedAt,
     builder: (column) => ColumnFilters(column),
@@ -7397,6 +8174,24 @@ class $$PersonalBestsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+<<<<<<< HEAD
+=======
+  ColumnOrderings<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get distanceMetres => $composableBuilder(
+    column: $table.distanceMetres,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get metricType => $composableBuilder(
+    column: $table.metricType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+>>>>>>> develop
   ColumnOrderings<DateTime> get achievedAt => $composableBuilder(
     column: $table.achievedAt,
     builder: (column) => ColumnOrderings(column),
@@ -7464,6 +8259,24 @@ class $$PersonalBestsTableAnnotationComposer
   GeneratedColumn<double> get weight =>
       $composableBuilder(column: $table.weight, builder: (column) => column);
 
+<<<<<<< HEAD
+=======
+  GeneratedColumn<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get distanceMetres => $composableBuilder(
+    column: $table.distanceMetres,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get metricType => $composableBuilder(
+    column: $table.metricType,
+    builder: (column) => column,
+  );
+
+>>>>>>> develop
   GeneratedColumn<DateTime> get achievedAt => $composableBuilder(
     column: $table.achievedAt,
     builder: (column) => column,
@@ -7537,6 +8350,12 @@ class $$PersonalBestsTableTableManager
                 Value<int> exerciseId = const Value.absent(),
                 Value<int> reps = const Value.absent(),
                 Value<double> weight = const Value.absent(),
+<<<<<<< HEAD
+=======
+                Value<int?> durationSeconds = const Value.absent(),
+                Value<double?> distanceMetres = const Value.absent(),
+                Value<String> metricType = const Value.absent(),
+>>>>>>> develop
                 Value<DateTime> achievedAt = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
@@ -7547,6 +8366,12 @@ class $$PersonalBestsTableTableManager
                 exerciseId: exerciseId,
                 reps: reps,
                 weight: weight,
+<<<<<<< HEAD
+=======
+                durationSeconds: durationSeconds,
+                distanceMetres: distanceMetres,
+                metricType: metricType,
+>>>>>>> develop
                 achievedAt: achievedAt,
                 remoteId: remoteId,
                 userId: userId,
@@ -7557,8 +8382,16 @@ class $$PersonalBestsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required int exerciseId,
+<<<<<<< HEAD
                 required int reps,
                 required double weight,
+=======
+                Value<int> reps = const Value.absent(),
+                Value<double> weight = const Value.absent(),
+                Value<int?> durationSeconds = const Value.absent(),
+                Value<double?> distanceMetres = const Value.absent(),
+                Value<String> metricType = const Value.absent(),
+>>>>>>> develop
                 required DateTime achievedAt,
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
@@ -7569,6 +8402,12 @@ class $$PersonalBestsTableTableManager
                 exerciseId: exerciseId,
                 reps: reps,
                 weight: weight,
+<<<<<<< HEAD
+=======
+                durationSeconds: durationSeconds,
+                distanceMetres: distanceMetres,
+                metricType: metricType,
+>>>>>>> develop
                 achievedAt: achievedAt,
                 remoteId: remoteId,
                 userId: userId,

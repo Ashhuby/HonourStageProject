@@ -783,7 +783,11 @@ class SessionDetailSheet extends ConsumerWidget {
                                   ),
                                   const SizedBox(width: 10),
                                   Text(
+<<<<<<< HEAD
                                     '${set.set.weight}kg × ${set.set.reps} reps',
+=======
+                                    _formatSet(set.set),
+>>>>>>> develop
                                     style: const TextStyle(
                                       color: OneRepColors.textPrimary,
                                       fontSize: 14,
@@ -810,6 +814,30 @@ class SessionDetailSheet extends ConsumerWidget {
     );
   }
 
+<<<<<<< HEAD
+=======
+  String _formatSet(WorkoutSet set) {
+    if (set.durationSeconds != null) {
+      final secs = set.durationSeconds!;
+      final m = secs ~/ 60;
+      final s = secs % 60;
+      final timeStr = m > 0
+          ? '${m}m ${s.toString().padLeft(2, '0')}s'
+          : '${s}s';
+      if (set.distanceMetres != null && set.distanceMetres! > 0) {
+        final dist = set.distanceMetres!;
+        final distStr = dist >= 1000
+            ? '${(dist / 1000).toStringAsFixed(1)}km'
+            : '${dist.toStringAsFixed(0)}m';
+        return '$distStr in $timeStr';
+      }
+      return timeStr;
+    }
+    if (set.weight == 0.0) return '${set.reps} reps';
+    return '${set.weight}kg × ${set.reps} reps';
+  }
+
+>>>>>>> develop
   String _formatDate(DateTime date) {
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

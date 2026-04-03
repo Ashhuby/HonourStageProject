@@ -48,8 +48,13 @@ void main() {
     await db.into(db.personalBests).insert(
       PersonalBestsCompanion.insert(
         exerciseId: exerciseId,
+<<<<<<< HEAD
         reps: reps,
         weight: weight,
+=======
+        reps: Value(reps),
+        weight: Value(weight),
+>>>>>>> develop
         achievedAt: DateTime.now(),
       ),
       onConflict: DoUpdate(
@@ -65,6 +70,10 @@ void main() {
     return PrResult(
       exerciseId: exerciseId,
       exerciseName: 'Bench Press',
+<<<<<<< HEAD
+=======
+      metricType: 'weightReps',
+>>>>>>> develop
       weight: weight,
       reps: reps,
     );

@@ -11,12 +11,14 @@ class RoutineExerciseWithName {
   final String exerciseName;
   final String bodyPart;
   final String equipmentType;
+  final String metricType;
 
   const RoutineExerciseWithName({
     required this.routineExercise,
     required this.exerciseName,
     required this.bodyPart,
     required this.equipmentType,
+    this.metricType = 'weightReps',
   });
 }
 
@@ -46,6 +48,7 @@ Stream<List<RoutineExerciseWithName>> watchExercisesForRoutineWithNames(
                 exerciseName: row.readTable(db.exercises).name,
                 bodyPart: row.readTable(db.exercises).bodyPart,
                 equipmentType: row.readTable(db.exercises).equipmentType,
+                metricType: row.readTable(db.exercises).metricType,
               ),
             )
             .toList(),
@@ -55,7 +58,6 @@ Stream<List<RoutineExerciseWithName>> watchExercisesForRoutineWithNames(
 @riverpod
 Stream<List<WorkoutSplit>> watchSplits(Ref ref) {
   final db = ref.watch(databaseProvider);
-  // Exclude soft-deleted splits from UI
   return (db.select(db.workoutSplits)
         ..where((s) => s.deletedAt.isNull()))
       .watch();
@@ -96,13 +98,12 @@ class SplitRepository extends _$SplitRepository {
   }
 
   /// Soft-deletes a split and all its child routines and routine exercises.
-  /// Clears syncedAt on all records so the sync service propagates deletes.
   Future<void> deleteSplit(int splitId) async {
     final db = ref.read(databaseProvider);
     final now = DateTime.now();
 
     await db.transaction(() async {
-      // Soft-delete all routine exercises under this split
+      // Soft-delete routine exercises first
       final routines = await (db.select(db.workoutRoutines)
             ..where((r) => r.splitId.equals(splitId)))
           .get();
@@ -116,7 +117,7 @@ class SplitRepository extends _$SplitRepository {
         ));
       }
 
-      // Soft-delete all routines under this split
+      // Soft-delete routines
       await (db.update(db.workoutRoutines)
             ..where((r) => r.splitId.equals(splitId)))
           .write(WorkoutRoutinesCompanion(
@@ -124,7 +125,7 @@ class SplitRepository extends _$SplitRepository {
         syncedAt: const Value(null),
       ));
 
-      // Soft-delete the split itself
+      // Soft-delete the split
       await (db.update(db.workoutSplits)
             ..where((s) => s.id.equals(splitId)))
           .write(WorkoutSplitsCompanion(
@@ -136,18 +137,16 @@ class SplitRepository extends _$SplitRepository {
 
   Future<int> addRoutineToSplit(String name, int splitId) async {
     final db = ref.read(databaseProvider);
-
-    final existing = await (db.select(db.workoutRoutines)
+    final count = await (db.select(db.workoutRoutines)
           ..where((r) => r.splitId.equals(splitId))
           ..where((r) => r.deletedAt.isNull()))
         .get();
-    final nextIndex = existing.length;
 
     return db.into(db.workoutRoutines).insert(
           WorkoutRoutinesCompanion.insert(
             name: name,
             splitId: splitId,
-            orderIndex: nextIndex,
+            orderIndex: count.length,
           ),
         );
   }
@@ -155,29 +154,22 @@ class SplitRepository extends _$SplitRepository {
   Future<void> addExerciseToRoutine({
     required int routineId,
     required int exerciseId,
-    int targetSets = 3,
-    int targetReps = 10,
   }) async {
     final db = ref.read(databaseProvider);
-
     final existing = await (db.select(db.routineExercises)
           ..where((re) => re.routineId.equals(routineId))
           ..where((re) => re.deletedAt.isNull()))
         .get();
-    final nextIndex = existing.length;
 
     await db.into(db.routineExercises).insert(
           RoutineExercisesCompanion.insert(
             routineId: routineId,
             exerciseId: exerciseId,
-            orderIndex: nextIndex,
-            targetSets: Value(targetSets),
-            targetReps: Value(targetReps),
+            orderIndex: existing.length,
           ),
         );
   }
 
-  /// Soft-deletes a single routine exercise.
   Future<void> removeExerciseFromRoutine(int routineExerciseId) async {
     final db = ref.read(databaseProvider);
     await (db.update(db.routineExercises)
