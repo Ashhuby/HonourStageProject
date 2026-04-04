@@ -90,6 +90,7 @@ class ExerciseLibraryScreen extends ConsumerWidget {
         error: (err, _) => Center(child: Text('Error: $err')),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'exercise_fab',
         onPressed: () => _showAddExerciseDialog(context, ref),
         icon: const Icon(Icons.add),
         label: const Text(

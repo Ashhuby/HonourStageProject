@@ -46,6 +46,7 @@ class SplitListScreen extends ConsumerWidget {
         error: (err, _) => Center(child: Text('Error: $err')),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'split_fab',
         onPressed: () => _showCreateSplitDialog(context, ref),
         icon: const Icon(Icons.add),
         label: const Text('NEW SPLIT',
