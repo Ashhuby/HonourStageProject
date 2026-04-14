@@ -330,9 +330,6 @@ class SyncService {
         .get();
 
     for (final pr in dirty) {
-    }    
-
-    for (final pr in dirty) {
       final remoteId = pr.remoteId ?? _uuid.v4();
 
       await supabase.from('personal_bests').upsert({
