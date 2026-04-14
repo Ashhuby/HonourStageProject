@@ -224,7 +224,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
           reps: Variable(reps),
           achievedAt: Variable(DateTime.now()),
         ),
-        target: [db.personalBests.exerciseId, db.personalBests.metricType],
+        target: [db.personalBests.exerciseId, db.personalBests.reps],
       ),
     );
 
@@ -273,7 +273,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
           reps: Variable(reps),
           achievedAt: Variable(DateTime.now()),
         ),
-        target: [db.personalBests.exerciseId, db.personalBests.metricType],
+        target: [db.personalBests.exerciseId, db.personalBests.reps],
       ),
     );
 
