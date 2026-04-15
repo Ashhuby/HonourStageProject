@@ -1,8 +1,8 @@
-name: fitness_app
+name: OneRep
 description: "An offline-first fitness app with note-taking and rest timers."
 publish_to: 'none' 
 
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: '>=3.10.0 <4.0.0'
