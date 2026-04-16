@@ -167,10 +167,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: _latestPr != null
-                  ? _PrBanner(
-                      pr: _latestPr!,
-                      onDismiss: _dismissPrBanner,
-                    )
+                  ? _PrBanner(pr: _latestPr!, onDismiss: _dismissPrBanner)
                   : const SizedBox.shrink(),
             ),
 
@@ -207,8 +204,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                 data: (sets) => sets.isEmpty
                     ? const _EmptySessionState()
                     : _buildSetsList(sets),
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (err, _) => Center(child: Text('Error: $err')),
               ),
             ),
@@ -314,9 +310,18 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                 Expanded(
                   child: TextField(
                     controller: _weightController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
-                    decoration: const InputDecoration(labelText: 'Weight', suffixText: 'kg'),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Weight',
+                      suffixText: 'kg',
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -324,7 +329,11 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   child: TextField(
                     controller: _repsController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                     decoration: const InputDecoration(labelText: 'Reps'),
                   ),
                 ),
@@ -336,7 +345,11 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   child: TextField(
                     controller: _repsController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                     decoration: const InputDecoration(labelText: 'Reps'),
                   ),
                 ),
@@ -344,9 +357,19 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                 Expanded(
                   child: TextField(
                     controller: _weightController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
-                    decoration: const InputDecoration(labelText: 'Added Weight', suffixText: 'kg', hintText: 'Optional'),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Added Weight',
+                      suffixText: 'kg',
+                      hintText: 'Optional',
+                    ),
                   ),
                 ),
               ],
@@ -357,8 +380,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   child: TextField(
                     controller: _minutesController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
-                    decoration: const InputDecoration(labelText: 'Minutes', suffixText: 'min'),
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Minutes',
+                      suffixText: 'min',
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -366,8 +396,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   child: TextField(
                     controller: _secondsController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
-                    decoration: const InputDecoration(labelText: 'Seconds', suffixText: 'sec'),
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Seconds',
+                      suffixText: 'sec',
+                    ),
                   ),
                 ),
               ],
@@ -377,9 +414,18 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                 Expanded(
                   child: TextField(
                     controller: _distanceController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
-                    decoration: const InputDecoration(labelText: 'Distance', suffixText: 'm'),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Distance',
+                      suffixText: 'm',
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -387,8 +433,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   child: TextField(
                     controller: _minutesController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
-                    decoration: const InputDecoration(labelText: 'Minutes', suffixText: 'min'),
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Minutes',
+                      suffixText: 'min',
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -396,8 +449,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                   child: TextField(
                     controller: _secondsController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: OneRepColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
-                    decoration: const InputDecoration(labelText: 'Seconds', suffixText: 'sec'),
+                    style: const TextStyle(
+                      color: OneRepColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Seconds',
+                      suffixText: 'sec',
+                    ),
                   ),
                 ),
               ],
@@ -637,9 +697,9 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   }
 
   void _showInputError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   // ---------------------------------------------------------------------------
@@ -674,9 +734,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
 
           // Cancel Workout — destructive, requires second confirmation
           TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: OneRepColors.error,
-            ),
+            style: TextButton.styleFrom(foregroundColor: OneRepColors.error),
             onPressed: () async {
               Navigator.pop(dialogContext); // close first dialog
               final confirmed = await showDialog<bool>(
@@ -716,9 +774,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
 
           // Finish — end session, badge evaluation fires in endSession
           TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: OneRepColors.gold,
-            ),
+            style: TextButton.styleFrom(foregroundColor: OneRepColors.gold),
             onPressed: () async {
               await ref
                   .read(sessionRepositoryProvider.notifier)
@@ -794,7 +850,10 @@ class _PrBanner extends StatelessWidget {
               ),
             ),
             const Icon(
-                Icons.close, color: OneRepColors.textSecondary, size: 16),
+              Icons.close,
+              color: OneRepColors.textSecondary,
+              size: 16,
+            ),
           ],
         ),
       ),
@@ -823,8 +882,7 @@ class _RestTimerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress =
-        totalSeconds > 0 ? remainingSeconds / totalSeconds : 0.0;
+    final progress = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0.0;
     final minutes = remainingSeconds ~/ 60;
     final seconds = remainingSeconds % 60;
     final timeString =
@@ -833,8 +891,8 @@ class _RestTimerBar extends StatelessWidget {
     final timerColor = progress > 0.5
         ? OneRepColors.gold
         : progress > 0.25
-            ? OneRepColors.coral
-            : OneRepColors.error;
+        ? OneRepColors.coral
+        : OneRepColors.error;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -911,10 +969,7 @@ class _RestTimerBar extends StatelessWidget {
                 tooltip: 'Skip rest',
                 onPressed: onSkip,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 36,
-                  minHeight: 36,
-                ),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
               IconButton(
                 icon: const Icon(Icons.replay_rounded, size: 20),
@@ -922,10 +977,7 @@ class _RestTimerBar extends StatelessWidget {
                 tooltip: 'Restart timer',
                 onPressed: onRestart,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 36,
-                  minHeight: 36,
-                ),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
             ],
           ),
@@ -968,10 +1020,7 @@ class _EmptySessionState extends StatelessWidget {
             Text(
               'Select an exercise above and log your first set.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: OneRepColors.textSecondary,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: OneRepColors.textSecondary, fontSize: 13),
             ),
           ],
         ),

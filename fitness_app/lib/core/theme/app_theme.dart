@@ -72,10 +72,7 @@ ThemeData buildAppTheme() {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(
-          color: OneRepColors.surfaceElevated,
-          width: 1,
-        ),
+        side: const BorderSide(color: OneRepColors.surfaceElevated, width: 1),
       ),
       margin: EdgeInsets.zero,
     ),
@@ -86,9 +83,7 @@ ThemeData buildAppTheme() {
         foregroundColor: OneRepColors.background,
         elevation: 0,
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: const TextStyle(
           fontWeight: FontWeight.w700,
           fontSize: 15,
@@ -102,9 +97,7 @@ ThemeData buildAppTheme() {
         backgroundColor: accent,
         foregroundColor: OneRepColors.background,
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: const TextStyle(
           fontWeight: FontWeight.w700,
           fontSize: 15,
@@ -125,9 +118,7 @@ ThemeData buildAppTheme() {
         foregroundColor: accent,
         side: const BorderSide(color: OneRepColors.surfaceHighest),
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
 
@@ -144,10 +135,7 @@ ThemeData buildAppTheme() {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: OneRepColors.gold,
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: OneRepColors.gold, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -155,10 +143,7 @@ ThemeData buildAppTheme() {
       ),
       labelStyle: const TextStyle(color: OneRepColors.textSecondary),
       hintStyle: const TextStyle(color: OneRepColors.textDisabled),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
 
     listTileTheme: const ListTileThemeData(
@@ -201,8 +186,7 @@ ThemeData buildAppTheme() {
     snackBarTheme: SnackBarThemeData(
       backgroundColor: OneRepColors.surfaceElevated,
       contentTextStyle: const TextStyle(color: OneRepColors.textPrimary),
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       behavior: SnackBarBehavior.floating,
     ),
 
@@ -226,8 +210,7 @@ ThemeData buildAppTheme() {
 
     dialogTheme: DialogThemeData(
       backgroundColor: OneRepColors.surface,
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       titleTextStyle: const TextStyle(
         color: OneRepColors.textPrimary,
         fontSize: 18,

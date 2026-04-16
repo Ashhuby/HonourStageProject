@@ -8,16 +8,18 @@ import '../../features/workout/data/workout_tables.dart';
 
 part 'local_database.g.dart';
 
-@DriftDatabase(tables: [
-  Exercises,
-  WorkoutSplits,
-  WorkoutRoutines,
-  RoutineExercises,
-  WorkoutSessions,
-  WorkoutSets,
-  PersonalBests,
-  Badges,
-])
+@DriftDatabase(
+  tables: [
+    Exercises,
+    WorkoutSplits,
+    WorkoutRoutines,
+    RoutineExercises,
+    WorkoutSessions,
+    WorkoutSets,
+    PersonalBests,
+    Badges,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : _isTesting = false, super(_openConnection());
   AppDatabase.forTesting(super.executor) : _isTesting = true;
@@ -70,13 +72,17 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 5) {
           await customStatement(
-              'ALTER TABLE exercises ADD COLUMN remote_id TEXT');
+            'ALTER TABLE exercises ADD COLUMN remote_id TEXT',
+          );
           await customStatement(
-              'ALTER TABLE exercises ADD COLUMN user_id TEXT');
+            'ALTER TABLE exercises ADD COLUMN user_id TEXT',
+          );
           await customStatement(
-              'ALTER TABLE exercises ADD COLUMN synced_at INTEGER');
+            'ALTER TABLE exercises ADD COLUMN synced_at INTEGER',
+          );
           await customStatement(
-              'ALTER TABLE exercises ADD COLUMN deleted_at INTEGER');
+            'ALTER TABLE exercises ADD COLUMN deleted_at INTEGER',
+          );
         }
         if (from < 6) {
           // Add metricType to exercises — default weightReps for all existing rows
@@ -117,8 +123,12 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _seedExercises() async {
     // Helper — insert or update by name
-    Future<void> seed(String name, String bodyPart, String equipment,
-        String metricType) async {
+    Future<void> seed(
+      String name,
+      String bodyPart,
+      String equipment,
+      String metricType,
+    ) async {
       await into(exercises).insertOnConflictUpdate(
         ExercisesCompanion.insert(
           name: name,

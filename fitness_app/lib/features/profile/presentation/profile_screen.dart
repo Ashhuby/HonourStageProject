@@ -28,8 +28,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (_initialised) return;
     _initialised = true;
     if (profile.bodyweightKg != null) {
-      _bodyweightController.text = profile.bodyweightKg!
-          .toStringAsFixed(profile.bodyweightKg! % 1 == 0 ? 0 : 1);
+      _bodyweightController.text = profile.bodyweightKg!.toStringAsFixed(
+        profile.bodyweightKg! % 1 == 0 ? 0 : 1,
+      );
     }
   }
 
@@ -88,8 +89,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _bodyweightController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 labelText: 'Bodyweight',
                 suffixText: 'kg',
@@ -134,10 +136,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text(
-                  'Save',
-                  style: TextStyle(fontSize: 16),
-                ),
+                child: const Text('Save', style: TextStyle(fontSize: 16)),
               ),
             ),
 
@@ -180,9 +179,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             label: 'Male',
             icon: Icons.male,
             selected: profile.sex == Sex.male,
-            onTap: () => ref
-                .read(profileNotifierProvider.notifier)
-                .setSex(Sex.male),
+            onTap: () =>
+                ref.read(profileNotifierProvider.notifier).setSex(Sex.male),
           ),
         ),
         const SizedBox(width: 12),
@@ -191,9 +189,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             label: 'Female',
             icon: Icons.female,
             selected: profile.sex == Sex.female,
-            onTap: () => ref
-                .read(profileNotifierProvider.notifier)
-                .setSex(Sex.female),
+            onTap: () =>
+                ref.read(profileNotifierProvider.notifier).setSex(Sex.female),
           ),
         ),
       ],
@@ -250,9 +247,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _initialised = false;
       });
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile cleared')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Profile cleared')));
       }
     }
   }
@@ -308,8 +305,7 @@ class _SexOption extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontWeight:
-                    selected ? FontWeight.bold : FontWeight.normal,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                 color: selected
                     ? colorScheme.primary
                     : colorScheme.onSurfaceVariant,

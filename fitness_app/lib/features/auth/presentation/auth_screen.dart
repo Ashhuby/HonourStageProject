@@ -95,7 +95,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height -
+                minHeight:
+                    MediaQuery.of(context).size.height -
                     MediaQuery.of(context).padding.top -
                     MediaQuery.of(context).padding.bottom,
               ),

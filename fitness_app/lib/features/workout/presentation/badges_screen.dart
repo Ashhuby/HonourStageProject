@@ -9,16 +9,16 @@ import '../data/badge_service.dart';
 /// Icon names are stored as strings in [BadgeDefinition] to keep the
 /// definition data pure and free of Flutter dependencies.
 IconData _badgeIconData(String name) => switch (name) {
-      'fitness_center' => Icons.fitness_center,
-      'local_fire_department' => Icons.local_fire_department,
-      'emoji_events' => Icons.emoji_events,
-      'military_tech' => Icons.military_tech,
-      'trending_up' => Icons.trending_up,
-      'bolt' => Icons.bolt,
-      'workspace_premium' => Icons.workspace_premium,
-      'add_circle' => Icons.add_circle,
-      _ => Icons.star,
-    };
+  'fitness_center' => Icons.fitness_center,
+  'local_fire_department' => Icons.local_fire_department,
+  'emoji_events' => Icons.emoji_events,
+  'military_tech' => Icons.military_tech,
+  'trending_up' => Icons.trending_up,
+  'bolt' => Icons.bolt,
+  'workspace_premium' => Icons.workspace_premium,
+  'add_circle' => Icons.add_circle,
+  _ => Icons.star,
+};
 
 class BadgesScreen extends ConsumerWidget {
   const BadgesScreen({super.key});
@@ -51,24 +51,20 @@ class BadgesScreen extends ConsumerWidget {
               // Earned
               // ---------------------------------------------------------------
               if (earned.isNotEmpty) ...[
-                const SliverToBoxAdapter(
-                  child: _SectionLabel(title: 'EARNED'),
-                ),
+                const SliverToBoxAdapter(child: _SectionLabel(title: 'EARNED')),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 1.05,
-                    ),
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 1.05,
+                        ),
                     delegate: SliverChildBuilderDelegate(
-                      (context, index) => _BadgeTile(
-                        badge: earned[index],
-                        earned: true,
-                      ),
+                      (context, index) =>
+                          _BadgeTile(badge: earned[index], earned: true),
                       childCount: earned.length,
                     ),
                   ),
@@ -79,24 +75,20 @@ class BadgesScreen extends ConsumerWidget {
               // Locked
               // ---------------------------------------------------------------
               if (unearned.isNotEmpty) ...[
-                const SliverToBoxAdapter(
-                  child: _SectionLabel(title: 'LOCKED'),
-                ),
+                const SliverToBoxAdapter(child: _SectionLabel(title: 'LOCKED')),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
                   sliver: SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 1.05,
-                    ),
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 1.05,
+                        ),
                     delegate: SliverChildBuilderDelegate(
-                      (context, index) => _BadgeTile(
-                        badge: unearned[index],
-                        earned: false,
-                      ),
+                      (context, index) =>
+                          _BadgeTile(badge: unearned[index], earned: false),
                       childCount: unearned.length,
                     ),
                   ),
@@ -185,8 +177,9 @@ class _SummaryHeader extends StatelessWidget {
               value: progress,
               minHeight: 6,
               backgroundColor: OneRepColors.surfaceHighest,
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(OneRepColors.gold),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                OneRepColors.gold,
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -340,7 +333,6 @@ class _BadgeTile extends StatelessWidget {
       builder: (_) => _BadgeDetailSheet(badge: badge, earned: earned),
     );
   }
-
 }
 
 // ---------------------------------------------------------------------------
@@ -421,8 +413,7 @@ class _BadgeDetailSheet extends StatelessWidget {
 
           // Status pill
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: earned
                   ? OneRepColors.gold.withValues(alpha: 0.12)
@@ -464,5 +455,4 @@ class _BadgeDetailSheet extends StatelessWidget {
       ),
     );
   }
-
 }

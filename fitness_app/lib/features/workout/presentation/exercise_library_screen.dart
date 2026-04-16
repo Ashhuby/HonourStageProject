@@ -20,8 +20,14 @@ class ExerciseLibraryScreen extends ConsumerWidget {
 
           // Define display order for body part sections.
           const sectionOrder = [
-            'Chest', 'Back', 'Legs', 'Shoulders',
-            'Biceps', 'Triceps', 'Core', 'Whole Body',
+            'Chest',
+            'Back',
+            'Legs',
+            'Shoulders',
+            'Biceps',
+            'Triceps',
+            'Core',
+            'Whole Body',
           ];
 
           // Sort exercises: first by sectionOrder, then alphabetically within.
@@ -73,8 +79,7 @@ class ExerciseLibraryScreen extends ConsumerWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          ExerciseDetailScreen(exercise: exercise),
+                      builder: (_) => ExerciseDetailScreen(exercise: exercise),
                     ),
                   ),
                   onDelete: () => ref
@@ -85,8 +90,7 @@ class ExerciseLibraryScreen extends ConsumerWidget {
             },
           );
         },
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -102,13 +106,25 @@ class ExerciseLibraryScreen extends ConsumerWidget {
   }
 
   static const _bodyParts = [
-    'Chest', 'Back', 'Legs', 'Shoulders',
-    'Biceps', 'Triceps', 'Core', 'Whole Body',
+    'Chest',
+    'Back',
+    'Legs',
+    'Shoulders',
+    'Biceps',
+    'Triceps',
+    'Core',
+    'Whole Body',
   ];
 
   static const _equipment = [
-    'Barbell', 'Dumbbell', 'Cable', 'Machine',
-    'Body Weight', 'Kettlebell', 'Resistance Band', 'Other',
+    'Barbell',
+    'Dumbbell',
+    'Cable',
+    'Machine',
+    'Body Weight',
+    'Kettlebell',
+    'Resistance Band',
+    'Other',
   ];
 
   static const _metricTypes = [
@@ -164,13 +180,14 @@ class ExerciseLibraryScreen extends ConsumerWidget {
                   decoration: const InputDecoration(labelText: 'Metric Type'),
                   dropdownColor: OneRepColors.surfaceElevated,
                   items: _metricTypes
-                      .map((mt) => DropdownMenuItem(
-                            value: mt.$1,
-                            child: Text(mt.$2),
-                          ))
+                      .map(
+                        (mt) =>
+                            DropdownMenuItem(value: mt.$1, child: Text(mt.$2)),
+                      )
                       .toList(),
-                  onChanged: (v) =>
-                      setDialogState(() => selectedMetricType = v ?? 'weightReps'),
+                  onChanged: (v) => setDialogState(
+                    () => selectedMetricType = v ?? 'weightReps',
+                  ),
                 ),
               ],
             ),
@@ -250,8 +267,7 @@ class _ExerciseCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bodyPartColor = _bodyPartColor(exercise.bodyPart as String);
-    final prsAsync =
-        ref.watch(watchPrsForExerciseProvider(exercise.id as int));
+    final prsAsync = ref.watch(watchPrsForExerciseProvider(exercise.id as int));
 
     return Dismissible(
       key: ValueKey(exercise.id),
@@ -273,9 +289,7 @@ class _ExerciseCard extends ConsumerWidget {
           decoration: BoxDecoration(
             color: OneRepColors.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border(
-              left: BorderSide(color: bodyPartColor, width: 3),
-            ),
+            border: Border(left: BorderSide(color: bodyPartColor, width: 3)),
           ),
           child: Row(
             children: [
@@ -312,8 +326,7 @@ class _ExerciseCard extends ConsumerWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: OneRepColors.gold
-                                  .withValues(alpha: 0.15),
+                              color: OneRepColors.gold.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text(
@@ -440,10 +453,7 @@ class _EmptyState extends StatelessWidget {
             Text(
               'Tap Add Exercise to build your library.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: OneRepColors.textSecondary,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: OneRepColors.textSecondary, fontSize: 14),
             ),
           ],
         ),

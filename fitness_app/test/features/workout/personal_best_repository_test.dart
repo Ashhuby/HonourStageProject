@@ -16,7 +16,9 @@ void main() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
 
     // Insert a real exercise row — PersonalBests has a FK to Exercises.
-    exerciseId = await db.into(db.exercises).insert(
+    exerciseId = await db
+        .into(db.exercises)
+        .insert(
           ExercisesCompanion.insert(
             name: 'Bench Press',
             bodyPart: 'Chest',
@@ -37,31 +39,33 @@ void main() {
     required int reps,
   }) async {
     // Fetch existing PR for this (exercise, reps) pair.
-    final existing = await (db.select(db.personalBests)
-          ..where((pb) => pb.exerciseId.equals(exerciseId))
-          ..where((pb) => pb.reps.equals(reps))
-          ..where((pb) => pb.deletedAt.isNull()))
-        .getSingleOrNull();
+    final existing =
+        await (db.select(db.personalBests)
+              ..where((pb) => pb.exerciseId.equals(exerciseId))
+              ..where((pb) => pb.reps.equals(reps))
+              ..where((pb) => pb.deletedAt.isNull()))
+            .getSingleOrNull();
 
     final isNewPr = existing == null || weight > existing.weight;
     if (!isNewPr) return null;
-    await db.into(db.personalBests).insert(
-      PersonalBestsCompanion.insert(
-        exerciseId: exerciseId,
-        reps: Value(reps),
-        weight: Value(weight),
-        achievedAt: DateTime.now(),
-      ),
-      onConflict: DoUpdate(
-        (old) => PersonalBestsCompanion.custom(
-          weight: Variable(weight),
-          achievedAt: Variable(DateTime.now()),
-        ),
-        target: [db.personalBests.exerciseId, db.personalBests.reps],
-      ),
-    );
+    await db
+        .into(db.personalBests)
+        .insert(
+          PersonalBestsCompanion.insert(
+            exerciseId: exerciseId,
+            reps: Value(reps),
+            weight: Value(weight),
+            achievedAt: DateTime.now(),
+          ),
+          onConflict: DoUpdate(
+            (old) => PersonalBestsCompanion.custom(
+              weight: Variable(weight),
+              achievedAt: Variable(DateTime.now()),
+            ),
+            target: [db.personalBests.exerciseId, db.personalBests.reps],
+          ),
+        );
 
-    
     return PrResult(
       exerciseId: exerciseId,
       exerciseName: 'Bench Press',
@@ -95,15 +99,18 @@ void main() {
       expect(result!.weight, 85);
     });
 
-    test('upsert replaces old weight — only one row per (exercise, reps)', () async {
-      await checkAndSave(weight: 80, reps: 5);
-      await checkAndSave(weight: 85, reps: 5);
-      final rows = await (db.select(db.personalBests)
-            ..where((pb) => pb.reps.equals(5)))
-          .get();
-      expect(rows.length, 1);
-      expect(rows.first.weight, 85);
-    });
+    test(
+      'upsert replaces old weight — only one row per (exercise, reps)',
+      () async {
+        await checkAndSave(weight: 80, reps: 5);
+        await checkAndSave(weight: 85, reps: 5);
+        final rows = await (db.select(
+          db.personalBests,
+        )..where((pb) => pb.reps.equals(5))).get();
+        expect(rows.length, 1);
+        expect(rows.first.weight, 85);
+      },
+    );
   });
 
   group('PR detection — equal and lighter weights', () {
@@ -122,9 +129,9 @@ void main() {
     test('lighter weight does not overwrite the stored PR', () async {
       await checkAndSave(weight: 80, reps: 5);
       await checkAndSave(weight: 75, reps: 5);
-      final row = await (db.select(db.personalBests)
-            ..where((pb) => pb.reps.equals(5)))
-          .getSingle();
+      final row = await (db.select(
+        db.personalBests,
+      )..where((pb) => pb.reps.equals(5))).getSingle();
       expect(row.weight, 80);
     });
   });
@@ -145,38 +152,43 @@ void main() {
       await checkAndSave(weight: 80, reps: 10);
       await checkAndSave(weight: 105, reps: 5);
 
-      final rep10Row = await (db.select(db.personalBests)
-            ..where((pb) => pb.reps.equals(10)))
-          .getSingle();
+      final rep10Row = await (db.select(
+        db.personalBests,
+      )..where((pb) => pb.reps.equals(10))).getSingle();
       expect(rep10Row.weight, 80);
     });
 
-    test('heavy weight at high reps does not create a PR for low reps', () async {
-      // 80kg x 10 reps — no 5-rep PR exists yet
-      await checkAndSave(weight: 80, reps: 10);
-      final fiveRepRow = await (db.select(db.personalBests)
-            ..where((pb) => pb.reps.equals(5)))
-          .getSingleOrNull();
-      expect(fiveRepRow, isNull);
-    });
+    test(
+      'heavy weight at high reps does not create a PR for low reps',
+      () async {
+        // 80kg x 10 reps — no 5-rep PR exists yet
+        await checkAndSave(weight: 80, reps: 10);
+        final fiveRepRow = await (db.select(
+          db.personalBests,
+        )..where((pb) => pb.reps.equals(5))).getSingleOrNull();
+        expect(fiveRepRow, isNull);
+      },
+    );
   });
 
   group('PR detection — sequence of improvements', () {
-    test('progressive overload across multiple sessions is tracked correctly',
-        () async {
-      // Simulate 4 weeks of bench press progress
-      await checkAndSave(weight: 80, reps: 5); // week 1
-      await checkAndSave(weight: 82.5, reps: 5); // week 2 — PR
-      await checkAndSave(weight: 82.5, reps: 5); // week 3 — no PR (matched)
-      final result = await checkAndSave(weight: 85, reps: 5); // week 4 — PR
+    test(
+      'progressive overload across multiple sessions is tracked correctly',
+      () async {
+        // Simulate 4 weeks of bench press progress
+        await checkAndSave(weight: 80, reps: 5); // week 1
+        await checkAndSave(weight: 82.5, reps: 5); // week 2 — PR
+        await checkAndSave(weight: 82.5, reps: 5); // week 3 — no PR (matched)
+        final result = await checkAndSave(weight: 85, reps: 5); // week 4 — PR
 
-      expect(result, isNotNull);
-      expect(result!.weight, 85);
+        expect(result, isNotNull);
+        expect(result!.weight, 85);
 
-      final row = await (db.select(db.personalBests)
-            ..where((pb) => pb.reps.equals(5)))
-          .getSingle();
-      expect(row.weight, 85);
-    });
+        final row = await (db.select(
+          db.personalBests,
+        )..where((pb) => pb.reps.equals(5))).getSingle();
+        expect(row.weight, 85);
+      },
+    );
   });
 }

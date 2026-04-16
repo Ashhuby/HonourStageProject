@@ -19,15 +19,17 @@ class ExerciseRepository extends _$ExerciseRepository {
     String metricType = 'weightReps',
   }) async {
     final db = ref.read(databaseProvider);
-    await db.into(db.exercises).insert(
-      ExercisesCompanion.insert(
-        name: name,
-        bodyPart: bodyPart,
-        equipmentType: equipmentType,
-        isCustom: const Value(true),
-        metricType: Value(metricType),
-      ),
-    );
+    await db
+        .into(db.exercises)
+        .insert(
+          ExercisesCompanion.insert(
+            name: name,
+            bodyPart: bodyPart,
+            equipmentType: equipmentType,
+            isCustom: const Value(true),
+            metricType: Value(metricType),
+          ),
+        );
   }
 
   Future<void> deleteExercise(int id) async {

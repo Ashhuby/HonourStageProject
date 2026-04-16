@@ -15,9 +15,9 @@ void main() {
 
   group('Split Repository', () {
     test('creates a split and retrieves it', () async {
-      await db.into(db.workoutSplits).insert(
-            WorkoutSplitsCompanion.insert(name: '6-Day PPL'),
-          );
+      await db
+          .into(db.workoutSplits)
+          .insert(WorkoutSplitsCompanion.insert(name: '6-Day PPL'));
 
       final results = await db.select(db.workoutSplits).get();
       expect(results.length, 1);
@@ -25,9 +25,9 @@ void main() {
     });
 
     test('deletes a split', () async {
-      final id = await db.into(db.workoutSplits).insert(
-            WorkoutSplitsCompanion.insert(name: 'Push Pull Legs'),
-          );
+      final id = await db
+          .into(db.workoutSplits)
+          .insert(WorkoutSplitsCompanion.insert(name: 'Push Pull Legs'));
 
       await (db.delete(db.workoutSplits)..where((s) => s.id.equals(id))).go();
 
@@ -36,11 +36,13 @@ void main() {
     });
 
     test('adds a routine to a split', () async {
-      final splitId = await db.into(db.workoutSplits).insert(
-            WorkoutSplitsCompanion.insert(name: 'My Split'),
-          );
+      final splitId = await db
+          .into(db.workoutSplits)
+          .insert(WorkoutSplitsCompanion.insert(name: 'My Split'));
 
-      await db.into(db.workoutRoutines).insert(
+      await db
+          .into(db.workoutRoutines)
+          .insert(
             WorkoutRoutinesCompanion.insert(
               name: 'Push Day',
               splitId: splitId,
@@ -48,20 +50,22 @@ void main() {
             ),
           );
 
-      final routines = await (db.select(db.workoutRoutines)
-            ..where((r) => r.splitId.equals(splitId)))
-          .get();
+      final routines = await (db.select(
+        db.workoutRoutines,
+      )..where((r) => r.splitId.equals(splitId))).get();
 
       expect(routines.length, 1);
       expect(routines.first.name, 'Push Day');
     });
 
     test('adds an exercise to a routine', () async {
-      final splitId = await db.into(db.workoutSplits).insert(
-            WorkoutSplitsCompanion.insert(name: 'My Split'),
-          );
+      final splitId = await db
+          .into(db.workoutSplits)
+          .insert(WorkoutSplitsCompanion.insert(name: 'My Split'));
 
-      final routineId = await db.into(db.workoutRoutines).insert(
+      final routineId = await db
+          .into(db.workoutRoutines)
+          .insert(
             WorkoutRoutinesCompanion.insert(
               name: 'Push Day',
               splitId: splitId,
@@ -69,7 +73,9 @@ void main() {
             ),
           );
 
-      final exerciseId = await db.into(db.exercises).insert(
+      final exerciseId = await db
+          .into(db.exercises)
+          .insert(
             ExercisesCompanion.insert(
               name: 'Bench Press',
               bodyPart: 'Chest',
@@ -77,7 +83,9 @@ void main() {
             ),
           );
 
-      await db.into(db.routineExercises).insert(
+      await db
+          .into(db.routineExercises)
+          .insert(
             RoutineExercisesCompanion.insert(
               routineId: routineId,
               exerciseId: exerciseId,
@@ -85,20 +93,22 @@ void main() {
             ),
           );
 
-      final routineExercises = await (db.select(db.routineExercises)
-            ..where((re) => re.routineId.equals(routineId)))
-          .get();
+      final routineExercises = await (db.select(
+        db.routineExercises,
+      )..where((re) => re.routineId.equals(routineId))).get();
 
       expect(routineExercises.length, 1);
       expect(routineExercises.first.exerciseId, exerciseId);
     });
 
     test('deleting a split cascades to routines', () async {
-      final splitId = await db.into(db.workoutSplits).insert(
-            WorkoutSplitsCompanion.insert(name: 'Cascade Test'),
-          );
+      final splitId = await db
+          .into(db.workoutSplits)
+          .insert(WorkoutSplitsCompanion.insert(name: 'Cascade Test'));
 
-      await db.into(db.workoutRoutines).insert(
+      await db
+          .into(db.workoutRoutines)
+          .insert(
             WorkoutRoutinesCompanion.insert(
               name: 'Day 1',
               splitId: splitId,
@@ -106,9 +116,9 @@ void main() {
             ),
           );
 
-      await (db.delete(db.workoutSplits)
-            ..where((s) => s.id.equals(splitId)))
-          .go();
+      await (db.delete(
+        db.workoutSplits,
+      )..where((s) => s.id.equals(splitId))).go();
 
       final routines = await db.select(db.workoutRoutines).get();
       expect(routines, isEmpty);

@@ -17,10 +17,7 @@ class SplitDetailScreen extends ConsumerWidget {
     final routinesAsync = ref.watch(watchRoutinesForSplitProvider(split.id));
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(split.name),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(split.name), centerTitle: true),
       body: routinesAsync.when(
         data: (routines) => routines.isEmpty
             ? const Center(
@@ -37,7 +34,10 @@ class SplitDetailScreen extends ConsumerWidget {
                       color: OneRepColors.error,
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: const Icon(Icons.delete, color: OneRepColors.textPrimary),
+                      child: const Icon(
+                        Icons.delete,
+                        color: OneRepColors.textPrimary,
+                      ),
                     ),
                     onDismissed: (_) {
                       ref
@@ -51,11 +51,8 @@ class SplitDetailScreen extends ConsumerWidget {
                         child: Text('${routine.orderIndex + 1}'),
                       ),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _showRoutineExercisesSheet(
-                        context,
-                        ref,
-                        routine,
-                      ),
+                      onTap: () =>
+                          _showRoutineExercisesSheet(context, ref, routine),
                     ),
                   );
                 },
@@ -187,16 +184,18 @@ class RoutineExercisesSheet extends ConsumerWidget {
                           background: Container(
                             color: OneRepColors.error,
                             alignment: Alignment.centerRight,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 20),
-                            child:
-                                const Icon(Icons.delete, color: OneRepColors.textPrimary),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: const Icon(
+                              Icons.delete,
+                              color: OneRepColors.textPrimary,
+                            ),
                           ),
                           onDismissed: (_) {
                             ref
                                 .read(splitRepositoryProvider.notifier)
                                 .removeExerciseFromRoutine(
-                                    re.routineExercise.id);
+                                  re.routineExercise.id,
+                                );
                           },
                           child: ListTile(
                             title: Text(re.exerciseName),
@@ -212,8 +211,7 @@ class RoutineExercisesSheet extends ConsumerWidget {
                         );
                       },
                     ),
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, stack) => Center(child: Text('Error: $err')),
             ),
           ),
@@ -243,10 +241,10 @@ class RoutineExercisesSheet extends ConsumerWidget {
           builder: (_) => ActiveSessionScreen(
             sessionId: sessionId,
             sessionTitle: routine.name,
-            routineId: routine.id, 
+            routineId: routine.id,
           ),
         ),
-      );      
+      );
     }
   }
 }
@@ -274,8 +272,9 @@ class ExercisePickerDialog extends ConsumerWidget {
               final exercise = exercises[index];
               return ListTile(
                 title: Text(exercise.name),
-                subtitle:
-                    Text('${exercise.bodyPart} • ${exercise.equipmentType}'),
+                subtitle: Text(
+                  '${exercise.bodyPart} • ${exercise.equipmentType}',
+                ),
                 onTap: () {
                   ref
                       .read(splitRepositoryProvider.notifier)

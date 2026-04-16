@@ -98,19 +98,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // ----------------------------------------------------------------
           // Freestyle banner — full width, above bottom nav
           // ----------------------------------------------------------------
-          _FreestyleBanner(
-            onTap: () => _startFreestyleSession(context),
-          ),
+          _FreestyleBanner(onTap: () => _startFreestyleSession(context)),
           // ----------------------------------------------------------------
           // Bottom navigation
           // ----------------------------------------------------------------
@@ -224,10 +219,7 @@ class _FreestyleBanner extends StatelessWidget {
         decoration: const BoxDecoration(
           color: OneRepColors.gold,
           border: Border(
-            top: BorderSide(
-              color: OneRepColors.background,
-              width: 1,
-            ),
+            top: BorderSide(color: OneRepColors.background, width: 1),
           ),
         ),
         child: const Row(
@@ -263,10 +255,7 @@ class _OneRepNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
-  const _OneRepNavBar({
-    required this.currentIndex,
-    required this.onTap,
-  });
+  const _OneRepNavBar({required this.currentIndex, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -347,8 +336,7 @@ class _NavItem extends StatelessWidget {
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
                 color: active
                     ? OneRepColors.gold.withValues(alpha: 0.15)
@@ -358,9 +346,7 @@ class _NavItem extends StatelessWidget {
               child: Icon(
                 active ? activeIcon : icon,
                 size: 22,
-                color: active
-                    ? OneRepColors.gold
-                    : OneRepColors.textSecondary,
+                color: active ? OneRepColors.gold : OneRepColors.textSecondary,
               ),
             ),
             const SizedBox(height: 2),
@@ -368,11 +354,8 @@ class _NavItem extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight:
-                    active ? FontWeight.w700 : FontWeight.w400,
-                color: active
-                    ? OneRepColors.gold
-                    : OneRepColors.textSecondary,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                color: active ? OneRepColors.gold : OneRepColors.textSecondary,
                 letterSpacing: 0.3,
               ),
             ),

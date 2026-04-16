@@ -15,7 +15,9 @@ void main() {
 
   group('Exercise Repository', () {
     test('inserts an exercise and retrieves it', () async {
-      await db.into(db.exercises).insert(
+      await db
+          .into(db.exercises)
+          .insert(
             ExercisesCompanion.insert(
               name: 'Bench Press',
               bodyPart: 'Chest',
@@ -30,7 +32,9 @@ void main() {
     });
 
     test('deletes an exercise', () async {
-      final id = await db.into(db.exercises).insert(
+      final id = await db
+          .into(db.exercises)
+          .insert(
             ExercisesCompanion.insert(
               name: 'Squat',
               bodyPart: 'Legs',

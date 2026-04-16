@@ -40,9 +40,7 @@ Future<void> registerBackgroundSync() async {
     kWeeklySyncTask,
     kWeeklySyncTask,
     frequency: const Duration(days: 7),
-    constraints: Constraints(
-      networkType: NetworkType.connected,
-    ),
+    constraints: Constraints(networkType: NetworkType.connected),
     existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
   );
 }

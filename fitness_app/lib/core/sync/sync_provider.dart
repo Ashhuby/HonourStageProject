@@ -5,6 +5,7 @@ import '../database/database_provider.dart';
 import 'sync_service.dart';
 
 part 'sync_provider.g.dart';
+
 @riverpod
 SyncService syncService(Ref ref) {
   return SyncService(
@@ -18,9 +19,8 @@ SyncService syncService(Ref ref) {
 @riverpod
 class SyncNotifier extends _$SyncNotifier {
   @override
-  AsyncValue<SyncResult> build() => const AsyncValue.data(
-        SyncResult(success: true, uploaded: 0, errors: []),
-      );
+  AsyncValue<SyncResult> build() =>
+      const AsyncValue.data(SyncResult(success: true, uploaded: 0, errors: []));
 
   Future<void> sync() async {
     state = const AsyncValue.loading();

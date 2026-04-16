@@ -182,26 +182,28 @@ void main() {
   });
 
   group('calculatePercentile — bodyweight clamping', () {
-    test('bodyweight below minimum bracket clamps to lowest bracket (male 50kg)',
-        () {
-      // Male bench press lowest bracket is 50kg.
-      // A 40kg user should clamp to the 50kg bracket.
-      final result40 = calculatePercentile(
-        exerciseName: 'Bench Press',
-        sex: Sex.male,
-        bodyweightKg: 40, // below minimum
-        liftKg: 57, // intermediate threshold at 50kg bracket
-      );
-      final result50 = calculatePercentile(
-        exerciseName: 'Bench Press',
-        sex: Sex.male,
-        bodyweightKg: 50, // exactly at minimum
-        liftKg: 57,
-      );
-      // Both should produce the same result — same bracket used
-      expect(result40!.label, equals(result50!.label));
-      expect(result40.percentile, equals(result50.percentile));
-    });
+    test(
+      'bodyweight below minimum bracket clamps to lowest bracket (male 50kg)',
+      () {
+        // Male bench press lowest bracket is 50kg.
+        // A 40kg user should clamp to the 50kg bracket.
+        final result40 = calculatePercentile(
+          exerciseName: 'Bench Press',
+          sex: Sex.male,
+          bodyweightKg: 40, // below minimum
+          liftKg: 57, // intermediate threshold at 50kg bracket
+        );
+        final result50 = calculatePercentile(
+          exerciseName: 'Bench Press',
+          sex: Sex.male,
+          bodyweightKg: 50, // exactly at minimum
+          liftKg: 57,
+        );
+        // Both should produce the same result — same bracket used
+        expect(result40!.label, equals(result50!.label));
+        expect(result40.percentile, equals(result50.percentile));
+      },
+    );
 
     test('bodyweight above maximum bracket clamps to highest bracket', () {
       // Male bench press highest bracket is 140kg.
@@ -222,61 +224,67 @@ void main() {
   });
 
   group('calculatePercentile — sex differentiation', () {
-    test('same lift at same bodyweight produces different percentiles for M/F',
-        () {
-      // Male and female standards are different — same lift should
-      // produce different percentile results.
-      final male = calculatePercentile(
-        exerciseName: 'Bench Press',
-        sex: Sex.male,
-        bodyweightKg: 70,
-        liftKg: 80,
-      );
-      final female = calculatePercentile(
-        exerciseName: 'Bench Press',
-        sex: Sex.female,
-        bodyweightKg: 70,
-        liftKg: 80,
-      );
-      expect(male, isNotNull);
-      expect(female, isNotNull);
-      // 80kg bench for a 70kg male is around intermediate.
-      // 80kg bench for a 70kg female is elite-level.
-      // They must differ.
-      expect(male!.percentile, isNot(equals(female!.percentile)));
-    });
+    test(
+      'same lift at same bodyweight produces different percentiles for M/F',
+      () {
+        // Male and female standards are different — same lift should
+        // produce different percentile results.
+        final male = calculatePercentile(
+          exerciseName: 'Bench Press',
+          sex: Sex.male,
+          bodyweightKg: 70,
+          liftKg: 80,
+        );
+        final female = calculatePercentile(
+          exerciseName: 'Bench Press',
+          sex: Sex.female,
+          bodyweightKg: 70,
+          liftKg: 80,
+        );
+        expect(male, isNotNull);
+        expect(female, isNotNull);
+        // 80kg bench for a 70kg male is around intermediate.
+        // 80kg bench for a 70kg female is elite-level.
+        // They must differ.
+        expect(male!.percentile, isNot(equals(female!.percentile)));
+      },
+    );
   });
 
   group('calculatePercentile — interpolation', () {
-    test('lift halfway between novice and intermediate gives ~35th percentile',
-        () {
-      // Male, 80kg: novice=74, intermediate=98. Halfway = 86.
-      // Linear interpolation: 20 + 0.5 * (50-20) = 35.
-      final result = calculatePercentile(
-        exerciseName: 'Bench Press',
-        sex: Sex.male,
-        bodyweightKg: 80,
-        liftKg: 86,
-      );
-      expect(result!.percentile, inInclusiveRange(33, 37));
-    });
+    test(
+      'lift halfway between novice and intermediate gives ~35th percentile',
+      () {
+        // Male, 80kg: novice=74, intermediate=98. Halfway = 86.
+        // Linear interpolation: 20 + 0.5 * (50-20) = 35.
+        final result = calculatePercentile(
+          exerciseName: 'Bench Press',
+          sex: Sex.male,
+          bodyweightKg: 80,
+          liftKg: 86,
+        );
+        expect(result!.percentile, inInclusiveRange(33, 37));
+      },
+    );
 
-    test('lift just above threshold gets higher percentile than at threshold',
-        () {
-      final atThreshold = calculatePercentile(
-        exerciseName: 'Bench Press',
-        sex: Sex.male,
-        bodyweightKg: 80,
-        liftKg: 74, // novice threshold
-      );
-      final justAbove = calculatePercentile(
-        exerciseName: 'Bench Press',
-        sex: Sex.male,
-        bodyweightKg: 80,
-        liftKg: 80, // above novice
-      );
-      expect(justAbove!.percentile, greaterThan(atThreshold!.percentile));
-    });
+    test(
+      'lift just above threshold gets higher percentile than at threshold',
+      () {
+        final atThreshold = calculatePercentile(
+          exerciseName: 'Bench Press',
+          sex: Sex.male,
+          bodyweightKg: 80,
+          liftKg: 74, // novice threshold
+        );
+        final justAbove = calculatePercentile(
+          exerciseName: 'Bench Press',
+          sex: Sex.male,
+          bodyweightKg: 80,
+          liftKg: 80, // above novice
+        );
+        expect(justAbove!.percentile, greaterThan(atThreshold!.percentile));
+      },
+    );
   });
 
   group('calculatePercentile — alias exercises', () {

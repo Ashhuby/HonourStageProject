@@ -22,12 +22,9 @@ class AuthGate extends ConsumerWidget {
         if (state.session != null) return const HomeScreen();
         return const AuthScreen();
       },
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => Scaffold(
-        body: Center(child: Text('Auth error: $e')),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) => Scaffold(body: Center(child: Text('Auth error: $e'))),
     );
   }
 }

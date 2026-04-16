@@ -90,9 +90,9 @@ const List<BadgeDefinition> kAllBadges = [
 Stream<List<BadgeViewModel>> watchBadges(Ref ref) {
   final db = ref.watch(databaseProvider);
 
-  return (db.select(db.badges)..orderBy([
-    (b) => OrderingTerm.asc(b.badgeKey),
-  ])).watch().map((rows) {
+  return (db.select(
+    db.badges,
+  )..orderBy([(b) => OrderingTerm.asc(b.badgeKey)])).watch().map((rows) {
     final rowByKey = {for (final r in rows) r.badgeKey: r};
 
     // Preserve the display order defined in kAllBadges — earned first,
@@ -153,9 +153,7 @@ class BadgeService extends _$BadgeService {
   /// It is intentionally coarse-grained. Calling it for triggers that
   /// haven't fired yet costs a handful of cheap SQL COUNT queries —
   /// far cheaper than tracking which specific trigger to call.
-  Future<List<String>> evaluateAll({
-    required int totalPrCount,
-  }) async {
+  Future<List<String>> evaluateAll({required int totalPrCount}) async {
     final awarded = <String>[];
 
     if (await _checkFirstWorkout()) awarded.add('first_workout');
@@ -205,20 +203,19 @@ class BadgeService extends _$BadgeService {
     final existing = await _getBadgeRow(key);
     if (existing?.earnedAt != null) return false;
 
-    final sessions = await (db.select(db.workoutSessions)
-          ..where((s) => s.deletedAt.isNull())
-          ..where((s) => s.endTime.isNotNull()))
-        .get();
+    final sessions =
+        await (db.select(db.workoutSessions)
+              ..where((s) => s.deletedAt.isNull())
+              ..where((s) => s.endTime.isNotNull()))
+            .get();
 
     if (sessions.length < days) return false;
 
     // Collect unique calendar days that have a completed session.
     final sessionDays = sessions
-        .map((s) => DateTime(
-              s.startTime.year,
-              s.startTime.month,
-              s.startTime.day,
-            ))
+        .map(
+          (s) => DateTime(s.startTime.year, s.startTime.month, s.startTime.day),
+        )
         .toSet();
 
     // Walk backwards from today checking for [days] consecutive days.
@@ -276,9 +273,9 @@ class BadgeService extends _$BadgeService {
 
   Future<Badge?> _getBadgeRow(String key) async {
     final db = ref.read(databaseProvider);
-    return (db.select(db.badges)
-          ..where((b) => b.badgeKey.equals(key)))
-        .getSingleOrNull();
+    return (db.select(
+      db.badges,
+    )..where((b) => b.badgeKey.equals(key))).getSingleOrNull();
   }
 
   /// Stamps earnedAt = now() on the badge row if it hasn't been earned yet.

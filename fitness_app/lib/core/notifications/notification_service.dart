@@ -18,32 +18,30 @@ class NotificationService {
 
     await _plugin.initialize(settings);
 
-    final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     await androidPlugin?.requestNotificationsPermission();
   }
 
   Future<void> showRestCompleteNotification() async {
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-      'rest_timer_channel',
-      'Rest Timer',
-      channelDescription: 'Notifies when rest period is complete',
-      importance: Importance.high,
-      priority: Priority.high,
-      enableVibration: true,
-      playSound: true,
-    );
+          'rest_timer_channel',
+          'Rest Timer',
+          channelDescription: 'Notifies when rest period is complete',
+          importance: Importance.high,
+          priority: Priority.high,
+          enableVibration: true,
+          playSound: true,
+        );
 
     const NotificationDetails details = NotificationDetails(
       android: androidDetails,
     );
 
-    await _plugin.show(
-      0,
-      'Rest Complete',
-      'Time to get back to it!',
-      details,
-    );
+    await _plugin.show(0, 'Rest Complete', 'Time to get back to it!', details);
   }
 
   Future<void> cancelAll() async {

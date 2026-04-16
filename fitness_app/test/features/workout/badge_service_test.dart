@@ -3,7 +3,6 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 
-
 /// Tests for badge trigger logic.
 /// Each test seeds the minimum data needed to trigger the badge under test,
 /// then calls the evaluation logic directly against the in-memory DB.
@@ -31,9 +30,9 @@ void main() {
   // ---------------------------------------------------------------------------
 
   Future<void> awardBadge(String key) async {
-    final existing = await (db.select(db.badges)
-          ..where((b) => b.badgeKey.equals(key)))
-        .getSingleOrNull();
+    final existing = await (db.select(
+      db.badges,
+    )..where((b) => b.badgeKey.equals(key))).getSingleOrNull();
     if (existing == null || existing.earnedAt != null) return;
     await (db.update(db.badges)..where((b) => b.badgeKey.equals(key))).write(
       BadgesCompanion(earnedAt: Value(DateTime.now())),
@@ -41,26 +40,30 @@ void main() {
   }
 
   Future<bool> isBadgeEarned(String key) async {
-    final row = await (db.select(db.badges)
-          ..where((b) => b.badgeKey.equals(key)))
-        .getSingleOrNull();
+    final row = await (db.select(
+      db.badges,
+    )..where((b) => b.badgeKey.equals(key))).getSingleOrNull();
     return row?.earnedAt != null;
   }
 
   Future<int> insertCompletedSession(DateTime date) async {
-  // Normalise to midnight so dates match exactly in the streak set lookup.
-  final midnight = DateTime(date.year, date.month, date.day);
-  final id = await db.into(db.workoutSessions).insert(
-        WorkoutSessionsCompanion.insert(
-          startTime: midnight,
-          endTime: Value(midnight.add(const Duration(hours: 1))),
-        ),
-      );
-  return id;
-}
+    // Normalise to midnight so dates match exactly in the streak set lookup.
+    final midnight = DateTime(date.year, date.month, date.day);
+    final id = await db
+        .into(db.workoutSessions)
+        .insert(
+          WorkoutSessionsCompanion.insert(
+            startTime: midnight,
+            endTime: Value(midnight.add(const Duration(hours: 1))),
+          ),
+        );
+    return id;
+  }
 
   Future<int> insertExercise(String name) async {
-    return db.into(db.exercises).insert(
+    return db
+        .into(db.exercises)
+        .insert(
           ExercisesCompanion.insert(
             name: name,
             bodyPart: 'Chest',
@@ -107,9 +110,9 @@ void main() {
     });
 
     test('not awarded for an incomplete session (no endTime)', () async {
-      await db.into(db.workoutSessions).insert(
-            WorkoutSessionsCompanion.insert(startTime: DateTime.now()),
-          );
+      await db
+          .into(db.workoutSessions)
+          .insert(WorkoutSessionsCompanion.insert(startTime: DateTime.now()));
       final count = await _countCompletedSessions(db);
       if (count >= 1) await awardBadge('first_workout');
       expect(await isBadgeEarned('first_workout'), isFalse);
@@ -121,19 +124,22 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('streak_7_day badge', () {
-    test('awarded when 7 consecutive calendar days each have a session', () async {
-      final today = DateTime.now();
-      for (int i = 0; i < 7; i++) {
-        final day = DateTime(today.year, today.month, today.day - i);
-        await insertCompletedSession(day);
-      }
+    test(
+      'awarded when 7 consecutive calendar days each have a session',
+      () async {
+        final today = DateTime.now();
+        for (int i = 0; i < 7; i++) {
+          final day = DateTime(today.year, today.month, today.day - i);
+          await insertCompletedSession(day);
+        }
 
-      final streak = await _calculateStreak(db, 7);
-      if (streak >= 7) await awardBadge('streak_7_day');
-      final earned = await isBadgeEarned('streak_7_day');
+        final streak = await _calculateStreak(db, 7);
+        if (streak >= 7) await awardBadge('streak_7_day');
+        final earned = await isBadgeEarned('streak_7_day');
 
-      expect(earned, isTrue);
-    });
+        expect(earned, isTrue);
+      },
+    );
 
     test('not awarded when streak is broken at day 5', () async {
       final today = DateTime.now();
@@ -141,7 +147,8 @@ void main() {
       for (int i in [0, 1, 2, 3, 4, 6]) {
         final day = today.subtract(Duration(days: i));
         await insertCompletedSession(
-            DateTime(day.year, day.month, day.day, 10));
+          DateTime(day.year, day.month, day.day, 10),
+        );
       }
       final streak = await _calculateStreak(db, 7);
       if (streak >= 7) await awardBadge('streak_7_day');
@@ -153,7 +160,9 @@ void main() {
       for (int i = 0; i < 7; i++) {
         final day = DateTime(today.year, today.month, today.day - i);
         await insertCompletedSession(DateTime(day.year, day.month, day.day, 9));
-        await insertCompletedSession(DateTime(day.year, day.month, day.day, 18));
+        await insertCompletedSession(
+          DateTime(day.year, day.month, day.day, 18),
+        );
       }
       final streak = await _calculateStreak(db, 7);
       if (streak >= 7) await awardBadge('streak_7_day');
@@ -166,7 +175,9 @@ void main() {
       final today = DateTime.now();
       for (int i = 0; i < 30; i++) {
         final day = DateTime(today.year, today.month, today.day - i);
-        await insertCompletedSession(DateTime(day.year, day.month, day.day, 10));
+        await insertCompletedSession(
+          DateTime(day.year, day.month, day.day, 10),
+        );
       }
       final streak = await _calculateStreak(db, 30);
       if (streak >= 30) await awardBadge('streak_30_day');
@@ -178,7 +189,8 @@ void main() {
       for (int i = 0; i < 29; i++) {
         final day = today.subtract(Duration(days: i));
         await insertCompletedSession(
-            DateTime(day.year, day.month, day.day, 10));
+          DateTime(day.year, day.month, day.day, 10),
+        );
       }
       final streak = await _calculateStreak(db, 30);
       if (streak >= 30) await awardBadge('streak_30_day');
@@ -195,7 +207,9 @@ void main() {
       final exId = await insertExercise('Squat');
       final sessionId = await insertCompletedSession(DateTime.now());
       for (int i = 0; i < 50; i++) {
-        await db.into(db.workoutSets).insert(
+        await db
+            .into(db.workoutSets)
+            .insert(
               WorkoutSetsCompanion.insert(
                 sessionId: sessionId,
                 exerciseId: exId,
@@ -213,7 +227,9 @@ void main() {
       final exId = await insertExercise('Squat');
       final sessionId = await insertCompletedSession(DateTime.now());
       for (int i = 0; i < 49; i++) {
-        await db.into(db.workoutSets).insert(
+        await db
+            .into(db.workoutSets)
+            .insert(
               WorkoutSetsCompanion.insert(
                 sessionId: sessionId,
                 exerciseId: exId,
@@ -233,7 +249,9 @@ void main() {
       final exId = await insertExercise('Deadlift');
       final sessionId = await insertCompletedSession(DateTime.now());
       for (int i = 0; i < 500; i++) {
-        await db.into(db.workoutSets).insert(
+        await db
+            .into(db.workoutSets)
+            .insert(
               WorkoutSetsCompanion.insert(
                 sessionId: sessionId,
                 exerciseId: exId,
@@ -286,7 +304,9 @@ void main() {
 
   group('first_custom_exercise badge', () {
     test('awarded when a custom exercise exists', () async {
-      await db.into(db.exercises).insert(
+      await db
+          .into(db.exercises)
+          .insert(
             ExercisesCompanion.insert(
               name: 'Cable Fly',
               bodyPart: 'Chest',
@@ -301,7 +321,9 @@ void main() {
 
     test('not awarded for seeded (non-custom) exercises', () async {
       // forTesting skips onCreate seeding, but insert a non-custom exercise
-      await db.into(db.exercises).insert(
+      await db
+          .into(db.exercises)
+          .insert(
             ExercisesCompanion.insert(
               name: 'Bench Press',
               bodyPart: 'Chest',
@@ -319,26 +341,30 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('Badge award idempotency', () {
-    test('awarding same badge twice does not error and earnedAt is stable',
-        () async {
-      await awardBadge('first_workout');
-      final firstEarnedAt = (await (db.select(db.badges)
-                ..where((b) => b.badgeKey.equals('first_workout')))
-              .getSingle())
-          .earnedAt;
+    test(
+      'awarding same badge twice does not error and earnedAt is stable',
+      () async {
+        await awardBadge('first_workout');
+        final firstEarnedAt =
+            (await (db.select(db.badges)
+                      ..where((b) => b.badgeKey.equals('first_workout')))
+                    .getSingle())
+                .earnedAt;
 
-      await Future.delayed(const Duration(milliseconds: 10));
-      await awardBadge('first_workout'); // second call — should be no-op
+        await Future.delayed(const Duration(milliseconds: 10));
+        await awardBadge('first_workout'); // second call — should be no-op
 
-      final secondEarnedAt = (await (db.select(db.badges)
-                ..where((b) => b.badgeKey.equals('first_workout')))
-              .getSingle())
-          .earnedAt;
+        final secondEarnedAt =
+            (await (db.select(db.badges)
+                      ..where((b) => b.badgeKey.equals('first_workout')))
+                    .getSingle())
+                .earnedAt;
 
-      // earnedAt must not change on a re-award — the original timestamp
-      // is preserved. If these are equal the idempotency guard worked.
-      expect(secondEarnedAt, equals(firstEarnedAt));
-    });
+        // earnedAt must not change on a re-award — the original timestamp
+        // is preserved. If these are equal the idempotency guard worked.
+        expect(secondEarnedAt, equals(firstEarnedAt));
+      },
+    );
   });
 }
 
@@ -397,17 +423,16 @@ Future<int> _countCustomExercises(AppDatabase db) async {
 }
 
 Future<int> _calculateStreak(AppDatabase db, int days) async {
-  final sessions = await (db.select(db.workoutSessions)
-        ..where((s) => s.deletedAt.isNull())
-        ..where((s) => s.endTime.isNotNull()))
-      .get();
+  final sessions =
+      await (db.select(db.workoutSessions)
+            ..where((s) => s.deletedAt.isNull())
+            ..where((s) => s.endTime.isNotNull()))
+          .get();
 
   final sessionDays = sessions
-      .map((s) => DateTime(
-            s.startTime.year,
-            s.startTime.month,
-            s.startTime.day,
-          ))
+      .map(
+        (s) => DateTime(s.startTime.year, s.startTime.month, s.startTime.day),
+      )
       .toSet();
 
   final now = DateTime.now();

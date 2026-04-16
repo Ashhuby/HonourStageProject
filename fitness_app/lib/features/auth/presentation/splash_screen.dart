@@ -30,18 +30,46 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    _plate1Controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _plate2Controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _plate3Controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _bumpController   = AnimationController(vsync: this, duration: const Duration(milliseconds: 150));
-    _textController   = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _plate1Controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _plate2Controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _plate3Controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _bumpController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    _textController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
 
-    _plate1Anim = CurvedAnimation(parent: _plate1Controller, curve: Curves.easeOut);
-    _plate2Anim = CurvedAnimation(parent: _plate2Controller, curve: Curves.easeOut);
-    _plate3Anim = CurvedAnimation(parent: _plate3Controller, curve: Curves.easeOut);
-    _bumpAnim   = Tween<double>(begin: 0, end: 4).animate(
-      CurvedAnimation(parent: _bumpController, curve: Curves.easeInOut));
-    _textFadeAnim  = CurvedAnimation(parent: _textController, curve: Curves.easeOut);
+    _plate1Anim = CurvedAnimation(
+      parent: _plate1Controller,
+      curve: Curves.easeOut,
+    );
+    _plate2Anim = CurvedAnimation(
+      parent: _plate2Controller,
+      curve: Curves.easeOut,
+    );
+    _plate3Anim = CurvedAnimation(
+      parent: _plate3Controller,
+      curve: Curves.easeOut,
+    );
+    _bumpAnim = Tween<double>(begin: 0, end: 4).animate(
+      CurvedAnimation(parent: _bumpController, curve: Curves.easeInOut),
+    );
+    _textFadeAnim = CurvedAnimation(
+      parent: _textController,
+      curve: Curves.easeOut,
+    );
     _textSlideAnim = Tween<Offset>(
       begin: const Offset(0, 0.4),
       end: Offset.zero,
@@ -127,24 +155,54 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     ),
                     // Left collar
-                    Positioned(
-                      left: 28,
-                      child: _collar(),
-                    ),
+                    Positioned(left: 28, child: _collar()),
                     // Right collar
-                    Positioned(
-                      right: 28,
-                      child: _collar(),
-                    ),
+                    Positioned(right: 28, child: _collar()),
                     // Plate pair 1 — largest
-                    _animatedPlate(_plate1Anim, left: 10,  width: 18, height: 64, fromLeft: true),
-                    _animatedPlate(_plate1Anim, right: 10, width: 18, height: 64, fromLeft: false),
+                    _animatedPlate(
+                      _plate1Anim,
+                      left: 10,
+                      width: 18,
+                      height: 64,
+                      fromLeft: true,
+                    ),
+                    _animatedPlate(
+                      _plate1Anim,
+                      right: 10,
+                      width: 18,
+                      height: 64,
+                      fromLeft: false,
+                    ),
                     // Plate pair 2
-                    _animatedPlate(_plate2Anim, left: 3,   width: 14, height: 52, fromLeft: true),
-                    _animatedPlate(_plate2Anim, right: 3,  width: 14, height: 52, fromLeft: false),
+                    _animatedPlate(
+                      _plate2Anim,
+                      left: 3,
+                      width: 14,
+                      height: 52,
+                      fromLeft: true,
+                    ),
+                    _animatedPlate(
+                      _plate2Anim,
+                      right: 3,
+                      width: 14,
+                      height: 52,
+                      fromLeft: false,
+                    ),
                     // Plate pair 3 — smallest
-                    _animatedPlate(_plate3Anim, left: -5,  width: 10, height: 40, fromLeft: true),
-                    _animatedPlate(_plate3Anim, right: -5, width: 10, height: 40, fromLeft: false),
+                    _animatedPlate(
+                      _plate3Anim,
+                      left: -5,
+                      width: 10,
+                      height: 40,
+                      fromLeft: true,
+                    ),
+                    _animatedPlate(
+                      _plate3Anim,
+                      right: -5,
+                      width: 10,
+                      height: 40,
+                      fromLeft: false,
+                    ),
                   ],
                 ),
               ),

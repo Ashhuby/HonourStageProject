@@ -43,16 +43,17 @@ class SplitListScreen extends ConsumerWidget {
                   );
                 },
               ),
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'split_fab',
         onPressed: () => _showCreateSplitDialog(context, ref),
         icon: const Icon(Icons.add),
-        label: const Text('NEW SPLIT',
-            style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1)),
+        label: const Text(
+          'NEW SPLIT',
+          style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1),
+        ),
       ),
     );
   }
@@ -62,7 +63,9 @@ class SplitListScreen extends ConsumerWidget {
 
     void submit() {
       if (nameController.text.isNotEmpty) {
-        ref.read(splitRepositoryProvider.notifier).createSplit(nameController.text);
+        ref
+            .read(splitRepositoryProvider.notifier)
+            .createSplit(nameController.text);
         Navigator.pop(context);
       }
     }
@@ -85,10 +88,7 @@ class SplitListScreen extends ConsumerWidget {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: submit,
-            child: const Text('Create'),
-          ),
+          ElevatedButton(onPressed: submit, child: const Text('Create')),
         ],
       ),
     );
@@ -133,10 +133,7 @@ class _SplitCard extends StatelessWidget {
             color: OneRepColors.surface,
             borderRadius: BorderRadius.circular(14),
             border: const Border(
-              left: BorderSide(
-                color: OneRepColors.gold,
-                width: 3,
-              ),
+              left: BorderSide(color: OneRepColors.gold, width: 3),
             ),
           ),
           child: Row(
@@ -175,7 +172,6 @@ class _SplitCard extends StatelessWidget {
       ),
     );
   }
-
 }
 
 // ---------------------------------------------------------------------------

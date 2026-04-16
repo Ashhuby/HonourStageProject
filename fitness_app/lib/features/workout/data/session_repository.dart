@@ -12,10 +12,7 @@ class WorkoutSetWithExercise {
   final WorkoutSet set;
   final String exerciseName;
 
-  const WorkoutSetWithExercise({
-    required this.set,
-    required this.exerciseName,
-  });
+  const WorkoutSetWithExercise({required this.set, required this.exerciseName});
 }
 
 @riverpod
@@ -35,17 +32,18 @@ Future<List<VolumeDataPoint>> getVolumeForExercise(
 ) async {
   final db = ref.read(databaseProvider);
 
-  final query = db.select(db.workoutSets).join([
-    innerJoin(
-      db.workoutSessions,
-      db.workoutSessions.id.equalsExp(db.workoutSets.sessionId),
-    ),
-  ])
-    ..where(db.workoutSets.exerciseId.equals(exerciseId))
-    ..where(db.workoutSessions.endTime.isNotNull())
-    ..where(db.workoutSessions.deletedAt.isNull())
-    ..where(db.workoutSets.deletedAt.isNull())
-    ..orderBy([OrderingTerm.asc(db.workoutSessions.startTime)]);
+  final query =
+      db.select(db.workoutSets).join([
+          innerJoin(
+            db.workoutSessions,
+            db.workoutSessions.id.equalsExp(db.workoutSets.sessionId),
+          ),
+        ])
+        ..where(db.workoutSets.exerciseId.equals(exerciseId))
+        ..where(db.workoutSessions.endTime.isNotNull())
+        ..where(db.workoutSessions.deletedAt.isNull())
+        ..where(db.workoutSets.deletedAt.isNull())
+        ..orderBy([OrderingTerm.asc(db.workoutSessions.startTime)]);
 
   final rows = await query.get();
 
@@ -89,10 +87,11 @@ class VolumeDataPoint {
 Stream<Map<DateTime, int>> getAttendanceData(Ref ref) {
   final db = ref.watch(databaseProvider);
 
-  final sessionsStream = (db.select(db.workoutSessions)
-        ..where((s) => s.endTime.isNotNull())
-        ..where((s) => s.deletedAt.isNull()))
-      .watch();
+  final sessionsStream =
+      (db.select(db.workoutSessions)
+            ..where((s) => s.endTime.isNotNull())
+            ..where((s) => s.deletedAt.isNull()))
+          .watch();
 
   return sessionsStream.map((sessions) {
     final Map<DateTime, int> attendanceMap = {};
@@ -118,14 +117,18 @@ Future<int> getWeeklyStreak(Ref ref) async {
   int streak = 0;
 
   for (int weeksBack = 0; weeksBack < 52; weeksBack++) {
-    final weekStart = today
-        .subtract(Duration(days: today.weekday - 1 + (weeksBack * 7)));
+    final weekStart = today.subtract(
+      Duration(days: today.weekday - 1 + (weeksBack * 7)),
+    );
     final weekEnd = weekStart.add(const Duration(days: 6));
 
-    final hasSession = attendanceData.keys.any((date) =>
-        !date.isBefore(
-            DateTime(weekStart.year, weekStart.month, weekStart.day)) &&
-        !date.isAfter(DateTime(weekEnd.year, weekEnd.month, weekEnd.day)));
+    final hasSession = attendanceData.keys.any(
+      (date) =>
+          !date.isBefore(
+            DateTime(weekStart.year, weekStart.month, weekStart.day),
+          ) &&
+          !date.isAfter(DateTime(weekEnd.year, weekEnd.month, weekEnd.day)),
+    );
 
     if (hasSession) {
       streak++;
@@ -144,26 +147,27 @@ Stream<List<WorkoutSetWithExercise>> watchSetsForSession(
 ) {
   final db = ref.watch(databaseProvider);
 
-  final query = db.select(db.workoutSets).join([
-    innerJoin(
-      db.exercises,
-      db.exercises.id.equalsExp(db.workoutSets.exerciseId),
-    ),
-  ])
-    ..where(db.workoutSets.sessionId.equals(sessionId))
-    ..where(db.workoutSets.deletedAt.isNull())
-    ..orderBy([OrderingTerm.asc(db.workoutSets.timestamp)]);
+  final query =
+      db.select(db.workoutSets).join([
+          innerJoin(
+            db.exercises,
+            db.exercises.id.equalsExp(db.workoutSets.exerciseId),
+          ),
+        ])
+        ..where(db.workoutSets.sessionId.equals(sessionId))
+        ..where(db.workoutSets.deletedAt.isNull())
+        ..orderBy([OrderingTerm.asc(db.workoutSets.timestamp)]);
 
   return query.watch().map(
-        (rows) => rows
-            .map(
-              (row) => WorkoutSetWithExercise(
-                set: row.readTable(db.workoutSets),
-                exerciseName: row.readTable(db.exercises).name,
-              ),
-            )
-            .toList(),
-      );
+    (rows) => rows
+        .map(
+          (row) => WorkoutSetWithExercise(
+            set: row.readTable(db.workoutSets),
+            exerciseName: row.readTable(db.exercises).name,
+          ),
+        )
+        .toList(),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +181,9 @@ class SessionRepository extends _$SessionRepository {
 
   Future<int> startSession({int? routineId}) async {
     final db = ref.read(databaseProvider);
-    return db.into(db.workoutSessions).insert(
+    return db
+        .into(db.workoutSessions)
+        .insert(
           WorkoutSessionsCompanion.insert(
             startTime: DateTime.now(),
             routineId: Value(routineId),
@@ -189,11 +195,8 @@ class SessionRepository extends _$SessionRepository {
   /// completion: first_workout, streak triggers, and set count milestones.
   Future<void> endSession(int sessionId) async {
     final db = ref.read(databaseProvider);
-    await (db.update(db.workoutSessions)
-          ..where((s) => s.id.equals(sessionId)))
-        .write(WorkoutSessionsCompanion(
-      endTime: Value(DateTime.now()),
-    ));
+    await (db.update(db.workoutSessions)..where((s) => s.id.equals(sessionId)))
+        .write(WorkoutSessionsCompanion(endTime: Value(DateTime.now())));
 
     // Evaluate session-completion badges.
     // PR count is required by evaluateAll — fetch it here so BadgeService
@@ -202,9 +205,9 @@ class SessionRepository extends _$SessionRepository {
         .read(personalBestRepositoryProvider.notifier)
         .getTotalPrCount();
 
-    await ref.read(badgeServiceProvider.notifier).evaluateAll(
-          totalPrCount: prCount,
-        );
+    await ref
+        .read(badgeServiceProvider.notifier)
+        .evaluateAll(totalPrCount: prCount);
   }
 
   /// Logs a set, checks for a new personal best, and evaluates badge
@@ -228,7 +231,9 @@ class SessionRepository extends _$SessionRepository {
     final db = ref.read(databaseProvider);
 
     // 1. Insert the set into the database.
-    await db.into(db.workoutSets).insert(
+    await db
+        .into(db.workoutSets)
+        .insert(
           WorkoutSetsCompanion.insert(
             sessionId: sessionId,
             exerciseId: exerciseId,
@@ -257,9 +262,9 @@ class SessionRepository extends _$SessionRepository {
         .read(personalBestRepositoryProvider.notifier)
         .getTotalPrCount();
 
-    await ref.read(badgeServiceProvider.notifier).evaluateAll(
-          totalPrCount: prCount,
-        );
+    await ref
+        .read(badgeServiceProvider.notifier)
+        .evaluateAll(totalPrCount: prCount);
 
     // 4. Return the PR result so the UI can surface it immediately.
     return prResult;
@@ -268,11 +273,12 @@ class SessionRepository extends _$SessionRepository {
   /// Soft-deletes a set — marks it dirty so sync propagates the delete.
   Future<void> deleteSet(int setId) async {
     final db = ref.read(databaseProvider);
-    await (db.update(db.workoutSets)..where((s) => s.id.equals(setId)))
-        .write(WorkoutSetsCompanion(
-      deletedAt: Value(DateTime.now()),
-      syncedAt: const Value(null),
-    ));
+    await (db.update(db.workoutSets)..where((s) => s.id.equals(setId))).write(
+      WorkoutSetsCompanion(
+        deletedAt: Value(DateTime.now()),
+        syncedAt: const Value(null),
+      ),
+    );
   }
 
   /// Soft-deletes a session and all its sets.
@@ -281,19 +287,23 @@ class SessionRepository extends _$SessionRepository {
     final now = DateTime.now();
 
     await db.transaction(() async {
-      await (db.update(db.workoutSets)
-            ..where((s) => s.sessionId.equals(sessionId)))
-          .write(WorkoutSetsCompanion(
-        deletedAt: Value(now),
-        syncedAt: const Value(null),
-      ));
+      await (db.update(
+        db.workoutSets,
+      )..where((s) => s.sessionId.equals(sessionId))).write(
+        WorkoutSetsCompanion(
+          deletedAt: Value(now),
+          syncedAt: const Value(null),
+        ),
+      );
 
-      await (db.update(db.workoutSessions)
-            ..where((s) => s.id.equals(sessionId)))
-          .write(WorkoutSessionsCompanion(
-        deletedAt: Value(now),
-        syncedAt: const Value(null),
-      ));
+      await (db.update(
+        db.workoutSessions,
+      )..where((s) => s.id.equals(sessionId))).write(
+        WorkoutSessionsCompanion(
+          deletedAt: Value(now),
+          syncedAt: const Value(null),
+        ),
+      );
     });
   }
 }

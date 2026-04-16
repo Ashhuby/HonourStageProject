@@ -21,10 +21,7 @@ class ExerciseDetailScreen extends ConsumerWidget {
     final profileAsync = ref.watch(profileNotifierProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(exercise.name),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(exercise.name), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -77,10 +74,7 @@ class ExerciseDetailScreen extends ConsumerWidget {
               if (!hasStrengthStandards(exercise.name)) {
                 return const SizedBox.shrink();
               }
-              return _PercentileSection(
-                exercise: exercise,
-                profile: profile,
-              );
+              return _PercentileSection(exercise: exercise, profile: profile);
             },
           ),
           const SizedBox(height: 24),
@@ -147,7 +141,6 @@ class _PrTable extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _TableCell extends StatelessWidget {
@@ -179,15 +172,13 @@ class _PercentileSection extends ConsumerWidget {
   final Exercise exercise;
   final UserProfile profile;
 
-  const _PercentileSection({
-    required this.exercise,
-    required this.profile,
-  });
+  const _PercentileSection({required this.exercise, required this.profile});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bestLiftAsync =
-        ref.watch(getBestLiftForExerciseProvider(exercise.id));
+    final bestLiftAsync = ref.watch(
+      getBestLiftForExerciseProvider(exercise.id),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,8 +266,7 @@ class _PercentileCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: pct / 100,
                 minHeight: 12,
-                backgroundColor:
-                    colorScheme.surfaceContainerHighest,
+                backgroundColor: colorScheme.surfaceContainerHighest,
                 valueColor: AlwaysStoppedAnimation<Color>(levelColor),
               ),
             ),
@@ -288,12 +278,15 @@ class _PercentileCard extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: levelColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
-                    border:
-                        Border.all(color: levelColor.withValues(alpha: 0.4)),
+                    border: Border.all(
+                      color: levelColor.withValues(alpha: 0.4),
+                    ),
                   ),
                   child: Text(
                     result.label,
@@ -389,10 +382,7 @@ class _VolumeChart extends ConsumerWidget {
             ..sort((a, b) => a.date.compareTo(b.date));
 
           final spots = sorted.asMap().entries.map((entry) {
-            return FlSpot(
-              entry.key.toDouble(),
-              entry.value.totalVolume,
-            );
+            return FlSpot(entry.key.toDouble(), entry.value.totalVolume);
           }).toList();
 
           return Padding(
@@ -444,10 +434,9 @@ class _VolumeChart extends ConsumerWidget {
                     dotData: const FlDotData(show: true),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                     ),
                   ),
                 ],
@@ -473,9 +462,9 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       title,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
     );
   }
 }

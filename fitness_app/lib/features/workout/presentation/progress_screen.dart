@@ -65,9 +65,11 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   data: (sessions) {
                     final now = DateTime.now();
                     final count = sessions
-                        .where((s) =>
-                            s.startTime.month == now.month &&
-                            s.startTime.year == now.year)
+                        .where(
+                          (s) =>
+                              s.startTime.month == now.month &&
+                              s.startTime.year == now.year,
+                        )
                         .length;
                     return '$count';
                   },
@@ -88,8 +90,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
         const _SectionLabel(title: 'ATTENDANCE — LAST 12 WEEKS'),
         attendanceAsync.when(
           data: (attendance) => _AttendanceHeatmap(attendance: attendance),
-          loading: () =>
-              const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(child: Text('Error: $err')),
         ),
 
@@ -109,10 +110,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
               dropdownColor: OneRepColors.surfaceElevated,
               style: const TextStyle(color: OneRepColors.textPrimary),
               items: exercises
-                  .map((e) => DropdownMenuItem(
-                        value: e,
-                        child: Text(e.name),
-                      ))
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e.name)))
                   .toList(),
               onChanged: (exercise) =>
                   setState(() => _selectedExercise = exercise),
@@ -122,8 +120,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        if (_selectedExercise != null)
-          _PrChart(exercise: _selectedExercise!),
+        if (_selectedExercise != null) _PrChart(exercise: _selectedExercise!),
 
         // ----------------------------------------------------------------
         // Session history
@@ -148,7 +145,9 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   itemCount: sessions.length,
                   itemBuilder: (context, index) {
                     final session = sessions[index];
-                    final duration = session.endTime?.difference(session.startTime);
+                    final duration = session.endTime?.difference(
+                      session.startTime,
+                    );
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _SessionRow(
@@ -159,8 +158,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                     );
                   },
                 ),
-          loading: () =>
-              const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(child: Text('Error: $err')),
         ),
       ],
@@ -210,9 +208,7 @@ class _StatCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: OneRepColors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border(
-            top: BorderSide(color: color, width: 2),
-          ),
+          border: Border(top: BorderSide(color: color, width: 2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,8 +343,18 @@ class _SessionRow extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}  '
         '${date.hour.toString().padLeft(2, '0')}:'
@@ -375,7 +381,8 @@ class _AttendanceHeatmap extends StatelessWidget {
   Map<String, int> _toStringMap(Map<DateTime, int> attendance) {
     return {
       for (final e in attendance.entries)
-        '${e.key.year}-${e.key.month.toString().padLeft(2, '0')}-${e.key.day.toString().padLeft(2, '0')}': e.value
+        '${e.key.year}-${e.key.month.toString().padLeft(2, '0')}-${e.key.day.toString().padLeft(2, '0')}':
+            e.value,
     };
   }
 
@@ -424,47 +431,50 @@ class _AttendanceHeatmap extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           // Grid
-          ...weeks.map((week) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  children: [
-                    ...week.map((day) {
-                      final key = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-                      final count = stringMap[key] ?? 0;
-                      final isToday = day.year == todayNorm.year &&
-                          day.month == todayNorm.month &&
-                          day.day == todayNorm.day;
-                      return Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          height: 18,
-                          decoration: BoxDecoration(
-                            color: count > 0
-                                ? OneRepColors.gold.withValues(
-                                    alpha:
-                                        (0.25 + (count * 0.25)).clamp(0.25, 1.0),
-                                  )
-                                : OneRepColors.surfaceElevated,
-                            borderRadius: BorderRadius.circular(3),
-                            border: isToday
-                                ? Border.all(
-                                    color: OneRepColors.gold,
-                                    width: 1.5,
-                                  )
-                                : null,
-                          ),
+          ...weeks.map(
+            (week) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  ...week.map((day) {
+                    final key =
+                        '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+                    final count = stringMap[key] ?? 0;
+                    final isToday =
+                        day.year == todayNorm.year &&
+                        day.month == todayNorm.month &&
+                        day.day == todayNorm.day;
+                    return Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: count > 0
+                              ? OneRepColors.gold.withValues(
+                                  alpha: (0.25 + (count * 0.25)).clamp(
+                                    0.25,
+                                    1.0,
+                                  ),
+                                )
+                              : OneRepColors.surfaceElevated,
+                          borderRadius: BorderRadius.circular(3),
+                          border: isToday
+                              ? Border.all(color: OneRepColors.gold, width: 1.5)
+                              : null,
                         ),
-                      );
-                    }),
-                    // Pad incomplete final week
-                    if (week.length < 7)
-                      ...List.generate(
-                        7 - week.length,
-                        (_) => const Expanded(child: SizedBox()),
                       ),
-                  ],
-                ),
-              )),
+                    );
+                  }),
+                  // Pad incomplete final week
+                  if (week.length < 7)
+                    ...List.generate(
+                      7 - week.length,
+                      (_) => const Expanded(child: SizedBox()),
+                    ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 6),
           // Legend
           Row(
@@ -485,8 +495,9 @@ class _AttendanceHeatmap extends StatelessWidget {
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   decoration: BoxDecoration(
                     // Opacity steps from 0.2 (1 session) to 0.88 (4+ sessions).
-                color: OneRepColors.gold
-                        .withValues(alpha: 0.2 + (i * 0.22)),
+                    color: OneRepColors.gold.withValues(
+                      alpha: 0.2 + (i * 0.22),
+                    ),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 );
@@ -549,7 +560,9 @@ class _PrChart extends ConsumerWidget {
         final metricType = exercise.metricType;
         final yLabel = _yAxisLabel(metricType);
 
-        final spots = points.asMap().entries
+        final spots = points
+            .asMap()
+            .entries
             .map((e) => FlSpot(e.key.toDouble(), e.value.value))
             .toList();
 
@@ -595,7 +608,10 @@ class _PrChart extends ConsumerWidget {
                       bottomTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
-                          interval: (points.length / 5).ceilToDouble().clamp(1, double.infinity),
+                          interval: (points.length / 5).ceilToDouble().clamp(
+                            1,
+                            double.infinity,
+                          ),
                           getTitlesWidget: (value, meta) {
                             final index = value.toInt();
                             if (index < 0 || index >= points.length) {
@@ -651,11 +667,11 @@ class _PrChart extends ConsumerWidget {
                         dotData: FlDotData(
                           getDotPainter: (spot, percent, bar, index) =>
                               FlDotCirclePainter(
-                            radius: 4,
-                            color: OneRepColors.gold,
-                            strokeColor: OneRepColors.background,
-                            strokeWidth: 1.5,
-                          ),
+                                radius: 4,
+                                color: OneRepColors.gold,
+                                strokeColor: OneRepColors.background,
+                                strokeWidth: 1.5,
+                              ),
                         ),
                         belowBarData: BarAreaData(
                           show: true,
@@ -708,20 +724,23 @@ class _PrChart extends ConsumerWidget {
   }
 
   Future<List<_PrPoint>> _loadPrHistory(
-      AppDatabase db, Exercise exercise) async {
+    AppDatabase db,
+    Exercise exercise,
+  ) async {
     // Fetch all sets for this exercise that have a non-zero performance value,
     // grouped by session date. Plot the best value per session date.
-    final query = db.select(db.workoutSets).join([
-      innerJoin(
-        db.workoutSessions,
-        db.workoutSessions.id.equalsExp(db.workoutSets.sessionId),
-      ),
-    ])
-      ..where(db.workoutSets.exerciseId.equals(exercise.id))
-      ..where(db.workoutSessions.endTime.isNotNull())
-      ..where(db.workoutSessions.deletedAt.isNull())
-      ..where(db.workoutSets.deletedAt.isNull())
-      ..orderBy([OrderingTerm.asc(db.workoutSessions.startTime)]);
+    final query =
+        db.select(db.workoutSets).join([
+            innerJoin(
+              db.workoutSessions,
+              db.workoutSessions.id.equalsExp(db.workoutSets.sessionId),
+            ),
+          ])
+          ..where(db.workoutSets.exerciseId.equals(exercise.id))
+          ..where(db.workoutSessions.endTime.isNotNull())
+          ..where(db.workoutSessions.deletedAt.isNull())
+          ..where(db.workoutSets.deletedAt.isNull())
+          ..orderBy([OrderingTerm.asc(db.workoutSessions.startTime)]);
 
     final rows = await query.get();
 
@@ -939,8 +958,7 @@ class SessionDetailSheet extends ConsumerWidget {
                   }).toList(),
                 );
               },
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(child: Text('Error: $err')),
             ),
           ),
@@ -972,8 +990,18 @@ class SessionDetailSheet extends ConsumerWidget {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }

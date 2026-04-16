@@ -141,9 +141,9 @@ class PersonalBests extends Table {
 
   @override
   List<Set<Column>> get uniqueKeys => [
-        // One PR row per exercise — enforced by the upsert conflict target.
-        {exerciseId, reps},
-      ];
+    // One PR row per exercise — enforced by the upsert conflict target.
+    {exerciseId, reps},
+  ];
 }
 
 /// A badge that may be earned (or not yet earned) by the user.
