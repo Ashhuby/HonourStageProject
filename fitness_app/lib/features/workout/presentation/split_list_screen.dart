@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../main.dart';
+import '../../../core/theme/app_colors.dart';
 import '../data/split_repository.dart';
 import 'split_detail_screen.dart';
 

@@ -3,7 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
-import '../../../main.dart';
+import '../../../core/theme/app_colors.dart';
 import '../data/session_repository.dart';
 import '../data/exercise_repository.dart';
 import '../../../core/database/database_provider.dart';

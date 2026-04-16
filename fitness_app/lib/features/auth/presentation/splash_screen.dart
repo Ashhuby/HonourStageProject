@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../main.dart';
+import '../../../core/theme/app_colors.dart';
 
 class SplashScreen extends StatefulWidget {
   final Widget child;

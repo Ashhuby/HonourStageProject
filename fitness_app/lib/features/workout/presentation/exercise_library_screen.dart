@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../main.dart';
+import '../../../core/theme/app_colors.dart';
 import '../data/badge_service.dart';
 import '../data/exercise_repository.dart';
 import '../data/personal_best_repository.dart';
