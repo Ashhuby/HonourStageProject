@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:riverpod/riverpod.dart';
-import 'package:fitness_app/core/database/database_provider.dart';
-import 'package:fitness_app/core/database/local_database.dart';
+import '../../../core/database/database_provider.dart';
+import '../../../core/database/local_database.dart';
 
 part 'badge_service.g.dart';
 

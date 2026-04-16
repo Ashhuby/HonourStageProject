@@ -192,7 +192,7 @@ final getAttendanceDataProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef GetAttendanceDataRef = AutoDisposeStreamProviderRef<Map<DateTime, int>>;
-String _$getWeeklyStreakHash() => r'527845ffb6f520fc1695c09fa8373a26ff5da48f';
+String _$getWeeklyStreakHash() => r'8789c341e4e0f7b4808db0944dc11e422577dc6b';
 
 /// See also [getWeeklyStreak].
 @ProviderFor(getWeeklyStreak)

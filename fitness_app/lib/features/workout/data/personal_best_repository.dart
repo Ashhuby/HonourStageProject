@@ -1,19 +1,34 @@
 import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:riverpod/riverpod.dart';
-import 'package:fitness_app/core/database/database_provider.dart';
-import 'package:fitness_app/core/database/local_database.dart';
+import '../../../core/database/database_provider.dart';
+import '../../../core/database/local_database.dart';
 
 part 'personal_best_repository.g.dart';
 
-// ---------------------------------------------------------------------------
-// Metric type constants — mirrors workout_tables.dart metricType values.
-// ---------------------------------------------------------------------------
-class MetricType {
-  static const weightReps = 'weightReps';
-  static const timeOnly = 'timeOnly';
-  static const distanceTime = 'distanceTime';
-  static const bodyweightReps = 'bodyweightReps';
+/// Defines what a set records and how personal bests are compared.
+///
+/// Stored as a string in SQLite for readability and forward compatibility.
+/// The [value] field is the string written to the database.
+enum MetricType {
+  weightReps('weightReps'),
+  timeOnly('timeOnly'),
+  distanceTime('distanceTime'),
+  bodyweightReps('bodyweightReps');
+
+  const MetricType(this.value);
+
+  /// The string value stored in the database.
+  final String value;
+
+  /// Parses a database string back to a [MetricType].
+  /// Returns [MetricType.weightReps] as a safe default for unknown values.
+  static MetricType fromString(String s) {
+    return MetricType.values.firstWhere(
+      (e) => e.value == s,
+      orElse: () => MetricType.weightReps,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -45,14 +60,14 @@ class PrResult {
   /// Human-readable summary for the PR banner.
   String get summary {
     switch (metricType) {
-      case MetricType.timeOnly:
+      case 'timeOnly':
         final secs = durationSeconds ?? 0;
         final m = secs ~/ 60;
         final s = secs % 60;
         return m > 0
             ? '${m}m ${s.toString().padLeft(2, '0')}s'
             : '${s}s';
-      case MetricType.distanceTime:
+      case 'distanceTime':
         final dist = distanceMetres ?? 0;
         final secs = durationSeconds ?? 0;
         final m = secs ~/ 60;
@@ -61,7 +76,7 @@ class PrResult {
             ? '${(dist / 1000).toStringAsFixed(1)}km'
             : '${dist.toStringAsFixed(0)}m';
         return '$distStr in ${m}m ${s.toString().padLeft(2, '0')}s';
-      case MetricType.bodyweightReps:
+      case 'bodyweightReps':
         final w = weight ?? 0;
         return w > 0
             ? '${w}kg × ${reps ?? 0} reps'
@@ -128,20 +143,20 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     double? distanceMetres,
   }) async {
     switch (metricType) {
-      case MetricType.timeOnly:
+      case 'timeOnly':
         return _checkTimePr(
           exerciseId: exerciseId,
           exerciseName: exerciseName,
           durationSeconds: durationSeconds ?? 0,
         );
-      case MetricType.distanceTime:
+      case 'distanceTime':
         return _checkDistanceTimePr(
           exerciseId: exerciseId,
           exerciseName: exerciseName,
           distanceMetres: distanceMetres ?? 0,
           durationSeconds: durationSeconds ?? 0,
         );
-      case MetricType.bodyweightReps:
+      case 'bodyweightReps':
         // Bodyweight reps: if weight > 0 treat like weightReps (added weight).
         // Otherwise PR = most reps in a single set.
         if (weight > 0) {
@@ -253,7 +268,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     // This avoids needing a new unique constraint.
     final existing = await (db.select(db.personalBests)
           ..where((pb) => pb.exerciseId.equals(exerciseId))
-          ..where((pb) => pb.metricType.equals(MetricType.bodyweightReps))
+          ..where((pb) => pb.metricType.equals(MetricType.bodyweightReps.value))
           ..where((pb) => pb.deletedAt.isNull()))
         .getSingleOrNull();
 
@@ -265,7 +280,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
         exerciseId: exerciseId,
         reps: Value(reps),
         weight: const Value(0.0),
-        metricType: const Value(MetricType.bodyweightReps),
+        metricType: Value(MetricType.bodyweightReps.value),
         achievedAt: DateTime.now(),
       ),
       onConflict: DoUpdate(
@@ -280,7 +295,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     return PrResult(
       exerciseId: exerciseId,
       exerciseName: exerciseName,
-      metricType: MetricType.bodyweightReps,
+      metricType: MetricType.bodyweightReps.value,
       reps: reps,
       weight: 0.0,
     );
@@ -299,7 +314,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
 
     final existing = await (db.select(db.personalBests)
           ..where((pb) => pb.exerciseId.equals(exerciseId))
-          ..where((pb) => pb.metricType.equals(MetricType.timeOnly))
+          ..where((pb) => pb.metricType.equals(MetricType.timeOnly.value))
           ..where((pb) => pb.deletedAt.isNull()))
         .getSingleOrNull();
 
@@ -314,7 +329,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
         reps: const Value(0),
         weight: const Value(0.0),
         durationSeconds: Value(durationSeconds),
-        metricType: const Value(MetricType.timeOnly),
+        metricType: Value(MetricType.timeOnly.value),
         achievedAt: DateTime.now(),
       ),
       onConflict: DoUpdate(
@@ -329,7 +344,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     return PrResult(
       exerciseId: exerciseId,
       exerciseName: exerciseName,
-      metricType: MetricType.timeOnly,
+      metricType: MetricType.timeOnly.value,
       durationSeconds: durationSeconds,
     );
   }
@@ -349,12 +364,14 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     // PR per distance — find existing record for this exact distance.
     final existing = await (db.select(db.personalBests)
           ..where((pb) => pb.exerciseId.equals(exerciseId))
-          ..where((pb) => pb.metricType.equals(MetricType.distanceTime))
+          ..where((pb) => pb.metricType.equals(MetricType.distanceTime.value))
           ..where((pb) => pb.distanceMetres.equals(distanceMetres))
           ..where((pb) => pb.deletedAt.isNull()))
         .getSingleOrNull();
 
-    final existingTime = existing?.durationSeconds ?? 999999;
+    // Sentinel value used when no existing distance PR is recorded.
+    const noExistingTime = 999999;
+    final existingTime = existing?.durationSeconds ?? noExistingTime;
     // Lower time is better for distance PRs
     final isNewPr = existing == null || durationSeconds < existingTime;
     if (!isNewPr) return null;
@@ -367,7 +384,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
         weight: const Value(0.0),
         durationSeconds: Value(durationSeconds),
         distanceMetres: Value(distanceMetres),
-        metricType: const Value(MetricType.distanceTime),
+        metricType: Value(MetricType.distanceTime.value),
         achievedAt: DateTime.now(),
       ),
       onConflict: DoUpdate(
@@ -382,7 +399,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     return PrResult(
       exerciseId: exerciseId,
       exerciseName: exerciseName,
-      metricType: MetricType.distanceTime,
+      metricType: MetricType.distanceTime.value,
       durationSeconds: durationSeconds,
       distanceMetres: distanceMetres,
     );
