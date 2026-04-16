@@ -484,7 +484,8 @@ class _AttendanceHeatmap extends StatelessWidget {
                   height: 14,
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   decoration: BoxDecoration(
-                    color: OneRepColors.gold
+                    // Opacity steps from 0.2 (1 session) to 0.88 (4+ sessions).
+                color: OneRepColors.gold
                         .withValues(alpha: 0.2 + (i * 0.22)),
                     borderRadius: BorderRadius.circular(2),
                   ),
@@ -697,7 +698,8 @@ class _PrChart extends ConsumerWidget {
     }
     if (metricType == 'distanceTime') {
       // Uninvert to show actual time
-      final secs = (10000 - value).toInt();
+      const chartTimeInversionOffset = 10000;
+      final secs = (chartTimeInversionOffset - value).toInt();
       final m = secs ~/ 60;
       final s = secs % 60;
       return m > 0 ? '${m}m${s}s' : '${s}s';
@@ -741,7 +743,10 @@ class _PrChart extends ConsumerWidget {
           // Lower time is better — invert so improvement trends upward on chart
           final secs = set.durationSeconds ?? 0;
           // Use negative so shorter time = higher on chart
-          value = secs > 0 ? (10000 - secs).toDouble() : 0;
+          // Invert time so improvement (lower time) trends upward on chart.
+          // The offset must exceed the maximum realistic session duration.
+          const chartTimeInversionOffset = 10000;
+          value = secs > 0 ? (chartTimeInversionOffset - secs).toDouble() : 0;
         case 'bodyweightReps':
           value = set.reps.toDouble();
         default: // weightReps

@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
@@ -138,7 +139,7 @@ class _PrTable extends StatelessWidget {
                 children: [
                   _TableCell(text: '${pr.reps}'),
                   _TableCell(text: '${pr.weight}kg'),
-                  _TableCell(text: _formatDate(pr.achievedAt)),
+                  _TableCell(text: formatShortDate(pr.achievedAt)),
                 ],
               ),
           ],
@@ -147,10 +148,6 @@ class _PrTable extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime dt) =>
-      '${dt.day.toString().padLeft(2, '0')}/'
-      '${dt.month.toString().padLeft(2, '0')}/'
-      '${dt.year}';
 }
 
 class _TableCell extends StatelessWidget {

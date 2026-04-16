@@ -1,7 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../data/badge_service.dart';
+
+/// Maps a badge icon name string to a [IconData] instance.
+///
+/// Icon names are stored as strings in [BadgeDefinition] to keep the
+/// definition data pure and free of Flutter dependencies.
+IconData _badgeIconData(String name) => switch (name) {
+      'fitness_center' => Icons.fitness_center,
+      'local_fire_department' => Icons.local_fire_department,
+      'emoji_events' => Icons.emoji_events,
+      'military_tech' => Icons.military_tech,
+      'trending_up' => Icons.trending_up,
+      'bolt' => Icons.bolt,
+      'workspace_premium' => Icons.workspace_premium,
+      'add_circle' => Icons.add_circle,
+      _ => Icons.star,
+    };
 
 class BadgesScreen extends ConsumerWidget {
   const BadgesScreen({super.key});
@@ -263,7 +280,7 @@ class _BadgeTile extends StatelessWidget {
                         : null,
                   ),
                   child: Icon(
-                    _iconData(badge.icon),
+                    _badgeIconData(badge.icon),
                     size: 26,
                     color: earned
                         ? OneRepColors.gold
@@ -292,7 +309,7 @@ class _BadgeTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 if (earned && badge.earnedAt != null)
                   Text(
-                    _formatDate(badge.earnedAt!),
+                    formatShortDate(badge.earnedAt!),
                     style: const TextStyle(
                       color: OneRepColors.gold,
                       fontSize: 10,
@@ -324,22 +341,6 @@ class _BadgeTile extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime dt) =>
-      '${dt.day.toString().padLeft(2, '0')}/'
-      '${dt.month.toString().padLeft(2, '0')}/'
-      '${dt.year}';
-
-  IconData _iconData(String name) => switch (name) {
-        'fitness_center' => Icons.fitness_center,
-        'local_fire_department' => Icons.local_fire_department,
-        'emoji_events' => Icons.emoji_events,
-        'military_tech' => Icons.military_tech,
-        'trending_up' => Icons.trending_up,
-        'bolt' => Icons.bolt,
-        'workspace_premium' => Icons.workspace_premium,
-        'add_circle' => Icons.add_circle,
-        _ => Icons.star,
-      };
 }
 
 // ---------------------------------------------------------------------------
@@ -387,7 +388,7 @@ class _BadgeDetailSheet extends StatelessWidget {
                   : null,
             ),
             child: Icon(
-              _iconData(badge.icon),
+              _badgeIconData(badge.icon),
               size: 36,
               color: earned ? OneRepColors.gold : OneRepColors.textDisabled,
             ),
@@ -446,7 +447,7 @@ class _BadgeDetailSheet extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   earned && badge.earnedAt != null
-                      ? 'Earned ${_formatDate(badge.earnedAt!)}'
+                      ? 'Earned ${formatShortDate(badge.earnedAt!)}'
                       : 'Not yet earned',
                   style: TextStyle(
                     color: earned
@@ -464,20 +465,4 @@ class _BadgeDetailSheet extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime dt) =>
-      '${dt.day.toString().padLeft(2, '0')}/'
-      '${dt.month.toString().padLeft(2, '0')}/'
-      '${dt.year}';
-
-  IconData _iconData(String name) => switch (name) {
-        'fitness_center' => Icons.fitness_center,
-        'local_fire_department' => Icons.local_fire_department,
-        'emoji_events' => Icons.emoji_events,
-        'military_tech' => Icons.military_tech,
-        'trending_up' => Icons.trending_up,
-        'bolt' => Icons.bolt,
-        'workspace_premium' => Icons.workspace_premium,
-        'add_circle' => Icons.add_circle,
-        _ => Icons.star,
-      };
 }

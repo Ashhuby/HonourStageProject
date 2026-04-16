@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../data/split_repository.dart';
 import '../../../core/database/local_database.dart';
 import 'split_detail_screen.dart';
@@ -154,7 +155,7 @@ class _SplitCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'Created ${_formatDate(split.createdAt)}',
+                      'Created ${formatShortDate(split.createdAt)}',
                       style: const TextStyle(
                         color: OneRepColors.textSecondary,
                         fontSize: 12,
@@ -175,8 +176,6 @@ class _SplitCard extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) =>
-      '${date.day}/${date.month}/${date.year}';
 }
 
 // ---------------------------------------------------------------------------
