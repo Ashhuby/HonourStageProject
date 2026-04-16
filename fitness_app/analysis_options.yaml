@@ -1,6 +1,8 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
-
+# Dart static analysis configuration for OneRep.
+#
+# Extends flutter_lints (which itself extends dart's core rules).
+# Rules are selectively tightened beyond the defaults to match
+# production Flutter team standards.
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
@@ -12,9 +14,49 @@ analyzer:
 
 linter:
   rules:
-    public_member_api_docs: false
-    # avoid_print: false 
-    # prefer_single_quotes: true 
+    # -------------------------------------------------------------------------
+    # Disabled rules
+    # -------------------------------------------------------------------------
 
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+    # Public API docs are not required — this is an application, not a library.
+    public_member_api_docs: false
+
+    # -------------------------------------------------------------------------
+    # Enabled rules beyond flutter_lints defaults
+    # -------------------------------------------------------------------------
+
+    # Prefer const constructors wherever possible.
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_const_literals_to_create_immutables: true
+
+    # Enforce single quotes for string literals.
+    prefer_single_quotes: true
+
+    # Disallow print() in production code — use debugPrint() instead.
+    avoid_print: true
+
+    # Require typed declarations for all public and private members.
+    always_specify_types: false   # too noisy with Riverpod inference
+    prefer_typing_uninitialized_variables: true
+
+    # Avoid unnecessary nullable types.
+    avoid_returning_null_for_void: true
+
+    # Prefer final for local variables that are not reassigned.
+    prefer_final_locals: true
+
+    # Enforce trailing commas for better diffs and formatting.
+    require_trailing_commas: true
+
+    # Avoid double negatives in conditions.
+    avoid_bool_literals_in_conditional_expressions: true
+
+    # Catch-all clauses should specify the type.
+    avoid_catches_without_on_clauses: false  # needed for workmanager isolate
+
+    # Use super parameters where possible (Dart 2.17+).
+    use_super_parameters: true
+
+    # Sort constructors before other members.
+    sort_constructors_first: false  # fields before constructor is idiomatic Flutter
