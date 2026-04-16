@@ -1,7 +1,7 @@
-// lib/features/profile/presentation/profile_screen.dart
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fitness_app/features/workout/data/strength_standards_data.dart';
+import '../../workout/data/strength_standards_data.dart';
 import '../data/profile_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -74,7 +74,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               'percentiles against population data from Strengthlevel.com. '
               'These fields are optional — percentile benchmarks are hidden '
               'if not provided.',
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: OneRepColors.textSecondary),
             ),
             const SizedBox(height: 32),
 
@@ -151,7 +151,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onPressed: () => _confirmClear(context),
                 child: const Text(
                   'Clear profile data',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: OneRepColors.textSecondary),
                 ),
               ),
             ),

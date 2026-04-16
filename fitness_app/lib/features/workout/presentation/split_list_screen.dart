@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/split_repository.dart';
+import '../../../core/database/local_database.dart';
 import 'split_detail_screen.dart';
 
 class SplitListScreen extends ConsumerWidget {
@@ -57,6 +58,14 @@ class SplitListScreen extends ConsumerWidget {
 
   void _showCreateSplitDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
+
+    void submit() {
+      if (nameController.text.isNotEmpty) {
+        ref.read(splitRepositoryProvider.notifier).createSplit(nameController.text);
+        Navigator.pop(context);
+      }
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -68,14 +77,7 @@ class SplitListScreen extends ConsumerWidget {
             labelText: 'Split Name',
             hintText: 'e.g. 6-Day PPL',
           ),
-          onSubmitted: (_) {
-            if (nameController.text.isNotEmpty) {
-              ref
-                  .read(splitRepositoryProvider.notifier)
-                  .createSplit(nameController.text);
-              Navigator.pop(context);
-            }
-          },
+          onSubmitted: (_) => submit(),
         ),
         actions: [
           TextButton(
@@ -83,14 +85,7 @@ class SplitListScreen extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (nameController.text.isNotEmpty) {
-                ref
-                    .read(splitRepositoryProvider.notifier)
-                    .createSplit(nameController.text);
-                Navigator.pop(context);
-              }
-            },
+            onPressed: submit,
             child: const Text('Create'),
           ),
         ],
@@ -104,7 +99,7 @@ class SplitListScreen extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 class _SplitCard extends StatelessWidget {
-  final dynamic split;
+  final WorkoutSplit split;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 

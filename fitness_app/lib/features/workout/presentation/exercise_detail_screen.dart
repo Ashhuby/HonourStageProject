@@ -1,4 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
@@ -33,7 +34,7 @@ class ExerciseDetailScreen extends ConsumerWidget {
           const SizedBox(height: 4),
           Text(
             '${exercise.bodyPart} • ${exercise.equipmentType}',
-            style: const TextStyle(color: Colors.grey),
+            style: const TextStyle(color: OneRepColors.textSecondary),
           ),
           if (exercise.isCustom)
             const Padding(
@@ -320,7 +321,7 @@ class _PercentileCard extends StatelessWidget {
             // Attribution
             const Text(
               'Data sourced from Strengthlevel.com',
-              style: TextStyle(color: Colors.grey, fontSize: 11),
+              style: TextStyle(color: OneRepColors.textSecondary, fontSize: 11),
             ),
           ],
         ),
@@ -355,7 +356,6 @@ class _PercentileUnavailable extends StatelessWidget {
             context,
             MaterialPageRoute(builder: (_) => const ProfileScreen()),
           ),
-          // Navigation wired in home_screen.dart once profile screen exists
         ),
       ),
     );
@@ -496,7 +496,7 @@ class _EmptyState extends StatelessWidget {
         child: Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.grey),
+          style: const TextStyle(color: OneRepColors.textSecondary),
         ),
       ),
     );
