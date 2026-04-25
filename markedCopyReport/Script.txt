@@ -1,0 +1,106 @@
+Slide 1:
+Good morning
+this is the video for my project titled From Fragmented Journeys to Unified Experiences:
+Investigating Multifunctional Mobile App Design Through a Fitness Case Study
+
+
+
+
+Slide 2:
+Think about what actually happens in a gym session.
+
+You’re logging sets… timing your rest making sure they are long enough to fully recover … checking previous performance…
+But you’re not doing that in one place.
+You’re jumping between apps and in my experience its the  Notes, Clock, maybe a couple other apps and trying to hold everything together mentally.
+That’s not a smooth workflow. That’s bandaid solution to a real problem the majority of gym goers experience.
+
+And every time you switch apps, you’re forced to stop, reorient, and continue. 
+Think to Gloria Mark's "23-minute rule" stating a distration as small as answering a text message takes your brain on average 23 mins and 15 seconds to fully refocus on the previous task.
+That cost isn’t obvious — but it builds up across the entire session.
+
+
+SLIDE 3:
+so instead of assuming this was a problem, I measured it.
+
+In a single session using a fragmented setup:
+23 app switches
+and across this 52 min session, which is very typical i spent over 4 minutes spent just navigating between apps
+And there was a constant cognitive resets after each one of these switches
+
+That’s not just horribly inefficient, it’s possibly detrimental to your workout.
+And it important to note that the tools aren’t failing individually. The system is failing because quite frankly it isn’t a system.
+
+
+SLIDE 4:
+So the question becomes:
+If we stop fragmenting the workflow… and bring everything into one place…
+does the experience actually improve?
+
+Slide 5:
+That’s what OneRep is designed to test being the case study in this project.
+It’s a single application that contains the entire gym session workflow — end to end.
+Logging, timing, tracking progress, detecting personal records — all inside one continuous flow.
+with the main idea being No switching. No interruptions.
+And its important to note — it’s built offline-first, so it works exactly the same in a real gym environment where you may not have access to the internet.
+The goal is workflow coherence, not the quantity of features we can shoehorn in.
+
+Slide 6:
+Everything in this system comes back to one principle:
+
+reduce cognitive load by eliminating context switching.
+
+the idea is not to simplify the task —
+
+but to removing everything that isn’t the nessasary to complete the task.
+
+SLIDE 7:
+I’ll now show how that looks in practice.
+
+DEMO
+
+Slide 8:
+the improvement isn’t subjective.
+we have a measureable cure to this disjointed user journey.
+
+When we compare this directly to the fragmented workflow that was shown eariler:
+
+App switching drops from 23 to 0
+Navigation time drops from over 4 minutes to 0
+Cognitive reorientation is effectively eliminated
+
+On top of that:
+
+100% task completion
+SUS score of 80 — well above average
+
+
+
+Slide 9:
+The main takeaway is this:
+
+When the workflow is unified, everything becomes faster, smoother, and easier to sustain.
+
+Users don’t just complete tasks — they stay focused while doing them.
+
+Gamification is a powerful tool that increases engagement,
+
+but the real impact comes from removing friction.
+
+That said, exercise navigation still needs improvement — and that’s a clear area for future work which is mentioned in the report.
+
+SLIDE 10:
+So, does unified design reduce cognitive load?
+
+Based on this project — yes.
+
+Not because it adds something new,
+
+but because it removes what shouldn’t have been there in the first place.
+
+While i wish this was a project with millions in funding and an entire research team behind me, 
+we have to be realistic with the limitations of a disseration at this level. To explore more deeply into this question, broader validation is required.
+
+But the core idea holds:
+
+if the workflow is one task, the system should be one system.
+Thank u for watching
