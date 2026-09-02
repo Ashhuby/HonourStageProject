@@ -337,6 +337,170 @@ class _WatchSetsForSessionProviderElement
   int get sessionId => (origin as WatchSetsForSessionProvider).sessionId;
 }
 
+String _$watchActiveSessionHash() =>
+    r'2156f0148a40c65109b1d7e921635eb8ab53464b';
+
+/// The session currently in progress, or null when there is none.
+///
+/// A session with no [WorkoutSessions.endTime] is in progress: it is skipped
+/// by sync and by every history query, so without a way back into it the
+/// workout is stranded. Killing the app mid-set is the common cause.
+///
+/// The most recent one wins if several were left open by older builds.
+///
+/// Copied from [watchActiveSession].
+@ProviderFor(watchActiveSession)
+final watchActiveSessionProvider =
+    AutoDisposeStreamProvider<ActiveSession?>.internal(
+      watchActiveSession,
+      name: r'watchActiveSessionProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$watchActiveSessionHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef WatchActiveSessionRef = AutoDisposeStreamProviderRef<ActiveSession?>;
+String _$watchSetCountForSessionHash() =>
+    r'102ba1b294993f83a8a3226b8943d2fb88792821';
+
+/// How many sets have been logged in [sessionId].
+///
+/// Copied from [watchSetCountForSession].
+@ProviderFor(watchSetCountForSession)
+const watchSetCountForSessionProvider = WatchSetCountForSessionFamily();
+
+/// How many sets have been logged in [sessionId].
+///
+/// Copied from [watchSetCountForSession].
+class WatchSetCountForSessionFamily extends Family<AsyncValue<int>> {
+  /// How many sets have been logged in [sessionId].
+  ///
+  /// Copied from [watchSetCountForSession].
+  const WatchSetCountForSessionFamily();
+
+  /// How many sets have been logged in [sessionId].
+  ///
+  /// Copied from [watchSetCountForSession].
+  WatchSetCountForSessionProvider call(int sessionId) {
+    return WatchSetCountForSessionProvider(sessionId);
+  }
+
+  @override
+  WatchSetCountForSessionProvider getProviderOverride(
+    covariant WatchSetCountForSessionProvider provider,
+  ) {
+    return call(provider.sessionId);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'watchSetCountForSessionProvider';
+}
+
+/// How many sets have been logged in [sessionId].
+///
+/// Copied from [watchSetCountForSession].
+class WatchSetCountForSessionProvider extends AutoDisposeStreamProvider<int> {
+  /// How many sets have been logged in [sessionId].
+  ///
+  /// Copied from [watchSetCountForSession].
+  WatchSetCountForSessionProvider(int sessionId)
+    : this._internal(
+        (ref) => watchSetCountForSession(
+          ref as WatchSetCountForSessionRef,
+          sessionId,
+        ),
+        from: watchSetCountForSessionProvider,
+        name: r'watchSetCountForSessionProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$watchSetCountForSessionHash,
+        dependencies: WatchSetCountForSessionFamily._dependencies,
+        allTransitiveDependencies:
+            WatchSetCountForSessionFamily._allTransitiveDependencies,
+        sessionId: sessionId,
+      );
+
+  WatchSetCountForSessionProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.sessionId,
+  }) : super.internal();
+
+  final int sessionId;
+
+  @override
+  Override overrideWith(
+    Stream<int> Function(WatchSetCountForSessionRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: WatchSetCountForSessionProvider._internal(
+        (ref) => create(ref as WatchSetCountForSessionRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        sessionId: sessionId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeStreamProviderElement<int> createElement() {
+    return _WatchSetCountForSessionProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is WatchSetCountForSessionProvider &&
+        other.sessionId == sessionId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, sessionId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin WatchSetCountForSessionRef on AutoDisposeStreamProviderRef<int> {
+  /// The parameter `sessionId` of this provider.
+  int get sessionId;
+}
+
+class _WatchSetCountForSessionProviderElement
+    extends AutoDisposeStreamProviderElement<int>
+    with WatchSetCountForSessionRef {
+  _WatchSetCountForSessionProviderElement(super.provider);
+
+  @override
+  int get sessionId => (origin as WatchSetCountForSessionProvider).sessionId;
+}
+
 String _$watchLastPerformanceForExerciseHash() =>
     r'8bc06820c55439b79d4559d17cca049f7f0fc508';
 

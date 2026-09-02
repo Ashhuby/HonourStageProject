@@ -170,6 +170,70 @@ Stream<List<WorkoutSetWithExercise>> watchSetsForSession(
   );
 }
 
+/// A session that was started and never finished.
+///
+/// [title] is the routine's name, or a freestyle label when the session has
+/// no routine — enough to reopen the session screen exactly as it was left.
+class ActiveSession {
+  final WorkoutSession session;
+  final String title;
+
+  const ActiveSession({required this.session, required this.title});
+
+  int? get routineId => session.routineId;
+}
+
+/// Label used for a session that was started without a routine.
+const String freestyleSessionTitle = 'Freestyle Session';
+
+/// The session currently in progress, or null when there is none.
+///
+/// A session with no [WorkoutSessions.endTime] is in progress: it is skipped
+/// by sync and by every history query, so without a way back into it the
+/// workout is stranded. Killing the app mid-set is the common cause.
+///
+/// The most recent one wins if several were left open by older builds.
+@riverpod
+Stream<ActiveSession?> watchActiveSession(Ref ref) {
+  final db = ref.watch(databaseProvider);
+
+  final query =
+      db.select(db.workoutSessions).join([
+          leftOuterJoin(
+            db.workoutRoutines,
+            db.workoutRoutines.id.equalsExp(db.workoutSessions.routineId),
+          ),
+        ])
+        ..where(db.workoutSessions.endTime.isNull())
+        ..where(db.workoutSessions.deletedAt.isNull())
+        ..orderBy([OrderingTerm.desc(db.workoutSessions.startTime)])
+        ..limit(1);
+
+  return query.watch().map((rows) {
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    final routine = row.readTableOrNull(db.workoutRoutines);
+    return ActiveSession(
+      session: row.readTable(db.workoutSessions),
+      title: routine?.name ?? freestyleSessionTitle,
+    );
+  });
+}
+
+/// How many sets have been logged in [sessionId].
+@riverpod
+Stream<int> watchSetCountForSession(Ref ref, int sessionId) {
+  final db = ref.watch(databaseProvider);
+  final count = db.workoutSets.id.count();
+
+  final query = db.selectOnly(db.workoutSets)
+    ..addColumns([count])
+    ..where(db.workoutSets.sessionId.equals(sessionId))
+    ..where(db.workoutSets.deletedAt.isNull());
+
+  return query.watchSingle().map((row) => row.read(count) ?? 0);
+}
+
 /// A previous session's work on a single exercise.
 ///
 /// Surfaced while logging so the user can see what they lifted last time

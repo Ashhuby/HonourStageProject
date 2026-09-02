@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../../core/sync/sync_provider.dart';
 import '../data/session_repository.dart';
@@ -103,9 +104,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           // ----------------------------------------------------------------
-          // Freestyle banner — full width, above bottom nav
+          // Session banner — full width, above bottom nav. Offers to resume
+          // an unfinished session rather than start a second one.
           // ----------------------------------------------------------------
-          _FreestyleBanner(onTap: () => _startFreestyleSession(context)),
+          ref
+              .watch(watchActiveSessionProvider)
+              .maybeWhen(
+                data: (active) => active == null
+                    ? _FreestyleBanner(
+                        onTap: () => _startFreestyleSession(context),
+                      )
+                    : _ResumeBanner(
+                        active: active,
+                        onTap: () => _resumeSession(context, active),
+                        onDiscard: () =>
+                            _confirmDiscardSession(context, active),
+                      ),
+                orElse: () => _FreestyleBanner(
+                  onTap: () => _startFreestyleSession(context),
+                ),
+              ),
           // ----------------------------------------------------------------
           // Bottom navigation
           // ----------------------------------------------------------------
@@ -129,10 +147,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         MaterialPageRoute(
           builder: (_) => ActiveSessionScreen(
             sessionId: sessionId,
-            sessionTitle: 'Freestyle Session',
+            sessionTitle: freestyleSessionTitle,
           ),
         ),
       );
+    }
+  }
+
+  void _resumeSession(BuildContext context, ActiveSession active) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ActiveSessionScreen(
+          sessionId: active.session.id,
+          sessionTitle: active.title,
+          routineId: active.routineId,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDiscardSession(
+    BuildContext context,
+    ActiveSession active,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Discard Workout?'),
+        content: Text(
+          'The unfinished ${active.title} session and every set logged in it '
+          'will be deleted. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Keep It'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: OneRepColors.error),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed ?? false) {
+      await ref
+          .read(sessionRepositoryProvider.notifier)
+          .deleteSession(active.session.id);
     }
   }
 
@@ -203,6 +267,86 @@ class _OneRepTitle extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Freestyle banner — sits above bottom nav, full width
 // ---------------------------------------------------------------------------
+
+/// Offers a way back into a session that was started and never finished.
+///
+/// Without it an interrupted workout is unreachable: in-progress sessions are
+/// excluded from history and from sync, so the sets logged before the
+/// interruption are simply lost.
+class _ResumeBanner extends ConsumerWidget {
+  final ActiveSession active;
+  final VoidCallback onTap;
+  final VoidCallback onDiscard;
+
+  const _ResumeBanner({
+    required this.active,
+    required this.onTap,
+    required this.onDiscard,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final setCount =
+        ref.watch(watchSetCountForSessionProvider(active.session.id)).value ??
+        0;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+        decoration: const BoxDecoration(
+          color: OneRepColors.surfaceElevated,
+          border: Border(top: BorderSide(color: OneRepColors.gold, width: 2)),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.play_circle_outline,
+              color: OneRepColors.gold,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'RESUME ${active.title.toUpperCase()}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: OneRepColors.gold,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$setCount ${setCount == 1 ? 'set' : 'sets'} logged • '
+                    'started ${formatShortDate(active.session.startTime)}',
+                    style: const TextStyle(
+                      color: OneRepColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, size: 18),
+              color: OneRepColors.textSecondary,
+              tooltip: 'Discard workout',
+              onPressed: onDiscard,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _FreestyleBanner extends StatelessWidget {
   final VoidCallback onTap;

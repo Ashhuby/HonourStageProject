@@ -227,27 +227,86 @@ class RoutineExercisesSheet extends ConsumerWidget {
     );
   }
 
+  /// Starts this routine, first offering a way out of a session that was
+  /// never finished — starting over it would strand the sets logged in it.
   Future<void> _startSession(BuildContext context, WidgetRef ref) async {
+    // Capture the navigator before dismissing the sheet: popping deactivates
+    // the sheet's context, and everything below this line runs after it.
+    final navigator = Navigator.of(context);
     Navigator.pop(context);
+
+    final active = await ref.read(watchActiveSessionProvider.future);
+
+    if (active != null) {
+      if (!navigator.mounted) return;
+      final choice = await showDialog<_InProgressChoice>(
+        context: navigator.context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Workout In Progress'),
+          content: Text(
+            'You have an unfinished ${active.title} session. Resume it, or '
+            'discard it and start ${routine.name}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: OneRepColors.error),
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _InProgressChoice.discard),
+              child: const Text('Discard & Start'),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: OneRepColors.gold),
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _InProgressChoice.resume),
+              child: const Text('Resume'),
+            ),
+          ],
+        ),
+      );
+
+      switch (choice) {
+        case null:
+          return;
+        case _InProgressChoice.resume:
+          navigator.push(
+            MaterialPageRoute(
+              builder: (_) => ActiveSessionScreen(
+                sessionId: active.session.id,
+                sessionTitle: active.title,
+                routineId: active.routineId,
+              ),
+            ),
+          );
+          return;
+        case _InProgressChoice.discard:
+          await ref
+              .read(sessionRepositoryProvider.notifier)
+              .deleteSession(active.session.id);
+      }
+    }
 
     final sessionId = await ref
         .read(sessionRepositoryProvider.notifier)
         .startSession(routineId: routine.id);
 
-    if (context.mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ActiveSessionScreen(
-            sessionId: sessionId,
-            sessionTitle: routine.name,
-            routineId: routine.id,
-          ),
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => ActiveSessionScreen(
+          sessionId: sessionId,
+          sessionTitle: routine.name,
+          routineId: routine.id,
         ),
-      );
-    }
+      ),
+    );
   }
 }
+
+/// What to do about a session that is already in progress.
+enum _InProgressChoice { resume, discard }
 
 // --- Exercise picker dialog ---
 
