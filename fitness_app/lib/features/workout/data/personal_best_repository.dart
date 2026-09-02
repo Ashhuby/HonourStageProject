@@ -108,6 +108,45 @@ Future<PersonalBest?> getBestLiftForExercise(Ref ref, int exerciseId) async {
       .getSingleOrNull();
 }
 
+/// The single record shown as the target to beat during a session.
+///
+/// Most metric types keep one row per exercise, but distanceTime keeps one
+/// row per distance, so the rows are reduced rather than simply taking the
+/// first. Emits null when the exercise has no personal best yet.
+@riverpod
+Stream<PersonalBest?> watchBestPrForExercise(Ref ref, int exerciseId) {
+  final db = ref.watch(databaseProvider);
+  return (db.select(db.personalBests)
+        ..where((pb) => pb.exerciseId.equals(exerciseId))
+        ..where((pb) => pb.deletedAt.isNull()))
+      .watch()
+      .map(
+        (prs) => prs.isEmpty
+            ? null
+            : prs.reduce((best, pb) => _beats(pb, best) ? pb : best),
+      );
+}
+
+/// Whether [candidate] is the stronger record of the two, judged by the
+/// comparator that defines a PR for its metric type.
+bool _beats(PersonalBest candidate, PersonalBest current) {
+  switch (MetricType.fromString(candidate.metricType)) {
+    case MetricType.timeOnly:
+      // Longest hold wins.
+      return (candidate.durationSeconds ?? 0) > (current.durationSeconds ?? 0);
+    case MetricType.distanceTime:
+      // One row per distance — the longest distance is the headline record.
+      return (candidate.distanceMetres ?? 0) > (current.distanceMetres ?? 0);
+    case MetricType.bodyweightReps:
+      return candidate.reps > current.reps;
+    case MetricType.weightReps:
+      if (candidate.weight != current.weight) {
+        return candidate.weight > current.weight;
+      }
+      return candidate.reps > current.reps;
+  }
+}
+
 @riverpod
 Stream<List<PersonalBest>> watchAllPrs(Ref ref) {
   final db = ref.watch(databaseProvider);

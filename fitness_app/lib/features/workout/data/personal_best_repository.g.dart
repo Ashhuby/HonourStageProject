@@ -277,6 +277,168 @@ class _GetBestLiftForExerciseProviderElement
   int get exerciseId => (origin as GetBestLiftForExerciseProvider).exerciseId;
 }
 
+String _$watchBestPrForExerciseHash() =>
+    r'04281dd63b4110457e1db60acc5d5a529d509f97';
+
+/// The single record shown as the target to beat during a session.
+///
+/// Most metric types keep one row per exercise, but distanceTime keeps one
+/// row per distance, so the rows are reduced rather than simply taking the
+/// first. Emits null when the exercise has no personal best yet.
+///
+/// Copied from [watchBestPrForExercise].
+@ProviderFor(watchBestPrForExercise)
+const watchBestPrForExerciseProvider = WatchBestPrForExerciseFamily();
+
+/// The single record shown as the target to beat during a session.
+///
+/// Most metric types keep one row per exercise, but distanceTime keeps one
+/// row per distance, so the rows are reduced rather than simply taking the
+/// first. Emits null when the exercise has no personal best yet.
+///
+/// Copied from [watchBestPrForExercise].
+class WatchBestPrForExerciseFamily extends Family<AsyncValue<PersonalBest?>> {
+  /// The single record shown as the target to beat during a session.
+  ///
+  /// Most metric types keep one row per exercise, but distanceTime keeps one
+  /// row per distance, so the rows are reduced rather than simply taking the
+  /// first. Emits null when the exercise has no personal best yet.
+  ///
+  /// Copied from [watchBestPrForExercise].
+  const WatchBestPrForExerciseFamily();
+
+  /// The single record shown as the target to beat during a session.
+  ///
+  /// Most metric types keep one row per exercise, but distanceTime keeps one
+  /// row per distance, so the rows are reduced rather than simply taking the
+  /// first. Emits null when the exercise has no personal best yet.
+  ///
+  /// Copied from [watchBestPrForExercise].
+  WatchBestPrForExerciseProvider call(int exerciseId) {
+    return WatchBestPrForExerciseProvider(exerciseId);
+  }
+
+  @override
+  WatchBestPrForExerciseProvider getProviderOverride(
+    covariant WatchBestPrForExerciseProvider provider,
+  ) {
+    return call(provider.exerciseId);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'watchBestPrForExerciseProvider';
+}
+
+/// The single record shown as the target to beat during a session.
+///
+/// Most metric types keep one row per exercise, but distanceTime keeps one
+/// row per distance, so the rows are reduced rather than simply taking the
+/// first. Emits null when the exercise has no personal best yet.
+///
+/// Copied from [watchBestPrForExercise].
+class WatchBestPrForExerciseProvider
+    extends AutoDisposeStreamProvider<PersonalBest?> {
+  /// The single record shown as the target to beat during a session.
+  ///
+  /// Most metric types keep one row per exercise, but distanceTime keeps one
+  /// row per distance, so the rows are reduced rather than simply taking the
+  /// first. Emits null when the exercise has no personal best yet.
+  ///
+  /// Copied from [watchBestPrForExercise].
+  WatchBestPrForExerciseProvider(int exerciseId)
+    : this._internal(
+        (ref) => watchBestPrForExercise(
+          ref as WatchBestPrForExerciseRef,
+          exerciseId,
+        ),
+        from: watchBestPrForExerciseProvider,
+        name: r'watchBestPrForExerciseProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$watchBestPrForExerciseHash,
+        dependencies: WatchBestPrForExerciseFamily._dependencies,
+        allTransitiveDependencies:
+            WatchBestPrForExerciseFamily._allTransitiveDependencies,
+        exerciseId: exerciseId,
+      );
+
+  WatchBestPrForExerciseProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.exerciseId,
+  }) : super.internal();
+
+  final int exerciseId;
+
+  @override
+  Override overrideWith(
+    Stream<PersonalBest?> Function(WatchBestPrForExerciseRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: WatchBestPrForExerciseProvider._internal(
+        (ref) => create(ref as WatchBestPrForExerciseRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        exerciseId: exerciseId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeStreamProviderElement<PersonalBest?> createElement() {
+    return _WatchBestPrForExerciseProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is WatchBestPrForExerciseProvider &&
+        other.exerciseId == exerciseId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, exerciseId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin WatchBestPrForExerciseRef on AutoDisposeStreamProviderRef<PersonalBest?> {
+  /// The parameter `exerciseId` of this provider.
+  int get exerciseId;
+}
+
+class _WatchBestPrForExerciseProviderElement
+    extends AutoDisposeStreamProviderElement<PersonalBest?>
+    with WatchBestPrForExerciseRef {
+  _WatchBestPrForExerciseProviderElement(super.provider);
+
+  @override
+  int get exerciseId => (origin as WatchBestPrForExerciseProvider).exerciseId;
+}
+
 String _$watchAllPrsHash() => r'27ba1510a3bc005ef00286a2ae1abb8432c88506';
 
 /// See also [watchAllPrs].

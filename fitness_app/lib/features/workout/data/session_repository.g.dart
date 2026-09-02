@@ -337,6 +337,188 @@ class _WatchSetsForSessionProviderElement
   int get sessionId => (origin as WatchSetsForSessionProvider).sessionId;
 }
 
+String _$watchLastPerformanceForExerciseHash() =>
+    r'8bc06820c55439b79d4559d17cca049f7f0fc508';
+
+/// Sets logged for [exerciseId] in the most recent completed session, ignoring
+/// [currentSessionId] so the session in progress never reports back to itself.
+///
+/// Emits null when the exercise has not been logged in a completed session.
+///
+/// Copied from [watchLastPerformanceForExercise].
+@ProviderFor(watchLastPerformanceForExercise)
+const watchLastPerformanceForExerciseProvider =
+    WatchLastPerformanceForExerciseFamily();
+
+/// Sets logged for [exerciseId] in the most recent completed session, ignoring
+/// [currentSessionId] so the session in progress never reports back to itself.
+///
+/// Emits null when the exercise has not been logged in a completed session.
+///
+/// Copied from [watchLastPerformanceForExercise].
+class WatchLastPerformanceForExerciseFamily
+    extends Family<AsyncValue<LastSessionPerformance?>> {
+  /// Sets logged for [exerciseId] in the most recent completed session, ignoring
+  /// [currentSessionId] so the session in progress never reports back to itself.
+  ///
+  /// Emits null when the exercise has not been logged in a completed session.
+  ///
+  /// Copied from [watchLastPerformanceForExercise].
+  const WatchLastPerformanceForExerciseFamily();
+
+  /// Sets logged for [exerciseId] in the most recent completed session, ignoring
+  /// [currentSessionId] so the session in progress never reports back to itself.
+  ///
+  /// Emits null when the exercise has not been logged in a completed session.
+  ///
+  /// Copied from [watchLastPerformanceForExercise].
+  WatchLastPerformanceForExerciseProvider call(
+    int exerciseId,
+    int currentSessionId,
+  ) {
+    return WatchLastPerformanceForExerciseProvider(
+      exerciseId,
+      currentSessionId,
+    );
+  }
+
+  @override
+  WatchLastPerformanceForExerciseProvider getProviderOverride(
+    covariant WatchLastPerformanceForExerciseProvider provider,
+  ) {
+    return call(provider.exerciseId, provider.currentSessionId);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'watchLastPerformanceForExerciseProvider';
+}
+
+/// Sets logged for [exerciseId] in the most recent completed session, ignoring
+/// [currentSessionId] so the session in progress never reports back to itself.
+///
+/// Emits null when the exercise has not been logged in a completed session.
+///
+/// Copied from [watchLastPerformanceForExercise].
+class WatchLastPerformanceForExerciseProvider
+    extends AutoDisposeStreamProvider<LastSessionPerformance?> {
+  /// Sets logged for [exerciseId] in the most recent completed session, ignoring
+  /// [currentSessionId] so the session in progress never reports back to itself.
+  ///
+  /// Emits null when the exercise has not been logged in a completed session.
+  ///
+  /// Copied from [watchLastPerformanceForExercise].
+  WatchLastPerformanceForExerciseProvider(int exerciseId, int currentSessionId)
+    : this._internal(
+        (ref) => watchLastPerformanceForExercise(
+          ref as WatchLastPerformanceForExerciseRef,
+          exerciseId,
+          currentSessionId,
+        ),
+        from: watchLastPerformanceForExerciseProvider,
+        name: r'watchLastPerformanceForExerciseProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$watchLastPerformanceForExerciseHash,
+        dependencies: WatchLastPerformanceForExerciseFamily._dependencies,
+        allTransitiveDependencies:
+            WatchLastPerformanceForExerciseFamily._allTransitiveDependencies,
+        exerciseId: exerciseId,
+        currentSessionId: currentSessionId,
+      );
+
+  WatchLastPerformanceForExerciseProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.exerciseId,
+    required this.currentSessionId,
+  }) : super.internal();
+
+  final int exerciseId;
+  final int currentSessionId;
+
+  @override
+  Override overrideWith(
+    Stream<LastSessionPerformance?> Function(
+      WatchLastPerformanceForExerciseRef provider,
+    )
+    create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: WatchLastPerformanceForExerciseProvider._internal(
+        (ref) => create(ref as WatchLastPerformanceForExerciseRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        exerciseId: exerciseId,
+        currentSessionId: currentSessionId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeStreamProviderElement<LastSessionPerformance?> createElement() {
+    return _WatchLastPerformanceForExerciseProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is WatchLastPerformanceForExerciseProvider &&
+        other.exerciseId == exerciseId &&
+        other.currentSessionId == currentSessionId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, exerciseId.hashCode);
+    hash = _SystemHash.combine(hash, currentSessionId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin WatchLastPerformanceForExerciseRef
+    on AutoDisposeStreamProviderRef<LastSessionPerformance?> {
+  /// The parameter `exerciseId` of this provider.
+  int get exerciseId;
+
+  /// The parameter `currentSessionId` of this provider.
+  int get currentSessionId;
+}
+
+class _WatchLastPerformanceForExerciseProviderElement
+    extends AutoDisposeStreamProviderElement<LastSessionPerformance?>
+    with WatchLastPerformanceForExerciseRef {
+  _WatchLastPerformanceForExerciseProviderElement(super.provider);
+
+  @override
+  int get exerciseId =>
+      (origin as WatchLastPerformanceForExerciseProvider).exerciseId;
+  @override
+  int get currentSessionId =>
+      (origin as WatchLastPerformanceForExerciseProvider).currentSessionId;
+}
+
 String _$sessionRepositoryHash() => r'4d525d4cf21ce40b0af604128ae8312bc48db020';
 
 /// See also [SessionRepository].

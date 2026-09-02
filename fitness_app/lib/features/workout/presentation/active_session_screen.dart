@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/notifications/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/set_formatter.dart';
 import '../data/session_repository.dart';
 import '../data/exercise_repository.dart';
 import '../data/personal_best_repository.dart';
@@ -192,6 +194,14 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
 
             // Exercise selector
             _buildExerciseSelector(),
+
+            // Last session + personal best for the selected exercise
+            if (_selectedExercise != null)
+              _ExerciseReferenceCard(
+                exercise: _selectedExercise!,
+                sessionId: widget.sessionId,
+                onSetTap: _prefillFromSet,
+              ),
 
             // Set logger
             if (_selectedExercise != null) _buildSetLogger(),
@@ -565,7 +575,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            _formatSetDisplay(s.set),
+                            formatWorkoutSet(s.set),
                             style: const TextStyle(
                               color: OneRepColors.textPrimary,
                               fontSize: 15,
@@ -590,34 +600,23 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
-  // Set display helper — formats a logged set for the sets list
+  // Prefill — copies a previous set into the input fields
   // ---------------------------------------------------------------------------
 
-  String _formatSetDisplay(WorkoutSet set) {
-    // If durationSeconds is set, this is a time-based exercise
+  /// Fills the logger with the values from [set] so a repeated set can be
+  /// logged without retyping, or nudged up from last session's numbers.
+  void _prefillFromSet(WorkoutSet set) {
+    HapticFeedback.selectionClick();
     if (set.durationSeconds != null) {
-      final secs = set.durationSeconds!;
-      final m = secs ~/ 60;
-      final s = secs % 60;
-      final timeStr = m > 0
-          ? '${m}m ${s.toString().padLeft(2, '0')}s'
-          : '${s}s';
-      // distanceTime: show distance + time
-      if (set.distanceMetres != null && set.distanceMetres! > 0) {
-        final dist = set.distanceMetres!;
-        final distStr = dist >= 1000
-            ? '${(dist / 1000).toStringAsFixed(1)}km'
-            : '${dist.toStringAsFixed(0)}m';
-        return '$distStr in $timeStr';
-      }
-      return timeStr;
+      _minutesController.text = '${set.durationSeconds! ~/ 60}';
+      _secondsController.text = '${set.durationSeconds! % 60}';
+    } else {
+      _repsController.text = '${set.reps}';
     }
-    // bodyweightReps or weightReps with weight=0 — show reps only
-    if (set.weight == 0.0) {
-      return '${set.reps} reps';
-    }
-    // weightReps — show weight × reps
-    return '${set.weight}kg × ${set.reps} reps';
+    _weightController.text = set.weight > 0 ? formatNumber(set.weight) : '';
+    _distanceController.text = set.distanceMetres != null
+        ? formatNumber(set.distanceMetres!)
+        : '';
   }
 
   Future<void> _logSet() async {
@@ -785,6 +784,242 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
             child: const Text('Finish'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Exercise reference card — last session's sets and the personal best
+// ---------------------------------------------------------------------------
+
+/// Shows what was lifted for [exercise] in the previous session alongside the
+/// current personal best, so the numbers to beat are on screen while logging.
+///
+/// Each of last session's sets is tappable and prefills the logger via
+/// [onSetTap].
+class _ExerciseReferenceCard extends ConsumerWidget {
+  final Exercise exercise;
+  final int sessionId;
+  final ValueChanged<WorkoutSet> onSetTap;
+
+  const _ExerciseReferenceCard({
+    required this.exercise,
+    required this.sessionId,
+    required this.onSetTap,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lastAsync = ref.watch(
+      watchLastPerformanceForExerciseProvider(exercise.id, sessionId),
+    );
+    final prAsync = ref.watch(watchBestPrForExerciseProvider(exercise.id));
+
+    // Stay hidden until both streams have emitted — a card that pops in
+    // half-populated is more distracting than one that arrives a frame later.
+    if (!lastAsync.hasValue || !prAsync.hasValue) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: OneRepColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: OneRepColors.surfaceElevated),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 3,
+                child: _LastSessionColumn(
+                  performance: lastAsync.value,
+                  onSetTap: onSetTap,
+                ),
+              ),
+              Container(
+                width: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                color: OneRepColors.surfaceElevated,
+              ),
+              Expanded(flex: 2, child: _PersonalBestColumn(pb: prAsync.value)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LastSessionColumn extends StatelessWidget {
+  final LastSessionPerformance? performance;
+  final ValueChanged<WorkoutSet> onSetTap;
+
+  const _LastSessionColumn({required this.performance, required this.onSetTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final performance = this.performance;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            const _ColumnLabel(
+              text: 'LAST TIME',
+              color: OneRepColors.textSecondary,
+            ),
+            if (performance != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                formatShortDate(performance.date),
+                style: const TextStyle(
+                  color: OneRepColors.textDisabled,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 6),
+        if (performance == null)
+          const Text(
+            'No previous sets logged.',
+            style: TextStyle(color: OneRepColors.textDisabled, fontSize: 12),
+          )
+        else ...[
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final set in performance.sets)
+                _PreviousSetChip(set: set, onTap: () => onSetTap(set)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Tap a set to fill it in',
+            style: TextStyle(color: OneRepColors.textDisabled, fontSize: 10),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PreviousSetChip extends StatelessWidget {
+  final WorkoutSet set;
+  final VoidCallback onTap;
+
+  const _PreviousSetChip({required this.set, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: OneRepColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          formatWorkoutSet(set),
+          style: const TextStyle(
+            color: OneRepColors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonalBestColumn extends StatelessWidget {
+  final PersonalBest? pb;
+
+  const _PersonalBestColumn({required this.pb});
+
+  @override
+  Widget build(BuildContext context) {
+    final pb = this.pb;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _ColumnLabel(text: 'PERSONAL BEST', color: OneRepColors.gold),
+        const SizedBox(height: 6),
+        if (pb == null)
+          const Text(
+            'Not set yet.',
+            style: TextStyle(color: OneRepColors.textDisabled, fontSize: 12),
+          )
+        else ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 1),
+                child: Icon(
+                  Icons.emoji_events,
+                  color: OneRepColors.gold,
+                  size: 14,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  formatPersonalBest(pb),
+                  style: const TextStyle(
+                    color: OneRepColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            formatShortDate(pb.achievedAt),
+            style: const TextStyle(
+              color: OneRepColors.textDisabled,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ColumnLabel extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _ColumnLabel({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: color,
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.2,
       ),
     );
   }

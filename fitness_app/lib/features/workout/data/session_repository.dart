@@ -170,6 +170,65 @@ Stream<List<WorkoutSetWithExercise>> watchSetsForSession(
   );
 }
 
+/// A previous session's work on a single exercise.
+///
+/// Surfaced while logging so the user can see what they lifted last time
+/// without leaving the session screen.
+class LastSessionPerformance {
+  final DateTime date;
+  final List<WorkoutSet> sets;
+
+  const LastSessionPerformance({required this.date, required this.sets});
+}
+
+/// Rows scanned when looking up the previous session's sets.
+///
+/// Rows arrive newest-session-first, so the most recent session's sets are
+/// always inside this window — no realistic session logs 50 sets of a single
+/// exercise. Bounding the query keeps it cheap as history grows.
+const int _lastPerformanceRowLimit = 50;
+
+/// Sets logged for [exerciseId] in the most recent completed session, ignoring
+/// [currentSessionId] so the session in progress never reports back to itself.
+///
+/// Emits null when the exercise has not been logged in a completed session.
+@riverpod
+Stream<LastSessionPerformance?> watchLastPerformanceForExercise(
+  Ref ref,
+  int exerciseId,
+  int currentSessionId,
+) {
+  final db = ref.watch(databaseProvider);
+
+  final query =
+      db.select(db.workoutSets).join([
+          innerJoin(
+            db.workoutSessions,
+            db.workoutSessions.id.equalsExp(db.workoutSets.sessionId),
+          ),
+        ])
+        ..where(db.workoutSets.exerciseId.equals(exerciseId))
+        ..where(db.workoutSets.sessionId.equals(currentSessionId).not())
+        ..where(db.workoutSets.deletedAt.isNull())
+        ..where(db.workoutSessions.endTime.isNotNull())
+        ..where(db.workoutSessions.deletedAt.isNull())
+        ..orderBy([
+          OrderingTerm.desc(db.workoutSessions.startTime),
+          OrderingTerm.asc(db.workoutSets.timestamp),
+        ])
+        ..limit(_lastPerformanceRowLimit);
+
+  return query.watch().map((rows) {
+    if (rows.isEmpty) return null;
+    final session = rows.first.readTable(db.workoutSessions);
+    final sets = rows
+        .map((row) => row.readTable(db.workoutSets))
+        .where((set) => set.sessionId == session.id)
+        .toList();
+    return LastSessionPerformance(date: session.startTime, sets: sets);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Repository
 // ---------------------------------------------------------------------------
