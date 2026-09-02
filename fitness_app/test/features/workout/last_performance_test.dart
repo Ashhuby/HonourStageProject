@@ -257,7 +257,7 @@ void main() {
       required int reps,
       String metricType = 'weightReps',
       int? durationSeconds,
-      double? distanceMetres,
+      double distanceMetres = 0.0,
     }) async {
       await db
           .into(db.personalBests)
@@ -281,8 +281,7 @@ void main() {
       );
     });
 
-    test('returns the heaviest weightReps record', () async {
-      await insertPr(weight: 80, reps: 8);
+    test('returns the record held for the exercise', () async {
       await insertPr(weight: 100, reps: 3);
 
       final pb = await firstValue(watchBestPrForExerciseProvider(exerciseId));

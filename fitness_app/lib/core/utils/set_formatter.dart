@@ -67,3 +67,4 @@ String formatPersonalBest(PersonalBest pb) => formatSetSummary(
   durationSeconds: pb.durationSeconds,
   distanceMetres: pb.distanceMetres,
 );
+

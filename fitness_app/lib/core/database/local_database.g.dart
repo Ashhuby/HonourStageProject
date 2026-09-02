@@ -3618,9 +3618,10 @@ class $PersonalBestsTable extends PersonalBests
   late final GeneratedColumn<double> distanceMetres = GeneratedColumn<double>(
     'distance_metres',
     aliasedName,
-    true,
+    false,
     type: DriftSqlType.double,
     requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
   );
   static const VerificationMeta _metricTypeMeta = const VerificationMeta(
     'metricType',
@@ -3800,7 +3801,7 @@ class $PersonalBestsTable extends PersonalBests
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
   List<Set<GeneratedColumn>> get uniqueKeys => [
-    {exerciseId, reps},
+    {exerciseId, metricType, distanceMetres},
   ];
   @override
   PersonalBest map(Map<String, dynamic> data, {String? tablePrefix}) {
@@ -3829,7 +3830,7 @@ class $PersonalBestsTable extends PersonalBests
       distanceMetres: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}distance_metres'],
-      ),
+      )!,
       metricType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}metric_type'],
@@ -3869,7 +3870,7 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
   final int reps;
   final double weight;
   final int? durationSeconds;
-  final double? distanceMetres;
+  final double distanceMetres;
   final String metricType;
   final DateTime achievedAt;
   final String? remoteId;
@@ -3882,7 +3883,7 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
     required this.reps,
     required this.weight,
     this.durationSeconds,
-    this.distanceMetres,
+    required this.distanceMetres,
     required this.metricType,
     required this.achievedAt,
     this.remoteId,
@@ -3900,9 +3901,7 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
     if (!nullToAbsent || durationSeconds != null) {
       map['duration_seconds'] = Variable<int>(durationSeconds);
     }
-    if (!nullToAbsent || distanceMetres != null) {
-      map['distance_metres'] = Variable<double>(distanceMetres);
-    }
+    map['distance_metres'] = Variable<double>(distanceMetres);
     map['metric_type'] = Variable<String>(metricType);
     map['achieved_at'] = Variable<DateTime>(achievedAt);
     if (!nullToAbsent || remoteId != null) {
@@ -3929,9 +3928,7 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
       durationSeconds: durationSeconds == null && nullToAbsent
           ? const Value.absent()
           : Value(durationSeconds),
-      distanceMetres: distanceMetres == null && nullToAbsent
-          ? const Value.absent()
-          : Value(distanceMetres),
+      distanceMetres: Value(distanceMetres),
       metricType: Value(metricType),
       achievedAt: Value(achievedAt),
       remoteId: remoteId == null && nullToAbsent
@@ -3960,7 +3957,7 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
       reps: serializer.fromJson<int>(json['reps']),
       weight: serializer.fromJson<double>(json['weight']),
       durationSeconds: serializer.fromJson<int?>(json['durationSeconds']),
-      distanceMetres: serializer.fromJson<double?>(json['distanceMetres']),
+      distanceMetres: serializer.fromJson<double>(json['distanceMetres']),
       metricType: serializer.fromJson<String>(json['metricType']),
       achievedAt: serializer.fromJson<DateTime>(json['achievedAt']),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
@@ -3978,7 +3975,7 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
       'reps': serializer.toJson<int>(reps),
       'weight': serializer.toJson<double>(weight),
       'durationSeconds': serializer.toJson<int?>(durationSeconds),
-      'distanceMetres': serializer.toJson<double?>(distanceMetres),
+      'distanceMetres': serializer.toJson<double>(distanceMetres),
       'metricType': serializer.toJson<String>(metricType),
       'achievedAt': serializer.toJson<DateTime>(achievedAt),
       'remoteId': serializer.toJson<String?>(remoteId),
@@ -3994,7 +3991,7 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
     int? reps,
     double? weight,
     Value<int?> durationSeconds = const Value.absent(),
-    Value<double?> distanceMetres = const Value.absent(),
+    double? distanceMetres,
     String? metricType,
     DateTime? achievedAt,
     Value<String?> remoteId = const Value.absent(),
@@ -4009,9 +4006,7 @@ class PersonalBest extends DataClass implements Insertable<PersonalBest> {
     durationSeconds: durationSeconds.present
         ? durationSeconds.value
         : this.durationSeconds,
-    distanceMetres: distanceMetres.present
-        ? distanceMetres.value
-        : this.distanceMetres,
+    distanceMetres: distanceMetres ?? this.distanceMetres,
     metricType: metricType ?? this.metricType,
     achievedAt: achievedAt ?? this.achievedAt,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
@@ -4104,7 +4099,7 @@ class PersonalBestsCompanion extends UpdateCompanion<PersonalBest> {
   final Value<int> reps;
   final Value<double> weight;
   final Value<int?> durationSeconds;
-  final Value<double?> distanceMetres;
+  final Value<double> distanceMetres;
   final Value<String> metricType;
   final Value<DateTime> achievedAt;
   final Value<String?> remoteId;
@@ -4176,7 +4171,7 @@ class PersonalBestsCompanion extends UpdateCompanion<PersonalBest> {
     Value<int>? reps,
     Value<double>? weight,
     Value<int?>? durationSeconds,
-    Value<double?>? distanceMetres,
+    Value<double>? distanceMetres,
     Value<String>? metricType,
     Value<DateTime>? achievedAt,
     Value<String?>? remoteId,
@@ -7905,7 +7900,7 @@ typedef $$PersonalBestsTableCreateCompanionBuilder =
       Value<int> reps,
       Value<double> weight,
       Value<int?> durationSeconds,
-      Value<double?> distanceMetres,
+      Value<double> distanceMetres,
       Value<String> metricType,
       required DateTime achievedAt,
       Value<String?> remoteId,
@@ -7920,7 +7915,7 @@ typedef $$PersonalBestsTableUpdateCompanionBuilder =
       Value<int> reps,
       Value<double> weight,
       Value<int?> durationSeconds,
-      Value<double?> distanceMetres,
+      Value<double> distanceMetres,
       Value<String> metricType,
       Value<DateTime> achievedAt,
       Value<String?> remoteId,
@@ -8240,7 +8235,7 @@ class $$PersonalBestsTableTableManager
                 Value<int> reps = const Value.absent(),
                 Value<double> weight = const Value.absent(),
                 Value<int?> durationSeconds = const Value.absent(),
-                Value<double?> distanceMetres = const Value.absent(),
+                Value<double> distanceMetres = const Value.absent(),
                 Value<String> metricType = const Value.absent(),
                 Value<DateTime> achievedAt = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
@@ -8268,7 +8263,7 @@ class $$PersonalBestsTableTableManager
                 Value<int> reps = const Value.absent(),
                 Value<double> weight = const Value.absent(),
                 Value<int?> durationSeconds = const Value.absent(),
-                Value<double?> distanceMetres = const Value.absent(),
+                Value<double> distanceMetres = const Value.absent(),
                 Value<String> metricType = const Value.absent(),
                 required DateTime achievedAt,
                 Value<String?> remoteId = const Value.absent(),

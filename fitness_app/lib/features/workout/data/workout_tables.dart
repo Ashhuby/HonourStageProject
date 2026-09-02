@@ -116,21 +116,30 @@ class WorkoutSets extends Table {
 
 /// The current personal best for a given exercise.
 ///
-/// One row per exercise is maintained by [PersonalBestRepository].
-/// For weightReps, weight is the primary comparator; more reps at equal weight
-/// constitutes a new PR. All other metric types use a single scalar comparator
-/// (duration for timeOnly; time for a given distance in distanceTime).
+/// One row per exercise per [metricType], with one exception: distanceTime
+/// keeps a record per distance, because a 400m time and a 5k time are
+/// different achievements. [distanceMetres] is therefore part of the record's
+/// identity and is 0 for every other metric type — never null, so the unique
+/// key can include it (SQLite treats NULLs as distinct, which would let
+/// duplicates through).
 ///
-/// [reps] and [weight] default to 0 for metric types where they are not
-/// applicable. [durationSeconds] and [distanceMetres] are null unless used.
-/// [metricType] is stored here so PR queries avoid a join to [Exercises].
+/// Comparators by metric type:
+///   - weightReps / weighted bodyweightReps: heaviest weight wins; at equal
+///     weight, more reps wins.
+///   - bodyweightReps with no added weight: most reps wins.
+///   - timeOnly:     longest duration wins.
+///   - distanceTime: shortest duration for that distance wins.
+///
+/// [reps] and [weight] are 0 for metric types where they do not apply, and
+/// [durationSeconds] is null unless used. [metricType] is stored here so PR
+/// queries avoid a join to [Exercises].
 class PersonalBests extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get exerciseId => integer().references(Exercises, #id)();
   IntColumn get reps => integer().withDefault(const Constant(0))();
   RealColumn get weight => real().withDefault(const Constant(0.0))();
   IntColumn get durationSeconds => integer().nullable()();
-  RealColumn get distanceMetres => real().nullable()();
+  RealColumn get distanceMetres => real().withDefault(const Constant(0.0))();
   TextColumn get metricType =>
       text().withDefault(const Constant('weightReps'))();
   DateTimeColumn get achievedAt => dateTime()();
@@ -141,8 +150,10 @@ class PersonalBests extends Table {
 
   @override
   List<Set<Column>> get uniqueKeys => [
-    // One PR row per exercise — enforced by the upsert conflict target.
-    {exerciseId, reps},
+    // The identity of a record — also the upsert conflict target. Keyed on
+    // reps before v7, which silently created a row per rep count and broke
+    // every comparator that assumed a single row.
+    {exerciseId, metricType, distanceMetres},
   ];
 }
 

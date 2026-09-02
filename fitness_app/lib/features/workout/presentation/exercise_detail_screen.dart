@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/set_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
@@ -45,7 +46,7 @@ class ExerciseDetailScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // ----------------------------------------------------------------
-          // Personal Records table
+          // Personal records
           // ----------------------------------------------------------------
           const _SectionHeader(title: 'Personal Records'),
           const SizedBox(height: 12),
@@ -55,7 +56,7 @@ class ExerciseDetailScreen extends ConsumerWidget {
                     message:
                         'No personal records yet.\nLog sets for this exercise to track your PRs.',
                   )
-                : _PrTable(prs: prs),
+                : _PrList(prs: prs),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, _) => Center(child: Text('Error: $err')),
           ),
@@ -93,72 +94,56 @@ class ExerciseDetailScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// PR Table
+// PR list
 // ---------------------------------------------------------------------------
 
-class _PrTable extends StatelessWidget {
+/// The personal records held for an exercise.
+///
+/// Most exercises hold exactly one record. Distance-and-time exercises hold
+/// one per distance, since a 400m time and a 5k time are separate
+/// achievements.
+class _PrList extends StatelessWidget {
   final List<PersonalBest> prs;
 
-  const _PrTable({required this.prs});
+  const _PrList({required this.prs});
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Table(
-          columnWidths: const {
-            0: FlexColumnWidth(2),
-            1: FlexColumnWidth(2),
-            2: FlexColumnWidth(3),
-          },
-          children: [
-            // Header row
-            TableRow(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(8),
-                ),
-              ),
-              children: const [
-                _TableCell(text: 'Reps', isHeader: true),
-                _TableCell(text: 'Weight', isHeader: true),
-                _TableCell(text: 'Date', isHeader: true),
-              ],
-            ),
-            // Data rows — sorted by reps ascending (already ordered by query)
-            for (final pr in prs)
-              TableRow(
+      child: Column(
+        children: [
+          for (final pr in prs)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
                 children: [
-                  _TableCell(text: '${pr.reps}'),
-                  _TableCell(text: '${pr.weight}kg'),
-                  _TableCell(text: formatShortDate(pr.achievedAt)),
+                  const Icon(
+                    Icons.emoji_events,
+                    color: OneRepColors.gold,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      formatPersonalBest(pr),
+                      style: const TextStyle(
+                        color: OneRepColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    formatShortDate(pr.achievedAt),
+                    style: const TextStyle(
+                      color: OneRepColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TableCell extends StatelessWidget {
-  final String text;
-  final bool isHeader;
-
-  const _TableCell({required this.text, this.isHeader = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
-          fontSize: isHeader ? 13 : 14,
-        ),
+            ),
+        ],
       ),
     );
   }

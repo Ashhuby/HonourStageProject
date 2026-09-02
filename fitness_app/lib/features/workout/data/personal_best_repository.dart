@@ -136,7 +136,7 @@ bool _beats(PersonalBest candidate, PersonalBest current) {
       return (candidate.durationSeconds ?? 0) > (current.durationSeconds ?? 0);
     case MetricType.distanceTime:
       // One row per distance — the longest distance is the headline record.
-      return (candidate.distanceMetres ?? 0) > (current.distanceMetres ?? 0);
+      return candidate.distanceMetres > current.distanceMetres;
     case MetricType.bodyweightReps:
       return candidate.reps > current.reps;
     case MetricType.weightReps:
@@ -233,17 +233,10 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     required double weight,
     required int reps,
   }) async {
-    final db = ref.read(databaseProvider);
-
-    // One row per exercise — find any existing PR for this exercise
-    final existing =
-        await (db.select(db.personalBests)
-              ..where((pb) => pb.exerciseId.equals(exerciseId))
-              ..where((pb) => pb.metricType.equals(metricType))
-              ..where((pb) => pb.deletedAt.isNull())
-              ..orderBy([(pb) => OrderingTerm.desc(pb.weight)])
-              ..limit(1))
-            .getSingleOrNull();
+    final existing = await _existingRecord(
+      exerciseId: exerciseId,
+      metricType: metricType,
+    );
 
     bool isNewPr;
     if (existing == null) {
@@ -260,26 +253,12 @@ class PersonalBestRepository extends _$PersonalBestRepository {
 
     if (!isNewPr) return null;
 
-    // Upsert — use reps=0 sentinel as the unique key so one row per exercise
-    await db
-        .into(db.personalBests)
-        .insert(
-          PersonalBestsCompanion.insert(
-            exerciseId: exerciseId,
-            reps: Value(reps),
-            weight: Value(weight),
-            metricType: Value(metricType),
-            achievedAt: DateTime.now(),
-          ),
-          onConflict: DoUpdate(
-            (old) => PersonalBestsCompanion.custom(
-              weight: Variable(weight),
-              reps: Variable(reps),
-              achievedAt: Variable(DateTime.now()),
-            ),
-            target: [db.personalBests.exerciseId, db.personalBests.reps],
-          ),
-        );
+    await _upsertRecord(
+      exerciseId: exerciseId,
+      metricType: metricType,
+      weight: weight,
+      reps: reps,
+    );
 
     return PrResult(
       exerciseId: exerciseId,
@@ -291,8 +270,9 @@ class PersonalBestRepository extends _$PersonalBestRepository {
   }
 
   // ---------------------------------------------------------------------------
-  // bodyweightReps — most reps in a single set (no added weight)
-  // Uses reps=0 as the unique key slot (sentinel for "max reps" record)
+  // bodyweightReps — most reps in a single set (no added weight).
+  // Sets with added weight route to _checkWeightRepsPr and share this record:
+  // whichever set last won its comparator is the one held.
   // ---------------------------------------------------------------------------
 
   Future<PrResult?> _checkBodyweightRepsPr({
@@ -300,40 +280,19 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     required String exerciseName,
     required int reps,
   }) async {
-    final db = ref.read(databaseProvider);
+    final existing = await _existingRecord(
+      exerciseId: exerciseId,
+      metricType: MetricType.bodyweightReps.value,
+    );
 
-    // Use reps=0 as the unique slot for "max reps" record.
-    // This avoids needing a new unique constraint.
-    final existing =
-        await (db.select(db.personalBests)
-              ..where((pb) => pb.exerciseId.equals(exerciseId))
-              ..where(
-                (pb) => pb.metricType.equals(MetricType.bodyweightReps.value),
-              )
-              ..where((pb) => pb.deletedAt.isNull()))
-            .getSingleOrNull();
-
-    final isNewPr = existing == null || reps > (existing.reps);
+    final isNewPr = existing == null || reps > existing.reps;
     if (!isNewPr) return null;
 
-    await db
-        .into(db.personalBests)
-        .insert(
-          PersonalBestsCompanion.insert(
-            exerciseId: exerciseId,
-            reps: Value(reps),
-            weight: const Value(0.0),
-            metricType: Value(MetricType.bodyweightReps.value),
-            achievedAt: DateTime.now(),
-          ),
-          onConflict: DoUpdate(
-            (old) => PersonalBestsCompanion.custom(
-              reps: Variable(reps),
-              achievedAt: Variable(DateTime.now()),
-            ),
-            target: [db.personalBests.exerciseId, db.personalBests.reps],
-          ),
-        );
+    await _upsertRecord(
+      exerciseId: exerciseId,
+      metricType: MetricType.bodyweightReps.value,
+      reps: reps,
+    );
 
     return PrResult(
       exerciseId: exerciseId,
@@ -353,39 +312,20 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     required String exerciseName,
     required int durationSeconds,
   }) async {
-    final db = ref.read(databaseProvider);
-
-    final existing =
-        await (db.select(db.personalBests)
-              ..where((pb) => pb.exerciseId.equals(exerciseId))
-              ..where((pb) => pb.metricType.equals(MetricType.timeOnly.value))
-              ..where((pb) => pb.deletedAt.isNull()))
-            .getSingleOrNull();
+    final existing = await _existingRecord(
+      exerciseId: exerciseId,
+      metricType: MetricType.timeOnly.value,
+    );
 
     final existingDuration = existing?.durationSeconds ?? 0;
     final isNewPr = existing == null || durationSeconds > existingDuration;
     if (!isNewPr) return null;
 
-    // Use reps=0 as a sentinel for time-only PRs (no rep concept).
-    await db
-        .into(db.personalBests)
-        .insert(
-          PersonalBestsCompanion.insert(
-            exerciseId: exerciseId,
-            reps: const Value(0),
-            weight: const Value(0.0),
-            durationSeconds: Value(durationSeconds),
-            metricType: Value(MetricType.timeOnly.value),
-            achievedAt: DateTime.now(),
-          ),
-          onConflict: DoUpdate(
-            (old) => PersonalBestsCompanion.custom(
-              durationSeconds: Variable(durationSeconds),
-              achievedAt: Variable(DateTime.now()),
-            ),
-            target: [db.personalBests.exerciseId, db.personalBests.reps],
-          ),
-        );
+    await _upsertRecord(
+      exerciseId: exerciseId,
+      metricType: MetricType.timeOnly.value,
+      durationSeconds: durationSeconds,
+    );
 
     return PrResult(
       exerciseId: exerciseId,
@@ -405,18 +345,12 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     required double distanceMetres,
     required int durationSeconds,
   }) async {
-    final db = ref.read(databaseProvider);
-
-    // PR per distance — find existing record for this exact distance.
-    final existing =
-        await (db.select(db.personalBests)
-              ..where((pb) => pb.exerciseId.equals(exerciseId))
-              ..where(
-                (pb) => pb.metricType.equals(MetricType.distanceTime.value),
-              )
-              ..where((pb) => pb.distanceMetres.equals(distanceMetres))
-              ..where((pb) => pb.deletedAt.isNull()))
-            .getSingleOrNull();
+    // PR per distance — find the existing record for this exact distance.
+    final existing = await _existingRecord(
+      exerciseId: exerciseId,
+      metricType: MetricType.distanceTime.value,
+      distanceMetres: distanceMetres,
+    );
 
     // Sentinel value used when no existing distance PR is recorded.
     const noExistingTime = 999999;
@@ -425,27 +359,12 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     final isNewPr = existing == null || durationSeconds < existingTime;
     if (!isNewPr) return null;
 
-    // Use reps=0 as sentinel, store distance in distanceMetres column.
-    await db
-        .into(db.personalBests)
-        .insert(
-          PersonalBestsCompanion.insert(
-            exerciseId: exerciseId,
-            reps: const Value(0),
-            weight: const Value(0.0),
-            durationSeconds: Value(durationSeconds),
-            distanceMetres: Value(distanceMetres),
-            metricType: Value(MetricType.distanceTime.value),
-            achievedAt: DateTime.now(),
-          ),
-          onConflict: DoUpdate(
-            (old) => PersonalBestsCompanion.custom(
-              durationSeconds: Variable(durationSeconds),
-              achievedAt: Variable(DateTime.now()),
-            ),
-            target: [db.personalBests.exerciseId, db.personalBests.reps],
-          ),
-        );
+    await _upsertRecord(
+      exerciseId: exerciseId,
+      metricType: MetricType.distanceTime.value,
+      durationSeconds: durationSeconds,
+      distanceMetres: distanceMetres,
+    );
 
     return PrResult(
       exerciseId: exerciseId,
@@ -454,6 +373,73 @@ class PersonalBestRepository extends _$PersonalBestRepository {
       durationSeconds: durationSeconds,
       distanceMetres: distanceMetres,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Record access — one row per (exercise, metric type, distance)
+  // ---------------------------------------------------------------------------
+
+  /// The record currently held for this exercise under [metricType], or null
+  /// if none has been set.
+  Future<PersonalBest?> _existingRecord({
+    required int exerciseId,
+    required String metricType,
+    double distanceMetres = 0.0,
+  }) {
+    final db = ref.read(databaseProvider);
+    return (db.select(db.personalBests)
+          ..where((pb) => pb.exerciseId.equals(exerciseId))
+          ..where((pb) => pb.metricType.equals(metricType))
+          ..where((pb) => pb.distanceMetres.equals(distanceMetres))
+          ..where((pb) => pb.deletedAt.isNull()))
+        .getSingleOrNull();
+  }
+
+  /// Writes the record, replacing the one held for the same
+  /// (exercise, metric type, distance).
+  ///
+  /// Every field the comparators read is written on conflict — a partial
+  /// update leaves a record describing a set that never happened. [syncedAt]
+  /// is cleared so the new record uploads on the next sync.
+  Future<void> _upsertRecord({
+    required int exerciseId,
+    required String metricType,
+    double weight = 0.0,
+    int reps = 0,
+    int? durationSeconds,
+    double distanceMetres = 0.0,
+  }) async {
+    final db = ref.read(databaseProvider);
+    final achievedAt = DateTime.now();
+
+    await db
+        .into(db.personalBests)
+        .insert(
+          PersonalBestsCompanion.insert(
+            exerciseId: exerciseId,
+            reps: Value(reps),
+            weight: Value(weight),
+            durationSeconds: Value(durationSeconds),
+            distanceMetres: Value(distanceMetres),
+            metricType: Value(metricType),
+            achievedAt: achievedAt,
+          ),
+          onConflict: DoUpdate(
+            (old) => PersonalBestsCompanion.custom(
+              weight: Variable(weight),
+              reps: Variable(reps),
+              durationSeconds: Variable(durationSeconds),
+              distanceMetres: Variable(distanceMetres),
+              achievedAt: Variable(achievedAt),
+              syncedAt: const Variable(null),
+            ),
+            target: [
+              db.personalBests.exerciseId,
+              db.personalBests.metricType,
+              db.personalBests.distanceMetres,
+            ],
+          ),
+        );
   }
 
   Future<int> getTotalPrCount() async {

@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   final bool _isTesting;
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration {
@@ -114,11 +114,99 @@ class AppDatabase extends _$AppDatabase {
           // updated with the new metricType but not duplicated.
           await _seedExercises();
         }
+        if (from < 7) {
+          await _rebuildPersonalBests();
+        }
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
       },
     );
+  }
+
+  /// Rebuilds personal_bests on the v7 unique key.
+  ///
+  /// Before v7 the table was keyed on (exercise_id, reps). Because reps varies
+  /// per record, the upserts that were meant to replace a personal best
+  /// inserted a new row instead, leaving several rows per exercise. That broke
+  /// every read: bodyweight lookups threw once a third row appeared, and a
+  /// distanceTime record was written over the wrong distance.
+  ///
+  /// The key becomes (exercise_id, metric_type, distance_metres), so surviving
+  /// duplicates must be collapsed to the single best record per key before the
+  /// constraint can be applied. Survivors are marked dirty so the corrected
+  /// record uploads on the next sync.
+  Future<void> _rebuildPersonalBests() async {
+    final rows = await customSelect(
+      'SELECT id, exercise_id, reps, weight, duration_seconds, '
+      'distance_metres, metric_type, achieved_at, remote_id, user_id, '
+      'deleted_at FROM personal_bests',
+    ).get();
+
+    // Collapse to the best row per (exercise, metric type, distance).
+    final best = <String, QueryRow>{};
+    for (final row in rows) {
+      final key =
+          '${row.read<int>('exercise_id')}|${row.read<String>('metric_type')}'
+          '|${row.readNullable<double>('distance_metres') ?? 0.0}';
+      final current = best[key];
+      if (current == null || _supersedes(row, current)) best[key] = row;
+    }
+
+    await customStatement('DROP TABLE personal_bests');
+    await createMigrator().createTable(personalBests);
+
+    for (final row in best.values) {
+      await into(personalBests).insert(
+        PersonalBestsCompanion.insert(
+          exerciseId: row.read<int>('exercise_id'),
+          reps: Value(row.read<int>('reps')),
+          weight: Value(row.read<double>('weight')),
+          durationSeconds: Value(row.readNullable<int>('duration_seconds')),
+          distanceMetres: Value(
+            row.readNullable<double>('distance_metres') ?? 0.0,
+          ),
+          metricType: Value(row.read<String>('metric_type')),
+          achievedAt: DateTime.fromMillisecondsSinceEpoch(
+            row.read<int>('achieved_at') * 1000,
+          ),
+          remoteId: Value(row.readNullable<String>('remote_id')),
+          userId: Value(row.readNullable<String>('user_id')),
+          // Left dirty on purpose — the surviving record is re-uploaded.
+          syncedAt: const Value(null),
+          deletedAt: Value(
+            row.readNullable<int>('deleted_at') == null
+                ? null
+                : DateTime.fromMillisecondsSinceEpoch(
+                    row.read<int>('deleted_at') * 1000,
+                  ),
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Whether [candidate] is the better record of the two, by the comparator
+  /// for its metric type. Used only to collapse pre-v7 duplicates.
+  bool _supersedes(QueryRow candidate, QueryRow current) {
+    switch (candidate.read<String>('metric_type')) {
+      case 'timeOnly':
+        return (candidate.readNullable<int>('duration_seconds') ?? 0) >
+            (current.readNullable<int>('duration_seconds') ?? 0);
+      case 'distanceTime':
+        // Same distance by construction — the faster time wins.
+        const noTime = 1 << 30;
+        return (candidate.readNullable<int>('duration_seconds') ?? noTime) <
+            (current.readNullable<int>('duration_seconds') ?? noTime);
+      default:
+        // weightReps and bodyweightReps: heaviest, then most reps.
+        final candidateWeight = candidate.read<double>('weight');
+        final currentWeight = current.read<double>('weight');
+        if (candidateWeight != currentWeight) {
+          return candidateWeight > currentWeight;
+        }
+        return candidate.read<int>('reps') > current.read<int>('reps');
+    }
   }
 
   Future<void> _seedExercises() async {
