@@ -31,6 +31,10 @@ dependencies:
 
   # Notifications & Feedback
   flutter_local_notifications: ^18.0.0
+  # Direct dependency because notification_service schedules with
+  # tz.TZDateTime; pinned to the version flutter_local_notifications
+  # already resolves.
+  timezone: ^0.10.1
 
   # Remote & Auth
   supabase_flutter: ^2.8.4

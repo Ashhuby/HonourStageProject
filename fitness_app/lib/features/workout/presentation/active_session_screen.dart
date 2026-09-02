@@ -6,6 +6,7 @@ import '../../../core/database/local_database.dart';
 import '../../../core/notifications/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/rest_timer.dart';
 import '../../../core/utils/set_formatter.dart';
 import '../data/session_repository.dart';
 import '../data/exercise_repository.dart';
@@ -29,7 +30,8 @@ class ActiveSessionScreen extends ConsumerStatefulWidget {
       _ActiveSessionScreenState();
 }
 
-class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
+class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
+    with WidgetsBindingObserver {
   Exercise? _selectedExercise;
   final _weightController = TextEditingController();
   final _repsController = TextEditingController();
@@ -39,10 +41,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   // Distance controller for distanceTime
   final _distanceController = TextEditingController();
 
-  // Rest timer
+  // Rest timer.
+  //
+  // [_restEndsAt] is the source of truth, not [_remainingSeconds]: the ticker
+  // only refreshes the display from the wall clock, so a locked or evicted app
+  // resumes with the correct time left instead of a stale countdown.
   static const int _defaultRestSeconds = 90;
   int _restDuration = _defaultRestSeconds;
   int _remainingSeconds = 0;
+  DateTime? _restEndsAt;
   Timer? _timer;
   bool get _isTimerRunning => _timer != null && _timer!.isActive;
 
@@ -52,7 +59,23 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   static const _prBannerDuration = Duration(seconds: 5);
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Timers are frozen while the app is backgrounded, so the countdown is
+    // recomputed the moment the user comes back rather than a tick later.
+    // No haptic here: if rest finished while away, the scheduled notification
+    // already did the alerting.
+    if (state == AppLifecycleState.resumed) _syncRest(alert: false);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _weightController.dispose();
     _repsController.dispose();
     _minutesController.dispose();
@@ -67,28 +90,58 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   // Timer
   // ---------------------------------------------------------------------------
 
+  /// Starts rest, scheduling the alert for the instant it ends.
+  ///
+  /// The notification is scheduled up front rather than fired when the ticker
+  /// runs out, so it still arrives if the phone is locked or the app is
+  /// evicted during the set.
   void _startTimer() {
-    _timer?.cancel();
-    setState(() => _remainingSeconds = _restDuration);
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds <= 0) {
-        timer.cancel();
-        _onTimerComplete();
-      } else {
-        setState(() => _remainingSeconds--);
-      }
+    final endsAt = DateTime.now().add(Duration(seconds: _restDuration));
+    setState(() {
+      _restEndsAt = endsAt;
+      _remainingSeconds = _restDuration;
     });
+    NotificationService().scheduleRestCompleteNotification(endsAt);
+    _startTicker();
+  }
+
+  void _startTicker() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _syncRest());
+  }
+
+  /// Refreshes the countdown from the wall clock, ending rest once [_restEndsAt]
+  /// has passed.
+  void _syncRest({bool alert = true}) {
+    final endsAt = _restEndsAt;
+    if (endsAt == null) return;
+
+    final remaining = restSecondsRemaining(endsAt, DateTime.now());
+    if (remaining > 0) {
+      if (remaining != _remainingSeconds) {
+        setState(() => _remainingSeconds = remaining);
+      }
+      return;
+    }
+
+    _timer?.cancel();
+    _timer = null;
+    setState(() {
+      _remainingSeconds = 0;
+      _restEndsAt = null;
+    });
+    // The scheduled notification carries the alert; this is the in-app cue.
+    if (alert) HapticFeedback.vibrate();
   }
 
   void _stopTimer() {
     _timer?.cancel();
-    setState(() => _remainingSeconds = 0);
-  }
-
-  void _onTimerComplete() {
-    HapticFeedback.vibrate();
-    NotificationService().showRestCompleteNotification();
-    setState(() => _remainingSeconds = 0);
+    _timer = null;
+    NotificationService().cancelRestNotification();
+    setState(() {
+      _remainingSeconds = 0;
+      _restEndsAt = null;
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -706,7 +759,8 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   // ---------------------------------------------------------------------------
 
   void _confirmEndSession(BuildContext context) {
-    _timer?.cancel();
+    // The countdown keeps running behind the dialog — it is anchored to a
+    // wall-clock instant, so pausing it would only make it wrong.
 
     // Capture the screen's navigator HERE — before any dialogs open.
     // Dialog builders shadow 'context' with their own local context,
@@ -724,10 +778,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
         actions: [
           // Keep Going
           TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              if (_remainingSeconds > 0) _startTimer();
-            },
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Keep Going'),
           ),
 
