@@ -256,6 +256,14 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
                 onSetTap: _prefillFromSet,
               ),
 
+            // Progress against the routine's plan for this exercise
+            if (_selectedExercise != null && widget.routineId != null)
+              _RoutineTargetBar(
+                routineId: widget.routineId!,
+                exercise: _selectedExercise!,
+                sessionId: widget.sessionId,
+              ),
+
             // Set logger
             if (_selectedExercise != null) _buildSetLogger(),
 
@@ -307,7 +315,26 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
                   isCustom: false,
                   metricType: re.metricType,
                 ),
-                child: Text(re.exerciseName),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        re.exerciseName,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${re.routineExercise.targetSets} × '
+                      '${re.routineExercise.targetReps}',
+                      style: const TextStyle(
+                        color: OneRepColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               );
             }).toList(),
             onChanged: (exercise) => setState(() {
@@ -870,6 +897,110 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
               navigator.popUntil((route) => route.isFirst);
             },
             child: const Text('Finish'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Routine target progress
+// ---------------------------------------------------------------------------
+
+/// Progress against the routine's plan for the selected exercise.
+///
+/// The plan is set when a routine is built but was invisible while training,
+/// leaving the user to remember how many sets were meant to be left. Shows
+/// nothing for an exercise the routine does not include.
+class _RoutineTargetBar extends ConsumerWidget {
+  final int routineId;
+  final Exercise exercise;
+  final int sessionId;
+
+  const _RoutineTargetBar({
+    required this.routineId,
+    required this.exercise,
+    required this.sessionId,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final planned = ref
+        .watch(watchExercisesForRoutineWithNamesProvider(routineId))
+        .valueOrNull;
+    if (planned == null) return const SizedBox.shrink();
+
+    RoutineExerciseWithName? target;
+    for (final entry in planned) {
+      if (entry.routineExercise.exerciseId == exercise.id) {
+        target = entry;
+        break;
+      }
+    }
+    if (target == null) return const SizedBox.shrink();
+
+    final sets = ref.watch(watchSetsForSessionProvider(sessionId)).valueOrNull;
+    final logged =
+        sets?.where((s) => s.set.exerciseId == exercise.id).length ?? 0;
+    final targetSets = target.routineExercise.targetSets;
+    final targetReps = target.routineExercise.targetReps;
+    final met = logged >= targetSets;
+
+    // Reps are meaningless for time- and distance-based exercises.
+    final tracksReps =
+        exercise.metricType == 'weightReps' ||
+        exercise.metricType == 'bodyweightReps';
+
+    final label = formatTargetProgress(
+      logged: logged,
+      targetSets: targetSets,
+      targetReps: targetReps,
+      tracksReps: tracksReps,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Row(
+        children: [
+          for (int i = 0; i < targetSets; i++)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i < logged
+                      ? OneRepColors.gold
+                      : OneRepColors.surfaceHighest,
+                ),
+              ),
+            ),
+          if (logged > targetSets)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Text(
+                '+${logged - targetSets}',
+                style: const TextStyle(
+                  color: OneRepColors.gold,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: met ? OneRepColors.gold : OneRepColors.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+            ),
           ),
         ],
       ),

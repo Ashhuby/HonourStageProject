@@ -1,8 +1,8 @@
-/// Shared formatting for logged sets and personal bests.
+/// Shared formatting for logged sets, personal bests and routine targets.
 ///
-/// The sets list, the "last time" reference chips and the personal best
-/// readout all render the same shapes, so the logic lives here rather than
-/// being duplicated per screen.
+/// The sets list, the "last time" reference chips, the personal best readout
+/// and the routine target bar all render the same shapes, so the logic lives
+/// here rather than being duplicated per screen.
 library;
 
 import '../database/local_database.dart';
@@ -68,3 +68,19 @@ String formatPersonalBest(PersonalBest pb) => formatSetSummary(
   distanceMetres: pb.distanceMetres,
 );
 
+/// Progress against a routine's plan for one exercise.
+///
+/// [tracksReps] is false for time- and distance-based exercises, where a rep
+/// target means nothing and is left out.
+String formatTargetProgress({
+  required int logged,
+  required int targetSets,
+  required int targetReps,
+  required bool tracksReps,
+}) {
+  if (logged >= targetSets) {
+    return 'TARGET MET \u00b7 $logged OF $targetSets SETS';
+  }
+  final reps = tracksReps ? ' \u00b7 TARGET $targetReps REPS' : '';
+  return 'SET ${logged + 1} OF $targetSets$reps';
+}

@@ -317,6 +317,62 @@ void main() {
   // Formatting
   // ---------------------------------------------------------------------------
 
+  group('formatTargetProgress', () {
+    test('counts up to the planned sets', () {
+      expect(
+        formatTargetProgress(
+          logged: 0,
+          targetSets: 3,
+          targetReps: 10,
+          tracksReps: true,
+        ),
+        'SET 1 OF 3 · TARGET 10 REPS',
+      );
+      expect(
+        formatTargetProgress(
+          logged: 2,
+          targetSets: 3,
+          targetReps: 10,
+          tracksReps: true,
+        ),
+        'SET 3 OF 3 · TARGET 10 REPS',
+      );
+    });
+
+    test('drops the rep target for time and distance exercises', () {
+      expect(
+        formatTargetProgress(
+          logged: 1,
+          targetSets: 3,
+          targetReps: 10,
+          tracksReps: false,
+        ),
+        'SET 2 OF 3',
+      );
+    });
+
+    test('reports the target as met, and counts sets beyond it', () {
+      expect(
+        formatTargetProgress(
+          logged: 3,
+          targetSets: 3,
+          targetReps: 10,
+          tracksReps: true,
+        ),
+        'TARGET MET · 3 OF 3 SETS',
+      );
+      expect(
+        formatTargetProgress(
+          logged: 5,
+          targetSets: 3,
+          targetReps: 10,
+          tracksReps: true,
+        ),
+        'TARGET MET · 5 OF 3 SETS',
+      );
+    });
+  });
+
   group('formatSetSummary', () {
     test('formats weight and reps without a trailing zero', () {
       expect(formatSetSummary(weight: 80, reps: 8), '80kg × 8 reps');
