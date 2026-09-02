@@ -604,38 +604,48 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
                     onDismissed: (_) => ref
                         .read(sessionRepositoryProvider.notifier)
                         .deleteSet(s.set.id),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: OneRepColors.surfaceElevated,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '$setNum',
-                                style: const TextStyle(
-                                  color: OneRepColors.textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
+                    child: InkWell(
+                      onTap: () => _editSet(s),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: OneRepColors.surfaceElevated,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '$setNum',
+                                  style: const TextStyle(
+                                    color: OneRepColors.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            formatWorkoutSet(s.set),
-                            style: const TextStyle(
-                              color: OneRepColors.textPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                formatWorkoutSet(s.set),
+                                style: const TextStyle(
+                                  color: OneRepColors.textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                            const Icon(
+                              Icons.edit_outlined,
+                              size: 15,
+                              color: OneRepColors.textDisabled,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -651,6 +661,33 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
   // ---------------------------------------------------------------------------
   // Log set
   // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // Edit a logged set
+  // ---------------------------------------------------------------------------
+
+  /// Opens the editor for an already-logged set.
+  ///
+  /// Corrections have to be possible without deleting and relogging: a
+  /// mistyped weight that set a personal best would otherwise leave the record
+  /// behind when the set is removed.
+  Future<void> _editSet(WorkoutSetWithExercise entry) async {
+    final result = await showDialog<_SetValues>(
+      context: context,
+      builder: (_) => _EditSetDialog(entry: entry),
+    );
+    if (result == null) return;
+
+    await ref
+        .read(sessionRepositoryProvider.notifier)
+        .updateSet(
+          setId: entry.set.id,
+          weight: result.weight,
+          reps: result.reps,
+          durationSeconds: result.durationSeconds,
+          distanceMetres: result.distanceMetres,
+        );
+  }
 
   // ---------------------------------------------------------------------------
   // Prefill — copies a previous set into the input fields
@@ -836,6 +873,233 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Edit set dialog
+// ---------------------------------------------------------------------------
+
+/// The values a set records. Which ones matter depends on the metric type.
+class _SetValues {
+  final double weight;
+  final int reps;
+  final int? durationSeconds;
+  final double? distanceMetres;
+
+  const _SetValues({
+    this.weight = 0.0,
+    this.reps = 0,
+    this.durationSeconds,
+    this.distanceMetres,
+  });
+}
+
+/// Edits one logged set, showing the fields its metric type actually records.
+class _EditSetDialog extends StatefulWidget {
+  final WorkoutSetWithExercise entry;
+
+  const _EditSetDialog({required this.entry});
+
+  @override
+  State<_EditSetDialog> createState() => _EditSetDialogState();
+}
+
+class _EditSetDialogState extends State<_EditSetDialog> {
+  late final TextEditingController _weight;
+  late final TextEditingController _reps;
+  late final TextEditingController _minutes;
+  late final TextEditingController _seconds;
+  late final TextEditingController _distance;
+  String? _error;
+
+  String get _metricType => widget.entry.metricType;
+
+  @override
+  void initState() {
+    super.initState();
+    final set = widget.entry.set;
+    final duration = set.durationSeconds ?? 0;
+
+    _weight = TextEditingController(
+      text: set.weight > 0 ? formatNumber(set.weight) : '',
+    );
+    _reps = TextEditingController(text: set.reps > 0 ? '${set.reps}' : '');
+    _minutes = TextEditingController(
+      text: duration > 0 ? '${duration ~/ 60}' : '',
+    );
+    _seconds = TextEditingController(
+      text: duration > 0 ? '${duration % 60}' : '',
+    );
+    _distance = TextEditingController(
+      text: set.distanceMetres != null ? formatNumber(set.distanceMetres!) : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _weight.dispose();
+    _reps.dispose();
+    _minutes.dispose();
+    _seconds.dispose();
+    _distance.dispose();
+    super.dispose();
+  }
+
+  /// Reads the fields for this metric type, or sets [_error] and returns null.
+  _SetValues? _read() {
+    switch (_metricType) {
+      case 'bodyweightReps':
+        final reps = int.tryParse(_reps.text);
+        if (reps == null || reps <= 0) {
+          _error = 'Enter valid reps.';
+          return null;
+        }
+        return _SetValues(
+          reps: reps,
+          weight: double.tryParse(_weight.text) ?? 0.0,
+        );
+
+      case 'timeOnly':
+        final seconds = _readDuration();
+        if (seconds == null) {
+          _error = 'Enter a duration.';
+          return null;
+        }
+        return _SetValues(durationSeconds: seconds);
+
+      case 'distanceTime':
+        final distance = double.tryParse(_distance.text);
+        final seconds = _readDuration();
+        if (distance == null || distance <= 0 || seconds == null) {
+          _error = 'Enter valid distance and time.';
+          return null;
+        }
+        return _SetValues(distanceMetres: distance, durationSeconds: seconds);
+
+      default: // weightReps
+        final weight = double.tryParse(_weight.text);
+        final reps = int.tryParse(_reps.text);
+        if (weight == null || reps == null || reps <= 0) {
+          _error = 'Enter valid weight and reps.';
+          return null;
+        }
+        return _SetValues(weight: weight, reps: reps);
+    }
+  }
+
+  int? _readDuration() {
+    final minutes = int.tryParse(_minutes.text) ?? 0;
+    final seconds = int.tryParse(_seconds.text) ?? 0;
+    final total = minutes * 60 + seconds;
+    return total > 0 ? total : null;
+  }
+
+  void _save() {
+    setState(() => _error = null);
+    final values = _read();
+    if (values == null) {
+      setState(() {});
+      return;
+    }
+    Navigator.pop(context, values);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Edit ${widget.entry.exerciseName}'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: _fields()),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                _error!,
+                style: const TextStyle(color: OneRepColors.error, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          style: TextButton.styleFrom(foregroundColor: OneRepColors.gold),
+          onPressed: _save,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _fields() {
+    switch (_metricType) {
+      case 'bodyweightReps':
+        return [
+          Expanded(child: _numberField(_reps, 'Reps')),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _numberField(
+              _weight,
+              'Added Weight',
+              suffix: 'kg',
+              decimal: true,
+            ),
+          ),
+        ];
+      case 'timeOnly':
+        return [
+          Expanded(child: _numberField(_minutes, 'Minutes')),
+          const SizedBox(width: 10),
+          Expanded(child: _numberField(_seconds, 'Seconds')),
+        ];
+      case 'distanceTime':
+        return [
+          Expanded(
+            child: _numberField(
+              _distance,
+              'Distance',
+              suffix: 'm',
+              decimal: true,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: _numberField(_minutes, 'Min')),
+          const SizedBox(width: 10),
+          Expanded(child: _numberField(_seconds, 'Sec')),
+        ];
+      default: // weightReps
+        return [
+          Expanded(
+            child: _numberField(_weight, 'Weight', suffix: 'kg', decimal: true),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: _numberField(_reps, 'Reps')),
+        ];
+    }
+  }
+
+  Widget _numberField(
+    TextEditingController controller,
+    String label, {
+    String? suffix,
+    bool decimal = false,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.numberWithOptions(decimal: decimal),
+      style: const TextStyle(
+        color: OneRepColors.textPrimary,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+      ),
+      decoration: InputDecoration(labelText: label, suffixText: suffix),
     );
   }
 }

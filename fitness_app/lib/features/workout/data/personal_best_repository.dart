@@ -84,6 +84,88 @@ class PrResult {
 }
 
 // ---------------------------------------------------------------------------
+// Record replay — used to rebuild records after a set is edited or deleted
+// ---------------------------------------------------------------------------
+
+/// A record produced by replaying logged sets.
+class PbRecord {
+  final double weight;
+  final int reps;
+  final int? durationSeconds;
+  final double distanceMetres;
+  final DateTime achievedAt;
+
+  const PbRecord({
+    required this.achievedAt,
+    this.weight = 0.0,
+    this.reps = 0,
+    this.durationSeconds,
+    this.distanceMetres = 0.0,
+  });
+}
+
+/// The records a run of sets produces, oldest set first.
+///
+/// This replays the comparators used when logging rather than taking a plain
+/// maximum, so a rebuilt record matches what live logging would have produced
+/// — including for bodyweight exercises, where a weighted set and an unweighted
+/// set are judged on different terms and the later set wins its own contest.
+///
+/// Returns one record for every metric type except distanceTime, which returns
+/// one per distance. [achievedAt] comes from the set that earned it, so
+/// rebuilding never rewrites history to today.
+List<PbRecord> computeRecords(
+  List<WorkoutSet> setsOldestFirst,
+  String metricType,
+) {
+  final byDistance = <double, PbRecord>{};
+
+  for (final set in setsOldestFirst) {
+    final distance = set.distanceMetres ?? 0.0;
+    final key = metricType == MetricType.distanceTime.value ? distance : 0.0;
+    final current = byDistance[key];
+
+    final candidate = PbRecord(
+      weight: set.weight,
+      reps: set.reps,
+      durationSeconds: set.durationSeconds,
+      distanceMetres: key,
+      achievedAt: set.timestamp,
+    );
+
+    if (current == null || _setBeats(candidate, current, metricType)) {
+      byDistance[key] = candidate;
+    }
+  }
+
+  return byDistance.values.toList();
+}
+
+/// Whether [candidate] beats [current] under the rules for [metricType].
+bool _setBeats(PbRecord candidate, PbRecord current, String metricType) {
+  switch (MetricType.fromString(metricType)) {
+    case MetricType.timeOnly:
+      return (candidate.durationSeconds ?? 0) > (current.durationSeconds ?? 0);
+    case MetricType.distanceTime:
+      // Same distance by construction — the faster time wins.
+      const noTime = 1 << 30;
+      return (candidate.durationSeconds ?? noTime) <
+          (current.durationSeconds ?? noTime);
+    case MetricType.bodyweightReps:
+      // Unweighted sets are judged on reps alone, matching how they are
+      // routed when logged; weighted sets fall through to weight-is-king.
+      if (candidate.weight <= 0) return candidate.reps > current.reps;
+      continue weighted;
+    weighted:
+    case MetricType.weightReps:
+      if (candidate.weight != current.weight) {
+        return candidate.weight > current.weight;
+      }
+      return candidate.reps > current.reps;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
 
@@ -408,9 +490,10 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     int reps = 0,
     int? durationSeconds,
     double distanceMetres = 0.0,
+    DateTime? achievedAt,
   }) async {
     final db = ref.read(databaseProvider);
-    final achievedAt = DateTime.now();
+    final earnedAt = achievedAt ?? DateTime.now();
 
     await db
         .into(db.personalBests)
@@ -422,7 +505,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
             durationSeconds: Value(durationSeconds),
             distanceMetres: Value(distanceMetres),
             metricType: Value(metricType),
-            achievedAt: achievedAt,
+            achievedAt: earnedAt,
           ),
           onConflict: DoUpdate(
             (old) => PersonalBestsCompanion.custom(
@@ -430,8 +513,11 @@ class PersonalBestRepository extends _$PersonalBestRepository {
               reps: Variable(reps),
               durationSeconds: Variable(durationSeconds),
               distanceMetres: Variable(distanceMetres),
-              achievedAt: Variable(achievedAt),
+              achievedAt: Variable(earnedAt),
               syncedAt: const Variable(null),
+              // A record retired by an edit still occupies its key, so
+              // earning it again has to bring the row back.
+              deletedAt: const Variable(null),
             ),
             target: [
               db.personalBests.exerciseId,
@@ -440,6 +526,76 @@ class PersonalBestRepository extends _$PersonalBestRepository {
             ],
           ),
         );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rebuild after a set changes
+  // ---------------------------------------------------------------------------
+
+  /// Rebuilds the records for [exerciseId] from the sets that survive.
+  ///
+  /// A record is evidence of a set that was logged. Editing or deleting that
+  /// set has to withdraw it, or the app claims a lift that never happened —
+  /// mistyping 800kg and deleting it used to leave the 800kg record standing.
+  ///
+  /// Records with no surviving set are soft-deleted so the removal reaches
+  /// the remote copy too.
+  Future<void> recalculateForExercise({
+    required int exerciseId,
+    required String metricType,
+  }) async {
+    final db = ref.read(databaseProvider);
+
+    final query =
+        db.select(db.workoutSets).join([
+            innerJoin(
+              db.workoutSessions,
+              db.workoutSessions.id.equalsExp(db.workoutSets.sessionId),
+            ),
+          ])
+          ..where(db.workoutSets.exerciseId.equals(exerciseId))
+          ..where(db.workoutSets.deletedAt.isNull())
+          ..where(db.workoutSessions.deletedAt.isNull())
+          ..orderBy([OrderingTerm.asc(db.workoutSets.timestamp)]);
+
+    final sets = (await query.get())
+        .map((row) => row.readTable(db.workoutSets))
+        .toList();
+
+    final records = computeRecords(sets, metricType);
+
+    for (final record in records) {
+      await _upsertRecord(
+        exerciseId: exerciseId,
+        metricType: metricType,
+        weight: record.weight,
+        reps: record.reps,
+        durationSeconds: record.durationSeconds,
+        distanceMetres: record.distanceMetres,
+        achievedAt: record.achievedAt,
+      );
+    }
+
+    // Retire records nothing supports any more.
+    final survivingKeys = records.map((r) => r.distanceMetres).toSet();
+    final existing =
+        await (db.select(db.personalBests)
+              ..where((pb) => pb.exerciseId.equals(exerciseId))
+              ..where((pb) => pb.metricType.equals(metricType))
+              ..where((pb) => pb.deletedAt.isNull()))
+            .get();
+
+    for (final row in existing) {
+      if (survivingKeys.contains(row.distanceMetres)) continue;
+      await (db.update(
+        db.personalBests,
+      )..where((pb) => pb.id.equals(row.id))).write(
+        PersonalBestsCompanion(
+          deletedAt: Value(DateTime.now()),
+          syncedAt: const Value(null),
+        ),
+      );
+    }
   }
 
   Future<int> getTotalPrCount() async {

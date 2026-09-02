@@ -210,7 +210,7 @@ final getWeeklyStreakProvider = AutoDisposeFutureProvider<int>.internal(
 // ignore: unused_element
 typedef GetWeeklyStreakRef = AutoDisposeFutureProviderRef<int>;
 String _$watchSetsForSessionHash() =>
-    r'47f310f7d4ba4f5857f779589e8eecfc1c7c9b03';
+    r'f73dbdc7180a58080618a3d25695b3985063fb74';
 
 /// See also [watchSetsForSession].
 @ProviderFor(watchSetsForSession)
@@ -683,7 +683,7 @@ class _WatchLastPerformanceForExerciseProviderElement
       (origin as WatchLastPerformanceForExerciseProvider).currentSessionId;
 }
 
-String _$sessionRepositoryHash() => r'4d525d4cf21ce40b0af604128ae8312bc48db020';
+String _$sessionRepositoryHash() => r'2bf3940592ea6f355b294c725f26e4f153910c3b';
 
 /// See also [SessionRepository].
 @ProviderFor(SessionRepository)

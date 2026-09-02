@@ -12,7 +12,15 @@ class WorkoutSetWithExercise {
   final WorkoutSet set;
   final String exerciseName;
 
-  const WorkoutSetWithExercise({required this.set, required this.exerciseName});
+  /// The exercise's metric type — decides which fields a set records, and so
+  /// which fields an edit offers.
+  final String metricType;
+
+  const WorkoutSetWithExercise({
+    required this.set,
+    required this.exerciseName,
+    this.metricType = 'weightReps',
+  });
 }
 
 @riverpod
@@ -164,6 +172,7 @@ Stream<List<WorkoutSetWithExercise>> watchSetsForSession(
           (row) => WorkoutSetWithExercise(
             set: row.readTable(db.workoutSets),
             exerciseName: row.readTable(db.exercises).name,
+            metricType: row.readTable(db.exercises).metricType,
           ),
         )
         .toList(),
@@ -393,7 +402,38 @@ class SessionRepository extends _$SessionRepository {
     return prResult;
   }
 
+  /// Corrects a logged set.
+  ///
+  /// Fields not relevant to the exercise's metric type are cleared, so a set
+  /// edited from one shape to another cannot keep stale values. The records
+  /// for the exercise are rebuilt afterwards — the old values may have earned
+  /// a personal best that the correction withdraws.
+  Future<void> updateSet({
+    required int setId,
+    double weight = 0.0,
+    int reps = 0,
+    int? durationSeconds,
+    double? distanceMetres,
+  }) async {
+    final db = ref.read(databaseProvider);
+
+    await (db.update(db.workoutSets)..where((s) => s.id.equals(setId))).write(
+      WorkoutSetsCompanion(
+        weight: Value(weight),
+        reps: Value(reps),
+        durationSeconds: Value(durationSeconds),
+        distanceMetres: Value(distanceMetres),
+        syncedAt: const Value(null),
+      ),
+    );
+
+    await _rebuildRecordsForSet(setId);
+  }
+
   /// Soft-deletes a set — marks it dirty so sync propagates the delete.
+  ///
+  /// Any record the set earned is rebuilt from what survives, so a mistyped
+  /// lift does not leave a personal best behind once it is removed.
   Future<void> deleteSet(int setId) async {
     final db = ref.read(databaseProvider);
     await (db.update(db.workoutSets)..where((s) => s.id.equals(setId))).write(
@@ -402,6 +442,29 @@ class SessionRepository extends _$SessionRepository {
         syncedAt: const Value(null),
       ),
     );
+
+    await _rebuildRecordsForSet(setId);
+  }
+
+  /// Rebuilds the personal bests for the exercise [setId] belongs to.
+  Future<void> _rebuildRecordsForSet(int setId) async {
+    final db = ref.read(databaseProvider);
+
+    final row = await (db.select(db.workoutSets).join([
+      innerJoin(
+        db.exercises,
+        db.exercises.id.equalsExp(db.workoutSets.exerciseId),
+      ),
+    ])..where(db.workoutSets.id.equals(setId))).getSingleOrNull();
+    if (row == null) return;
+
+    final exercise = row.readTable(db.exercises);
+    await ref
+        .read(personalBestRepositoryProvider.notifier)
+        .recalculateForExercise(
+          exerciseId: exercise.id,
+          metricType: exercise.metricType,
+        );
   }
 
   /// Soft-deletes a session and all its sets.
