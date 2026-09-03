@@ -26,8 +26,8 @@ final watchCompletedSessionsProvider =
 // ignore: unused_element
 typedef WatchCompletedSessionsRef =
     AutoDisposeStreamProviderRef<List<WorkoutSession>>;
-String _$getVolumeForExerciseHash() =>
-    r'c84754f4cadc8fd9b4e73cdfd9b3d32ce2802fae';
+String _$getProgressSeriesForExerciseHash() =>
+    r'36a4492adf800d801a39b9b807cb71fe128f7dd0';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -50,24 +50,25 @@ class _SystemHash {
   }
 }
 
-/// See also [getVolumeForExercise].
-@ProviderFor(getVolumeForExercise)
-const getVolumeForExerciseProvider = GetVolumeForExerciseFamily();
+/// See also [getProgressSeriesForExercise].
+@ProviderFor(getProgressSeriesForExercise)
+const getProgressSeriesForExerciseProvider =
+    GetProgressSeriesForExerciseFamily();
 
-/// See also [getVolumeForExercise].
-class GetVolumeForExerciseFamily
-    extends Family<AsyncValue<List<VolumeDataPoint>>> {
-  /// See also [getVolumeForExercise].
-  const GetVolumeForExerciseFamily();
+/// See also [getProgressSeriesForExercise].
+class GetProgressSeriesForExerciseFamily
+    extends Family<AsyncValue<ExerciseProgress>> {
+  /// See also [getProgressSeriesForExercise].
+  const GetProgressSeriesForExerciseFamily();
 
-  /// See also [getVolumeForExercise].
-  GetVolumeForExerciseProvider call(int exerciseId) {
-    return GetVolumeForExerciseProvider(exerciseId);
+  /// See also [getProgressSeriesForExercise].
+  GetProgressSeriesForExerciseProvider call(int exerciseId) {
+    return GetProgressSeriesForExerciseProvider(exerciseId);
   }
 
   @override
-  GetVolumeForExerciseProvider getProviderOverride(
-    covariant GetVolumeForExerciseProvider provider,
+  GetProgressSeriesForExerciseProvider getProviderOverride(
+    covariant GetProgressSeriesForExerciseProvider provider,
   ) {
     return call(provider.exerciseId);
   }
@@ -84,29 +85,31 @@ class GetVolumeForExerciseFamily
       _allTransitiveDependencies;
 
   @override
-  String? get name => r'getVolumeForExerciseProvider';
+  String? get name => r'getProgressSeriesForExerciseProvider';
 }
 
-/// See also [getVolumeForExercise].
-class GetVolumeForExerciseProvider
-    extends AutoDisposeFutureProvider<List<VolumeDataPoint>> {
-  /// See also [getVolumeForExercise].
-  GetVolumeForExerciseProvider(int exerciseId)
+/// See also [getProgressSeriesForExercise].
+class GetProgressSeriesForExerciseProvider
+    extends AutoDisposeFutureProvider<ExerciseProgress> {
+  /// See also [getProgressSeriesForExercise].
+  GetProgressSeriesForExerciseProvider(int exerciseId)
     : this._internal(
-        (ref) =>
-            getVolumeForExercise(ref as GetVolumeForExerciseRef, exerciseId),
-        from: getVolumeForExerciseProvider,
-        name: r'getVolumeForExerciseProvider',
+        (ref) => getProgressSeriesForExercise(
+          ref as GetProgressSeriesForExerciseRef,
+          exerciseId,
+        ),
+        from: getProgressSeriesForExerciseProvider,
+        name: r'getProgressSeriesForExerciseProvider',
         debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
             ? null
-            : _$getVolumeForExerciseHash,
-        dependencies: GetVolumeForExerciseFamily._dependencies,
+            : _$getProgressSeriesForExerciseHash,
+        dependencies: GetProgressSeriesForExerciseFamily._dependencies,
         allTransitiveDependencies:
-            GetVolumeForExerciseFamily._allTransitiveDependencies,
+            GetProgressSeriesForExerciseFamily._allTransitiveDependencies,
         exerciseId: exerciseId,
       );
 
-  GetVolumeForExerciseProvider._internal(
+  GetProgressSeriesForExerciseProvider._internal(
     super._createNotifier, {
     required super.name,
     required super.dependencies,
@@ -120,13 +123,15 @@ class GetVolumeForExerciseProvider
 
   @override
   Override overrideWith(
-    FutureOr<List<VolumeDataPoint>> Function(GetVolumeForExerciseRef provider)
+    FutureOr<ExerciseProgress> Function(
+      GetProgressSeriesForExerciseRef provider,
+    )
     create,
   ) {
     return ProviderOverride(
       origin: this,
-      override: GetVolumeForExerciseProvider._internal(
-        (ref) => create(ref as GetVolumeForExerciseRef),
+      override: GetProgressSeriesForExerciseProvider._internal(
+        (ref) => create(ref as GetProgressSeriesForExerciseRef),
         from: from,
         name: null,
         dependencies: null,
@@ -138,13 +143,13 @@ class GetVolumeForExerciseProvider
   }
 
   @override
-  AutoDisposeFutureProviderElement<List<VolumeDataPoint>> createElement() {
-    return _GetVolumeForExerciseProviderElement(this);
+  AutoDisposeFutureProviderElement<ExerciseProgress> createElement() {
+    return _GetProgressSeriesForExerciseProviderElement(this);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is GetVolumeForExerciseProvider &&
+    return other is GetProgressSeriesForExerciseProvider &&
         other.exerciseId == exerciseId;
   }
 
@@ -159,19 +164,20 @@ class GetVolumeForExerciseProvider
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin GetVolumeForExerciseRef
-    on AutoDisposeFutureProviderRef<List<VolumeDataPoint>> {
+mixin GetProgressSeriesForExerciseRef
+    on AutoDisposeFutureProviderRef<ExerciseProgress> {
   /// The parameter `exerciseId` of this provider.
   int get exerciseId;
 }
 
-class _GetVolumeForExerciseProviderElement
-    extends AutoDisposeFutureProviderElement<List<VolumeDataPoint>>
-    with GetVolumeForExerciseRef {
-  _GetVolumeForExerciseProviderElement(super.provider);
+class _GetProgressSeriesForExerciseProviderElement
+    extends AutoDisposeFutureProviderElement<ExerciseProgress>
+    with GetProgressSeriesForExerciseRef {
+  _GetProgressSeriesForExerciseProviderElement(super.provider);
 
   @override
-  int get exerciseId => (origin as GetVolumeForExerciseProvider).exerciseId;
+  int get exerciseId =>
+      (origin as GetProgressSeriesForExerciseProvider).exerciseId;
 }
 
 String _$getAttendanceDataHash() => r'3cac6246a31b12e502c48c537e8049e60ae0353b';

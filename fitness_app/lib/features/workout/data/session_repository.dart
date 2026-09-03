@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/database/database_provider.dart';
+import '../domain/progress_series.dart';
 import '../../../core/database/local_database.dart';
 import 'personal_best_repository.dart';
 import 'badge_service.dart';
@@ -34,11 +35,16 @@ Stream<List<WorkoutSession>> watchCompletedSessions(Ref ref) {
 }
 
 @riverpod
-Future<List<VolumeDataPoint>> getVolumeForExercise(
+Future<ExerciseProgress> getProgressSeriesForExercise(
   Ref ref,
   int exerciseId,
 ) async {
   final db = ref.read(databaseProvider);
+
+  final exercise = await (db.select(
+    db.exercises,
+  )..where((e) => e.id.equals(exerciseId))).getSingleOrNull();
+  final metric = detailMetricFor(exercise?.metricType ?? 'weightReps');
 
   final query =
       db.select(db.workoutSets).join([
@@ -55,40 +61,36 @@ Future<List<VolumeDataPoint>> getVolumeForExercise(
 
   final rows = await query.get();
 
-  final Map<int, VolumeDataPoint> sessionVolume = {};
-  for (final row in rows) {
-    final set = row.readTable(db.workoutSets);
-    final session = row.readTable(db.workoutSessions);
-    final volume = set.weight * set.reps;
+  final samples = <SetSample>[
+    for (final row in rows)
+      (
+        date: row.readTable(db.workoutSessions).startTime,
+        weight: row.readTable(db.workoutSets).weight,
+        reps: row.readTable(db.workoutSets).reps,
+        durationSeconds: row.readTable(db.workoutSets).durationSeconds,
+        distanceMetres: row.readTable(db.workoutSets).distanceMetres,
+      ),
+  ];
 
-    if (sessionVolume.containsKey(session.id)) {
-      sessionVolume[session.id] = VolumeDataPoint(
-        sessionId: session.id,
-        date: session.startTime,
-        totalVolume: sessionVolume[session.id]!.totalVolume + volume,
-      );
-    } else {
-      sessionVolume[session.id] = VolumeDataPoint(
-        sessionId: session.id,
-        date: session.startTime,
-        totalVolume: volume,
-      );
-    }
-  }
-
-  return sessionVolume.values.toList();
+  return ExerciseProgress(
+    metric: metric,
+    points: sessionTotals(samples, metric),
+  );
 }
 
-class VolumeDataPoint {
-  final int sessionId;
-  final DateTime date;
-  final double totalVolume;
+/// An exercise's progress series, together with the metric that chose it.
+///
+/// The metric travels with the points because the caller has to label the
+/// axis and the heading, and deriving it twice invites the two disagreeing.
+class ExerciseProgress {
+  const ExerciseProgress({required this.metric, required this.points});
 
-  const VolumeDataPoint({
-    required this.sessionId,
-    required this.date,
-    required this.totalVolume,
-  });
+  final ProgressMetric metric;
+
+  /// Empty when the metric says nothing about this exercise — which is what
+  /// makes the caller's `isEmpty` guard meaningful. Volume used to return a
+  /// list of zeroes here for every metric type but `weightReps`.
+  final List<SeriesPoint> points;
 }
 
 @riverpod

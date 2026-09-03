@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
+import 'package:fitness_app/features/workout/domain/progress_series.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/session_repository.dart';
 import 'widgets/exercise_field.dart';
@@ -691,32 +692,11 @@ class _PrChart extends ConsumerWidget {
     );
   }
 
-  String _yAxisLabel(String metricType) {
-    return switch (metricType) {
-      'timeOnly' => 'DURATION (seconds)',
-      'distanceTime' => 'PACE (lower time = higher)',
-      'bodyweightReps' => 'MAX REPS',
-      _ => 'BEST WEIGHT (kg)',
-    };
-  }
+  String _yAxisLabel(String metricType) =>
+      recordMetricFor(metricType).axisLabel;
 
-  String _formatYValue(double value, String metricType) {
-    if (metricType == 'timeOnly') {
-      final secs = value.toInt();
-      final m = secs ~/ 60;
-      final s = secs % 60;
-      return m > 0 ? '${m}m${s}s' : '${s}s';
-    }
-    if (metricType == 'distanceTime') {
-      // Uninvert to show actual time
-      const chartTimeInversionOffset = 10000;
-      final secs = (chartTimeInversionOffset - value).toInt();
-      final m = secs ~/ 60;
-      final s = secs % 60;
-      return m > 0 ? '${m}m${s}s' : '${s}s';
-    }
-    return '${value.toInt()}';
-  }
+  String _formatYValue(double value, String metricType) =>
+      formatSeriesValue(value, recordMetricFor(metricType));
 
   Future<List<_PrPoint>> _loadPrHistory(
     AppDatabase db,
@@ -739,46 +719,28 @@ class _PrChart extends ConsumerWidget {
 
     final rows = await query.get();
 
-    final Map<String, double> bestPerDay = {};
-    final Map<String, DateTime> dateByKey = {};
+    final samples = <SetSample>[
+      for (final row in rows)
+        (
+          date: row.readTable(db.workoutSessions).startTime,
+          weight: row.readTable(db.workoutSets).weight,
+          reps: row.readTable(db.workoutSets).reps,
+          durationSeconds: row.readTable(db.workoutSets).durationSeconds,
+          distanceMetres: row.readTable(db.workoutSets).distanceMetres,
+        ),
+    ];
 
-    for (final row in rows) {
-      final set = row.readTable(db.workoutSets);
-      final session = row.readTable(db.workoutSessions);
-      final day =
-          '${session.startTime.year}-${session.startTime.month.toString().padLeft(2, '0')}-${session.startTime.day.toString().padLeft(2, '0')}';
-      dateByKey[day] = session.startTime;
-
-      double value;
-      switch (exercise.metricType) {
-        case 'timeOnly':
-          value = (set.durationSeconds ?? 0).toDouble();
-        case 'distanceTime':
-          // Lower time is better — invert so improvement trends upward on chart
-          final secs = set.durationSeconds ?? 0;
-          // Use negative so shorter time = higher on chart
-          // Invert time so improvement (lower time) trends upward on chart.
-          // The offset must exceed the maximum realistic session duration.
-          const chartTimeInversionOffset = 10000;
-          value = secs > 0 ? (chartTimeInversionOffset - secs).toDouble() : 0;
-        case 'bodyweightReps':
-          value = set.reps.toDouble();
-        default: // weightReps
-          value = set.weight;
-      }
-
-      if (value > 0) {
-        final existing = bestPerDay[day] ?? 0;
-        if (value > existing) bestPerDay[day] = value;
-      }
-    }
-
-    final sorted = bestPerDay.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-
-    return sorted
-        .map((e) => _PrPoint(date: dateByKey[e.key]!, value: e.value))
-        .toList();
+    // Cardio plots speed, aggregated across the whole session. Taking the
+    // best individual set instead let one 400 m interval stand in for an
+    // hour's running; inverting time around a constant — the previous
+    // approach — capped at 2h46m and went negative beyond it.
+    return [
+      for (final point in sessionBests(
+        samples,
+        recordMetricFor(exercise.metricType),
+      ))
+        _PrPoint(date: point.date, value: point.value),
+    ];
   }
 }
 

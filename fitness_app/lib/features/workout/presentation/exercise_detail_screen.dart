@@ -8,6 +8,7 @@ import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/features/profile/data/profile_provider.dart';
 import 'package:fitness_app/features/workout/data/strength_standards_data.dart';
 import '../data/exercise_catalogue.dart';
+import '../domain/progress_series.dart';
 import '../data/personal_best_repository.dart';
 import '../data/session_repository.dart';
 import 'package:fitness_app/features/profile/presentation/profile_screen.dart';
@@ -100,11 +101,13 @@ class ExerciseDetailScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // ----------------------------------------------------------------
-          // Volume over time chart
+          // Progress chart — the series depends on how the exercise is
+          // measured. Volume is meaningful only for weightReps; for the other
+          // three it is identically zero.
           // ----------------------------------------------------------------
-          const _SectionHeader(title: 'Volume Over Time'),
+          _SectionHeader(title: detailMetricFor(exercise.metricType).heading),
           const SizedBox(height: 12),
-          _VolumeChart(exerciseId: exercise.id),
+          _ProgressChart(exerciseId: exercise.id),
           const SizedBox(height: 32),
         ],
       ),
@@ -360,33 +363,32 @@ class _PercentileUnavailable extends StatelessWidget {
 // Volume chart — reused from progress_screen.dart, scoped to one exercise
 // ---------------------------------------------------------------------------
 
-class _VolumeChart extends ConsumerWidget {
+class _ProgressChart extends ConsumerWidget {
   final int exerciseId;
 
-  const _VolumeChart({required this.exerciseId});
+  const _ProgressChart({required this.exerciseId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final volumeAsync = ref.watch(getVolumeForExerciseProvider(exerciseId));
+    final progressAsync = ref.watch(
+      getProgressSeriesForExerciseProvider(exerciseId),
+    );
 
     return SizedBox(
       height: 200,
-      child: volumeAsync.when(
+      child: progressAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
-        data: (dataPoints) {
-          if (dataPoints.isEmpty) {
-            return const _EmptyState(
-              message: 'No volume data yet for this exercise.',
-            );
+        data: (progress) {
+          if (progress.points.isEmpty) {
+            return const _EmptyState(message: 'No data yet for this exercise.');
           }
 
-          // Sort by date ascending for the chart
-          final sorted = [...dataPoints]
-            ..sort((a, b) => a.date.compareTo(b.date));
+          final sorted = progress.points;
+          final metric = progress.metric;
 
           final spots = sorted.asMap().entries.map((entry) {
-            return FlSpot(entry.key.toDouble(), entry.value.totalVolume);
+            return FlSpot(entry.key.toDouble(), entry.value.value);
           }).toList();
 
           return Padding(
@@ -416,7 +418,7 @@ class _VolumeChart extends ConsumerWidget {
                       showTitles: true,
                       reservedSize: 48,
                       getTitlesWidget: (value, meta) => Text(
-                        '${value.toInt()}kg',
+                        formatSeriesValue(value, metric),
                         style: const TextStyle(fontSize: 10),
                       ),
                     ),
