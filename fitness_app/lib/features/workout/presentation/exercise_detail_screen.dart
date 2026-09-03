@@ -9,6 +9,7 @@ import 'package:fitness_app/features/profile/data/profile_provider.dart';
 import 'package:fitness_app/features/workout/data/strength_standards_data.dart';
 import '../data/exercise_catalogue.dart';
 import '../domain/progress_series.dart';
+import 'widgets/exercise_editor_dialog.dart';
 import '../data/personal_best_repository.dart';
 import '../data/session_repository.dart';
 import 'package:fitness_app/features/profile/presentation/profile_screen.dart';
@@ -31,7 +32,26 @@ class ExerciseDetailScreen extends ConsumerWidget {
     final profileAsync = ref.watch(profileNotifierProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(exercise.name), centerTitle: true),
+      appBar: AppBar(
+        title: Text(exercise.name),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit exercise',
+            onPressed: () async {
+              final changed = await showExerciseEditor(
+                context,
+                ref,
+                existing: entry,
+              );
+              // The screen holds the entry it was pushed with, so a rename or
+              // a re-file would otherwise keep showing the old values.
+              if (changed && context.mounted) Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -92,7 +112,11 @@ class ExerciseDetailScreen extends ConsumerWidget {
               if (!profile.isCompleteForPercentile) {
                 return _PercentileUnavailable(exerciseName: exercise.name);
               }
-              if (!hasStrengthStandards(exercise.name)) {
+              // Gate on what the exercise *is*, not on whether its name
+              // happens to miss the standards table. A custom timeOnly
+              // exercise called "Squat" would otherwise be handed a percentile
+              // computed from a weight it never recorded.
+              if (!entry.hasStrengthPercentile) {
                 return const SizedBox.shrink();
               }
               return _PercentileSection(exercise: exercise, profile: profile);

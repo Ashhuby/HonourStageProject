@@ -79,6 +79,52 @@ class ExerciseRepository extends _$ExerciseRepository {
     });
   }
 
+  /// Re-files an existing exercise.
+  ///
+  /// The mitigation for the v10 backfill, which categorises custom exercises
+  /// from their metric type and says openly that it will misfile a loaded
+  /// carry logged by distance. Without this there was no way to correct one:
+  /// `setMuscles` existed on this repository and nothing called it.
+  ///
+  /// [metricType] is deliberately not editable here. Changing it invalidates
+  /// every record computed under the old comparator — a weightReps record
+  /// makes no sense read as a distance — and silently rebuilding a user's
+  /// personal bests is worse than not offering the change.
+  Future<void> updateExercise(
+    int id, {
+    required String name,
+    required String equipmentType,
+    required ExerciseCategory category,
+    CardioModality? modality,
+    required Muscle primary,
+    Set<Muscle> secondary = const {},
+  }) async {
+    assert(
+      (category == ExerciseCategory.cardio) == (modality != null),
+      'modality is required for cardio and forbidden otherwise',
+    );
+
+    final db = ref.read(databaseProvider);
+    await db.transaction(() async {
+      await (db.update(db.exercises)..where((e) => e.id.equals(id))).write(
+        ExercisesCompanion(
+          name: Value(name),
+          equipmentType: Value(equipmentType),
+          bodyPart: Value(primary.group.label),
+          category: Value(category.name),
+          modality: Value(modality?.name),
+          // Custom rows go dirty so the correction uploads. A seeded row has
+          // no remote identity, so leaving syncedAt alone is right for it.
+          syncedAt: const Value(null),
+        ),
+      );
+      await (db.delete(
+        db.exerciseMuscles,
+      )..where((m) => m.exerciseId.equals(id))).go();
+      await _writeMuscles(db, id, primary: primary, secondary: secondary);
+    });
+  }
+
   Future<void> _writeMuscles(
     AppDatabase db,
     int exerciseId, {
@@ -111,11 +157,25 @@ class ExerciseRepository extends _$ExerciseRepository {
     }
   }
 
+  /// Retires an exercise without destroying what was logged against it.
+  ///
+  /// A soft delete, matching every other table: a hard one threw on the
+  /// foreign key the moment the exercise had ever been used, so the swipe
+  /// gesture in the library silently failed for exactly the exercises the user
+  /// had trained. `watchExercises` and `watchExerciseCatalogue` both filter on
+  /// `deletedAt`, so it leaves the library immediately, while its sets, records
+  /// and routine entries stay intact and its history still reads.
+  ///
+  /// `syncedAt` is cleared so the retirement propagates, which is how the sync
+  /// service recognises a soft delete on every other table.
   Future<void> deleteExercise(int id) async {
     final db = ref.read(databaseProvider);
-    // exercise_muscles cascades — foreign keys are on at runtime, unlike
-    // during a migration.
-    await (db.delete(db.exercises)..where((e) => e.id.equals(id))).go();
+    await (db.update(db.exercises)..where((e) => e.id.equals(id))).write(
+      ExercisesCompanion(
+        deletedAt: Value(DateTime.now()),
+        syncedAt: const Value(null),
+      ),
+    );
   }
 }
 

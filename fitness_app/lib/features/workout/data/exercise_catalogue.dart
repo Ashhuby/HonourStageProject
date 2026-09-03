@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/material.dart' show Color, immutable;
 import '../../../core/database/local_database.dart';
 import '../../../core/theme/app_colors.dart';
+import 'strength_standards_data.dart';
 import '../domain/activity.dart';
 import '../domain/muscle.dart';
 
@@ -58,6 +59,19 @@ class ExerciseWithMuscles {
   /// the group it sits in ("Lats • Barbell" beats "Back • Barbell").
   /// Falls back to the stored label so an unclassified row still reads.
   String get muscleLabel => primary?.label ?? exercise.bodyPart;
+
+  /// Whether a strength percentile means anything for this exercise.
+  ///
+  /// Three conditions, where there used to be one. The name has to appear in
+  /// the standards table, but that alone let a custom `timeOnly` exercise
+  /// called "Squat" through — and `getBestLiftForExercise` has no metric
+  /// filter, so it would have been handed a record with `weight == 0`. The
+  /// standards are 1RM tables in kilograms; they only speak about a strength
+  /// exercise measured by load.
+  bool get hasStrengthPercentile =>
+      category == ExerciseCategory.strength &&
+      exercise.metricType == 'weightReps' &&
+      hasStrengthStandards(exercise.name);
 
   /// How this exercise matches a filter, or null if it does not.
   ///

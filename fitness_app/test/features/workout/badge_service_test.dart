@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/core/database/local_database.dart';
+import 'package:fitness_app/features/workout/data/badge_service.dart';
 
 /// Tests for badge trigger logic.
 /// Each test seeds the minimum data needed to trigger the badge under test,
@@ -77,10 +78,15 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('Badge seeding', () {
-    test('all 8 badges are seeded as unearned after setUp', () async {
+    test('every defined badge is seeded as unearned', () async {
       final rows = await db.select(db.badges).get();
-      expect(rows.length, 8);
+      expect(rows.length, kAllBadges.length);
       expect(rows.every((r) => r.earnedAt == null), isTrue);
+    });
+
+    test('badge keys are unique', () {
+      final keys = kAllBadges.map((b) => b.key).toSet();
+      expect(keys, hasLength(kAllBadges.length));
     });
 
     test('re-seeding does not overwrite earned badges', () async {
@@ -372,17 +378,13 @@ void main() {
 // Test-local DB helpers — mirror the logic in BadgeService without Riverpod
 // ---------------------------------------------------------------------------
 
+/// Mirrors production's badge seed.
+///
+/// Driven from [kAllBadges] rather than a third hardcoded list — production
+/// kept its own copy until recently, so a badge added to the definitions had
+/// no row and could never be awarded.
 Future<void> _seedBadges(AppDatabase db) async {
-  const badgeKeys = [
-    'first_workout',
-    'streak_7_day',
-    'streak_30_day',
-    'first_pr',
-    'pr_10',
-    'sets_50',
-    'sets_500',
-    'first_custom_exercise',
-  ];
+  final badgeKeys = [for (final badge in kAllBadges) badge.key];
   await db.batch((b) {
     for (final key in badgeKeys) {
       b.insert(

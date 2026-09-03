@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/database/database_provider.dart';
+import '../../../core/utils/set_formatter.dart';
 import '../../../core/database/local_database.dart';
 
 part 'split_repository.g.dart';
@@ -21,6 +22,15 @@ class RoutineExerciseWithName {
   });
 
   String get exerciseName => exercise.name;
+
+  /// The plan for this exercise, phrased in the units it is measured in.
+  String get targetSummary => formatTargetSummary(
+    targetSets: routineExercise.targetSets,
+    targetReps: routineExercise.targetReps,
+    metricType: exercise.metricType,
+    targetDistanceMetres: routineExercise.targetDistanceMetres,
+    targetDurationSeconds: routineExercise.targetDurationSeconds,
+  );
   String get bodyPart => exercise.bodyPart;
   String get equipmentType => exercise.equipmentType;
   String get metricType => exercise.metricType;
@@ -165,6 +175,10 @@ class SplitRepository extends _$SplitRepository {
   Future<void> addExerciseToRoutine({
     required int routineId,
     required int exerciseId,
+    int? targetSets,
+    int? targetReps,
+    double? targetDistanceMetres,
+    int? targetDurationSeconds,
   }) async {
     final db = ref.read(databaseProvider);
     final existing =
@@ -180,6 +194,10 @@ class SplitRepository extends _$SplitRepository {
             routineId: routineId,
             exerciseId: exerciseId,
             orderIndex: existing.length,
+            targetSets: Value.absentIfNull(targetSets),
+            targetReps: Value.absentIfNull(targetReps),
+            targetDistanceMetres: Value(targetDistanceMetres),
+            targetDurationSeconds: Value(targetDurationSeconds),
           ),
         );
   }

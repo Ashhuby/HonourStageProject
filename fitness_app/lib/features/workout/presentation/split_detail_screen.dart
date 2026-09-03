@@ -6,6 +6,7 @@ import '../data/split_repository.dart';
 import '../data/session_repository.dart';
 import 'active_session_screen.dart';
 import 'widgets/exercise_picker_sheet.dart';
+import 'widgets/routine_target_dialog.dart';
 
 class SplitDetailScreen extends ConsumerWidget {
   final WorkoutSplit split;
@@ -201,8 +202,7 @@ class RoutineExercisesSheet extends ConsumerWidget {
                             title: Text(re.exerciseName),
                             subtitle: Text(
                               '${re.bodyPart} • ${re.equipmentType} — '
-                              '${re.routineExercise.targetSets} sets × '
-                              '${re.routineExercise.targetReps} reps',
+                              '${re.targetSummary}',
                             ),
                             leading: const CircleAvatar(
                               child: Icon(Icons.fitness_center),
@@ -236,11 +236,23 @@ class RoutineExercisesSheet extends ConsumerWidget {
       excludeIds: alreadyAdded,
       title: 'Add to ${routine.name}',
     );
-    if (picked == null) return;
+    if (picked == null || !context.mounted) return;
+
+    // Ask for the target in the units the exercise is measured in, rather
+    // than defaulting a run to "3 sets of 10 reps".
+    final target = await showRoutineTargetDialog(context, picked);
+    if (target == null) return;
 
     await ref
         .read(splitRepositoryProvider.notifier)
-        .addExerciseToRoutine(routineId: routine.id, exerciseId: picked.id);
+        .addExerciseToRoutine(
+          routineId: routine.id,
+          exerciseId: picked.id,
+          targetSets: target.sets,
+          targetReps: target.reps,
+          targetDistanceMetres: target.distanceMetres,
+          targetDurationSeconds: target.durationSeconds,
+        );
   }
 
   /// Starts this routine, first offering a way out of a session that was

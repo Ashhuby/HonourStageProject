@@ -37,6 +37,13 @@ void main() {
     // Create the tables at the current schema, then restore personal_bests to
     // its v6 definition and rewind the version drift reads on open.
     await db.customStatement('SELECT 1');
+    // The v11 target columns did not exist yet either.
+    await db.customStatement(
+      'ALTER TABLE routine_exercises DROP COLUMN target_distance_metres',
+    );
+    await db.customStatement(
+      'ALTER TABLE routine_exercises DROP COLUMN target_duration_seconds',
+    );
     // The v10 columns and their trigger did not exist yet. Dropping them is
     // what makes this file genuinely look like the older schema — without it
     // the v10 branch tries to add a column that is already there. Triggers go

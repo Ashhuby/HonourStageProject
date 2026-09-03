@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:riverpod/riverpod.dart';
 import '../../../core/database/database_provider.dart';
+import '../domain/activity.dart';
 import '../../../core/database/local_database.dart';
 
 part 'badge_service.g.dart';
@@ -70,6 +71,27 @@ const List<BadgeDefinition> kAllBadges = [
     name: 'Iron Consistency',
     description: 'Log 500 total sets.',
     icon: 'workspace_premium',
+  ),
+  // Cardio and mobility earn their own. The set-count badges are not wrong,
+  // but a cardio session is one logged set where a lifting session is fifteen,
+  // so "log 500 sets" is a badge only a lifter will ever see.
+  BadgeDefinition(
+    key: 'first_cardio',
+    name: 'Off the Rack',
+    description: 'Log your first cardio activity.',
+    icon: 'directions_run',
+  ),
+  BadgeDefinition(
+    key: 'marathon_distance',
+    name: 'The Long Way',
+    description: 'Cover 42.2 km in total across all cardio.',
+    icon: 'route',
+  ),
+  BadgeDefinition(
+    key: 'first_mobility',
+    name: 'Loosen Up',
+    description: 'Log your first mobility work.',
+    icon: 'self_improvement',
   ),
   BadgeDefinition(
     key: 'first_custom_exercise',
@@ -168,8 +190,71 @@ class BadgeService extends _$BadgeService {
     if (await _checkSetCount(50)) awarded.add('sets_50');
     if (await _checkSetCount(500)) awarded.add('sets_500');
     if (await _checkFirstCustomExercise()) awarded.add('first_custom_exercise');
+    if (await _checkFirstInCategory(ExerciseCategory.cardio, 'first_cardio')) {
+      awarded.add('first_cardio');
+    }
+    if (await _checkFirstInCategory(
+      ExerciseCategory.mobility,
+      'first_mobility',
+    )) {
+      awarded.add('first_mobility');
+    }
+    if (await _checkTotalDistance()) awarded.add('marathon_distance');
 
     return awarded;
+  }
+
+  /// Awards on the first set logged against an exercise of [category].
+  Future<bool> _checkFirstInCategory(
+    ExerciseCategory category,
+    String key,
+  ) async {
+    final db = ref.read(databaseProvider);
+
+    final existing = await _getBadgeRow(key);
+    if (existing?.earnedAt != null) return false;
+
+    final countExpr = db.workoutSets.id.count();
+    final query =
+        db.selectOnly(db.workoutSets).join([
+            innerJoin(
+              db.exercises,
+              db.exercises.id.equalsExp(db.workoutSets.exerciseId),
+            ),
+          ])
+          ..addColumns([countExpr])
+          ..where(db.workoutSets.deletedAt.isNull())
+          ..where(db.exercises.category.equals(category.name));
+
+    final row = await query.getSingle();
+    if ((row.read(countExpr) ?? 0) < 1) return false;
+
+    await _awardIfNotEarned(key);
+    return true;
+  }
+
+  /// Awards once the total distance logged reaches a marathon.
+  ///
+  /// Cumulative rather than in one go: the badge recognises the training, not
+  /// a single heroic session, and a marathon's worth of intervals is as much
+  /// work as a marathon.
+  Future<bool> _checkTotalDistance() async {
+    const key = 'marathon_distance';
+    final db = ref.read(databaseProvider);
+
+    final existing = await _getBadgeRow(key);
+    if (existing?.earnedAt != null) return false;
+
+    final totalExpr = db.workoutSets.distanceMetres.sum();
+    final query = db.selectOnly(db.workoutSets)
+      ..addColumns([totalExpr])
+      ..where(db.workoutSets.deletedAt.isNull());
+
+    final row = await query.getSingle();
+    if ((row.read(totalExpr) ?? 0) < 42195) return false;
+
+    await _awardIfNotEarned(key);
+    return true;
   }
 
   // ---------------------------------------------------------------------------

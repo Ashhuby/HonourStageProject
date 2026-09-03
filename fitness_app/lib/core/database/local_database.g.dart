@@ -2083,6 +2083,27 @@ class $RoutineExercisesTable extends RoutineExercises
     requiredDuringInsert: false,
     defaultValue: const Constant(10),
   );
+  static const VerificationMeta _targetDistanceMetresMeta =
+      const VerificationMeta('targetDistanceMetres');
+  @override
+  late final GeneratedColumn<double> targetDistanceMetres =
+      GeneratedColumn<double>(
+        'target_distance_metres',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _targetDurationSecondsMeta =
+      const VerificationMeta('targetDurationSeconds');
+  @override
+  late final GeneratedColumn<int> targetDurationSeconds = GeneratedColumn<int>(
+    'target_duration_seconds',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _remoteIdMeta = const VerificationMeta(
     'remoteId',
   );
@@ -2133,6 +2154,8 @@ class $RoutineExercisesTable extends RoutineExercises
     orderIndex,
     targetSets,
     targetReps,
+    targetDistanceMetres,
+    targetDurationSeconds,
     remoteId,
     userId,
     syncedAt,
@@ -2187,6 +2210,24 @@ class $RoutineExercisesTable extends RoutineExercises
       context.handle(
         _targetRepsMeta,
         targetReps.isAcceptableOrUnknown(data['target_reps']!, _targetRepsMeta),
+      );
+    }
+    if (data.containsKey('target_distance_metres')) {
+      context.handle(
+        _targetDistanceMetresMeta,
+        targetDistanceMetres.isAcceptableOrUnknown(
+          data['target_distance_metres']!,
+          _targetDistanceMetresMeta,
+        ),
+      );
+    }
+    if (data.containsKey('target_duration_seconds')) {
+      context.handle(
+        _targetDurationSecondsMeta,
+        targetDurationSeconds.isAcceptableOrUnknown(
+          data['target_duration_seconds']!,
+          _targetDurationSecondsMeta,
+        ),
       );
     }
     if (data.containsKey('remote_id')) {
@@ -2246,6 +2287,14 @@ class $RoutineExercisesTable extends RoutineExercises
         DriftSqlType.int,
         data['${effectivePrefix}target_reps'],
       )!,
+      targetDistanceMetres: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}target_distance_metres'],
+      ),
+      targetDurationSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}target_duration_seconds'],
+      ),
       remoteId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}remote_id'],
@@ -2278,6 +2327,19 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
   final int orderIndex;
   final int targetSets;
   final int targetReps;
+
+  /// The target for an exercise that is not measured in reps.
+  ///
+  /// Both null for a lift, where [targetReps] is the plan. A run planned as
+  /// "3 sets of 10 reps" was the only thing a routine could say about it,
+  /// which is to say nothing at all.
+  ///
+  /// Which one applies follows the exercise's metric type: `distanceTime`
+  /// reads [targetDistanceMetres], `timeOnly` reads [targetDurationSeconds].
+  /// Storing both keeps a routine's plan intact if the exercise's metric type
+  /// is later changed.
+  final double? targetDistanceMetres;
+  final int? targetDurationSeconds;
   final String? remoteId;
   final String? userId;
   final DateTime? syncedAt;
@@ -2289,6 +2351,8 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     required this.orderIndex,
     required this.targetSets,
     required this.targetReps,
+    this.targetDistanceMetres,
+    this.targetDurationSeconds,
     this.remoteId,
     this.userId,
     this.syncedAt,
@@ -2303,6 +2367,12 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     map['order_index'] = Variable<int>(orderIndex);
     map['target_sets'] = Variable<int>(targetSets);
     map['target_reps'] = Variable<int>(targetReps);
+    if (!nullToAbsent || targetDistanceMetres != null) {
+      map['target_distance_metres'] = Variable<double>(targetDistanceMetres);
+    }
+    if (!nullToAbsent || targetDurationSeconds != null) {
+      map['target_duration_seconds'] = Variable<int>(targetDurationSeconds);
+    }
     if (!nullToAbsent || remoteId != null) {
       map['remote_id'] = Variable<String>(remoteId);
     }
@@ -2326,6 +2396,12 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       orderIndex: Value(orderIndex),
       targetSets: Value(targetSets),
       targetReps: Value(targetReps),
+      targetDistanceMetres: targetDistanceMetres == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetDistanceMetres),
+      targetDurationSeconds: targetDurationSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetDurationSeconds),
       remoteId: remoteId == null && nullToAbsent
           ? const Value.absent()
           : Value(remoteId),
@@ -2353,6 +2429,12 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       orderIndex: serializer.fromJson<int>(json['orderIndex']),
       targetSets: serializer.fromJson<int>(json['targetSets']),
       targetReps: serializer.fromJson<int>(json['targetReps']),
+      targetDistanceMetres: serializer.fromJson<double?>(
+        json['targetDistanceMetres'],
+      ),
+      targetDurationSeconds: serializer.fromJson<int?>(
+        json['targetDurationSeconds'],
+      ),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
       userId: serializer.fromJson<String?>(json['userId']),
       syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
@@ -2369,6 +2451,8 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       'orderIndex': serializer.toJson<int>(orderIndex),
       'targetSets': serializer.toJson<int>(targetSets),
       'targetReps': serializer.toJson<int>(targetReps),
+      'targetDistanceMetres': serializer.toJson<double?>(targetDistanceMetres),
+      'targetDurationSeconds': serializer.toJson<int?>(targetDurationSeconds),
       'remoteId': serializer.toJson<String?>(remoteId),
       'userId': serializer.toJson<String?>(userId),
       'syncedAt': serializer.toJson<DateTime?>(syncedAt),
@@ -2383,6 +2467,8 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     int? orderIndex,
     int? targetSets,
     int? targetReps,
+    Value<double?> targetDistanceMetres = const Value.absent(),
+    Value<int?> targetDurationSeconds = const Value.absent(),
     Value<String?> remoteId = const Value.absent(),
     Value<String?> userId = const Value.absent(),
     Value<DateTime?> syncedAt = const Value.absent(),
@@ -2394,6 +2480,12 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     orderIndex: orderIndex ?? this.orderIndex,
     targetSets: targetSets ?? this.targetSets,
     targetReps: targetReps ?? this.targetReps,
+    targetDistanceMetres: targetDistanceMetres.present
+        ? targetDistanceMetres.value
+        : this.targetDistanceMetres,
+    targetDurationSeconds: targetDurationSeconds.present
+        ? targetDurationSeconds.value
+        : this.targetDurationSeconds,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
     userId: userId.present ? userId.value : this.userId,
     syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
@@ -2415,6 +2507,12 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       targetReps: data.targetReps.present
           ? data.targetReps.value
           : this.targetReps,
+      targetDistanceMetres: data.targetDistanceMetres.present
+          ? data.targetDistanceMetres.value
+          : this.targetDistanceMetres,
+      targetDurationSeconds: data.targetDurationSeconds.present
+          ? data.targetDurationSeconds.value
+          : this.targetDurationSeconds,
       remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       userId: data.userId.present ? data.userId.value : this.userId,
       syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
@@ -2431,6 +2529,8 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
           ..write('orderIndex: $orderIndex, ')
           ..write('targetSets: $targetSets, ')
           ..write('targetReps: $targetReps, ')
+          ..write('targetDistanceMetres: $targetDistanceMetres, ')
+          ..write('targetDurationSeconds: $targetDurationSeconds, ')
           ..write('remoteId: $remoteId, ')
           ..write('userId: $userId, ')
           ..write('syncedAt: $syncedAt, ')
@@ -2447,6 +2547,8 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     orderIndex,
     targetSets,
     targetReps,
+    targetDistanceMetres,
+    targetDurationSeconds,
     remoteId,
     userId,
     syncedAt,
@@ -2462,6 +2564,8 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
           other.orderIndex == this.orderIndex &&
           other.targetSets == this.targetSets &&
           other.targetReps == this.targetReps &&
+          other.targetDistanceMetres == this.targetDistanceMetres &&
+          other.targetDurationSeconds == this.targetDurationSeconds &&
           other.remoteId == this.remoteId &&
           other.userId == this.userId &&
           other.syncedAt == this.syncedAt &&
@@ -2475,6 +2579,8 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
   final Value<int> orderIndex;
   final Value<int> targetSets;
   final Value<int> targetReps;
+  final Value<double?> targetDistanceMetres;
+  final Value<int?> targetDurationSeconds;
   final Value<String?> remoteId;
   final Value<String?> userId;
   final Value<DateTime?> syncedAt;
@@ -2486,6 +2592,8 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     this.orderIndex = const Value.absent(),
     this.targetSets = const Value.absent(),
     this.targetReps = const Value.absent(),
+    this.targetDistanceMetres = const Value.absent(),
+    this.targetDurationSeconds = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.userId = const Value.absent(),
     this.syncedAt = const Value.absent(),
@@ -2498,6 +2606,8 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     required int orderIndex,
     this.targetSets = const Value.absent(),
     this.targetReps = const Value.absent(),
+    this.targetDistanceMetres = const Value.absent(),
+    this.targetDurationSeconds = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.userId = const Value.absent(),
     this.syncedAt = const Value.absent(),
@@ -2512,6 +2622,8 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     Expression<int>? orderIndex,
     Expression<int>? targetSets,
     Expression<int>? targetReps,
+    Expression<double>? targetDistanceMetres,
+    Expression<int>? targetDurationSeconds,
     Expression<String>? remoteId,
     Expression<String>? userId,
     Expression<DateTime>? syncedAt,
@@ -2524,6 +2636,10 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
       if (orderIndex != null) 'order_index': orderIndex,
       if (targetSets != null) 'target_sets': targetSets,
       if (targetReps != null) 'target_reps': targetReps,
+      if (targetDistanceMetres != null)
+        'target_distance_metres': targetDistanceMetres,
+      if (targetDurationSeconds != null)
+        'target_duration_seconds': targetDurationSeconds,
       if (remoteId != null) 'remote_id': remoteId,
       if (userId != null) 'user_id': userId,
       if (syncedAt != null) 'synced_at': syncedAt,
@@ -2538,6 +2654,8 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     Value<int>? orderIndex,
     Value<int>? targetSets,
     Value<int>? targetReps,
+    Value<double?>? targetDistanceMetres,
+    Value<int?>? targetDurationSeconds,
     Value<String?>? remoteId,
     Value<String?>? userId,
     Value<DateTime?>? syncedAt,
@@ -2550,6 +2668,9 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
       orderIndex: orderIndex ?? this.orderIndex,
       targetSets: targetSets ?? this.targetSets,
       targetReps: targetReps ?? this.targetReps,
+      targetDistanceMetres: targetDistanceMetres ?? this.targetDistanceMetres,
+      targetDurationSeconds:
+          targetDurationSeconds ?? this.targetDurationSeconds,
       remoteId: remoteId ?? this.remoteId,
       userId: userId ?? this.userId,
       syncedAt: syncedAt ?? this.syncedAt,
@@ -2578,6 +2699,16 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     if (targetReps.present) {
       map['target_reps'] = Variable<int>(targetReps.value);
     }
+    if (targetDistanceMetres.present) {
+      map['target_distance_metres'] = Variable<double>(
+        targetDistanceMetres.value,
+      );
+    }
+    if (targetDurationSeconds.present) {
+      map['target_duration_seconds'] = Variable<int>(
+        targetDurationSeconds.value,
+      );
+    }
     if (remoteId.present) {
       map['remote_id'] = Variable<String>(remoteId.value);
     }
@@ -2602,6 +2733,8 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
           ..write('orderIndex: $orderIndex, ')
           ..write('targetSets: $targetSets, ')
           ..write('targetReps: $targetReps, ')
+          ..write('targetDistanceMetres: $targetDistanceMetres, ')
+          ..write('targetDurationSeconds: $targetDurationSeconds, ')
           ..write('remoteId: $remoteId, ')
           ..write('userId: $userId, ')
           ..write('syncedAt: $syncedAt, ')
@@ -7155,6 +7288,8 @@ typedef $$RoutineExercisesTableCreateCompanionBuilder =
       required int orderIndex,
       Value<int> targetSets,
       Value<int> targetReps,
+      Value<double?> targetDistanceMetres,
+      Value<int?> targetDurationSeconds,
       Value<String?> remoteId,
       Value<String?> userId,
       Value<DateTime?> syncedAt,
@@ -7168,6 +7303,8 @@ typedef $$RoutineExercisesTableUpdateCompanionBuilder =
       Value<int> orderIndex,
       Value<int> targetSets,
       Value<int> targetReps,
+      Value<double?> targetDistanceMetres,
+      Value<int?> targetDurationSeconds,
       Value<String?> remoteId,
       Value<String?> userId,
       Value<DateTime?> syncedAt,
@@ -7251,6 +7388,16 @@ class $$RoutineExercisesTableFilterComposer
 
   ColumnFilters<int> get targetReps => $composableBuilder(
     column: $table.targetReps,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get targetDistanceMetres => $composableBuilder(
+    column: $table.targetDistanceMetres,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get targetDurationSeconds => $composableBuilder(
+    column: $table.targetDurationSeconds,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7350,6 +7497,16 @@ class $$RoutineExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get targetDistanceMetres => $composableBuilder(
+    column: $table.targetDistanceMetres,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get targetDurationSeconds => $composableBuilder(
+    column: $table.targetDurationSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get remoteId => $composableBuilder(
     column: $table.remoteId,
     builder: (column) => ColumnOrderings(column),
@@ -7441,6 +7598,16 @@ class $$RoutineExercisesTableAnnotationComposer
 
   GeneratedColumn<int> get targetReps => $composableBuilder(
     column: $table.targetReps,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get targetDistanceMetres => $composableBuilder(
+    column: $table.targetDistanceMetres,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get targetDurationSeconds => $composableBuilder(
+    column: $table.targetDurationSeconds,
     builder: (column) => column,
   );
 
@@ -7539,6 +7706,8 @@ class $$RoutineExercisesTableTableManager
                 Value<int> orderIndex = const Value.absent(),
                 Value<int> targetSets = const Value.absent(),
                 Value<int> targetReps = const Value.absent(),
+                Value<double?> targetDistanceMetres = const Value.absent(),
+                Value<int?> targetDurationSeconds = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
@@ -7550,6 +7719,8 @@ class $$RoutineExercisesTableTableManager
                 orderIndex: orderIndex,
                 targetSets: targetSets,
                 targetReps: targetReps,
+                targetDistanceMetres: targetDistanceMetres,
+                targetDurationSeconds: targetDurationSeconds,
                 remoteId: remoteId,
                 userId: userId,
                 syncedAt: syncedAt,
@@ -7563,6 +7734,8 @@ class $$RoutineExercisesTableTableManager
                 required int orderIndex,
                 Value<int> targetSets = const Value.absent(),
                 Value<int> targetReps = const Value.absent(),
+                Value<double?> targetDistanceMetres = const Value.absent(),
+                Value<int?> targetDurationSeconds = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
@@ -7574,6 +7747,8 @@ class $$RoutineExercisesTableTableManager
                 orderIndex: orderIndex,
                 targetSets: targetSets,
                 targetReps: targetReps,
+                targetDistanceMetres: targetDistanceMetres,
+                targetDurationSeconds: targetDurationSeconds,
                 remoteId: remoteId,
                 userId: userId,
                 syncedAt: syncedAt,

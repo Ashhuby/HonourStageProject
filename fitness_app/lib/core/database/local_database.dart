@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
+import '../../features/workout/data/badge_service.dart';
 import '../../features/workout/data/workout_tables.dart';
 import '../../features/workout/domain/activity.dart';
 import '../../features/workout/domain/muscle.dart';
@@ -31,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   final bool _isTesting;
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration {
@@ -137,6 +138,9 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 10) {
           await _migrateToCategories(from);
+        }
+        if (from < 11) {
+          await _migrateToActivityTargets();
         }
       },
       beforeOpen: (details) async {
@@ -249,6 +253,26 @@ class AppDatabase extends _$AppDatabase {
       "UPDATE exercises SET body_part = 'Back' "
       "WHERE name = 'Chin Ups' AND body_part = 'Biceps' AND is_custom = 0",
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // v11 — targets an activity can express
+  // ---------------------------------------------------------------------------
+
+  /// v10 to v11: routine targets for exercises that are not counted in reps,
+  /// and the badges that recognise cardio and mobility training.
+  ///
+  /// Both nullable with no backfill: a null target means "no plan for this",
+  /// which is exactly true of every routine written before now.
+  Future<void> _migrateToActivityTargets() async {
+    await customStatement(
+      'ALTER TABLE routine_exercises ADD COLUMN target_distance_metres REAL',
+    );
+    await customStatement(
+      'ALTER TABLE routine_exercises ADD COLUMN target_duration_seconds INTEGER',
+    );
+    // Safe to re-run: badges upsert on a real unique key.
+    await _seedBadges();
   }
 
   // ---------------------------------------------------------------------------
@@ -772,17 +796,17 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// Writes a row for every badge the app defines.
+  ///
+  /// Driven from [kAllBadges] rather than a second hardcoded list — the two
+  /// used to be maintained separately, so a badge added to the definitions had
+  /// no row and could never be awarded.
+  ///
+  /// Genuinely idempotent, unlike the exercise seed: `badges.badgeKey` carries
+  /// a real unique constraint, so this is a true upsert and is safe to call
+  /// from a migration to introduce new badges.
   Future<void> _seedBadges() async {
-    const badgeKeys = [
-      'first_workout',
-      'streak_7_day',
-      'streak_30_day',
-      'first_pr',
-      'pr_10',
-      'sets_50',
-      'sets_500',
-      'first_custom_exercise',
-    ];
+    final badgeKeys = [for (final badge in kAllBadges) badge.key];
     await batch((b) {
       for (final key in badgeKeys) {
         b.insert(

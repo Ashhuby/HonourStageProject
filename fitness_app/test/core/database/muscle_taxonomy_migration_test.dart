@@ -42,6 +42,13 @@ void main() {
   ) async {
     final db = AppDatabase.forTesting(NativeDatabase(dbFile));
     await db.customStatement('SELECT 1'); // force onCreate
+    // The v11 target columns did not exist yet either.
+    await db.customStatement(
+      'ALTER TABLE routine_exercises DROP COLUMN target_distance_metres',
+    );
+    await db.customStatement(
+      'ALTER TABLE routine_exercises DROP COLUMN target_duration_seconds',
+    );
     // The v10 columns and their trigger did not exist yet. Dropping them is
     // what makes this file genuinely look like the older schema — without it
     // the v10 branch tries to add a column that is already there. Triggers go

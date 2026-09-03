@@ -36,18 +36,27 @@ android {
         versionName = flutter.versionName
     }
 
+    // Only declared when the keystore is actually present. key.properties is
+    // gitignored, so on a machine without it these lookups return null and an
+    // "as String" cast would fail during configuration — breaking every build,
+    // debug included, not just the release one that needs signing.
     signingConfigs {
-        create("release") {
-            keyAlias = keyProperties["keyAlias"] as String
-            keyPassword = keyProperties["keyPassword"] as String
-            storeFile = file(keyProperties["storeFile"] as String)
-            storePassword = keyProperties["storePassword"] as String
+        if (keyPropertiesFile.exists()) {
+            create("release") {
+                keyAlias = keyProperties["keyAlias"] as String
+                keyPassword = keyProperties["keyPassword"] as String
+                storeFile = file(keyProperties["storeFile"] as String)
+                storePassword = keyProperties["storePassword"] as String
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Falls back to debug signing when there is no keystore. Such a
+            // build runs locally but cannot be published.
+            signingConfig =
+                signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 }

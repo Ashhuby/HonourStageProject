@@ -70,17 +70,58 @@ String formatPersonalBest(PersonalBest pb) => formatSetSummary(
 
 /// Progress against a routine's plan for one exercise.
 ///
-/// [tracksReps] is false for time- and distance-based exercises, where a rep
-/// target means nothing and is left out.
+/// The target clause follows the exercise's [metricType], because a rep target
+/// is meaningless for a run and a distance target is meaningless for a squat.
+/// A null distance or duration means the routine says nothing beyond the set
+/// count, which is what every routine written before targets existed says.
 String formatTargetProgress({
   required int logged,
   required int targetSets,
   required int targetReps,
-  required bool tracksReps,
+  required String metricType,
+  double? targetDistanceMetres,
+  int? targetDurationSeconds,
 }) {
   if (logged >= targetSets) {
     return 'TARGET MET \u00b7 $logged OF $targetSets SETS';
   }
-  final reps = tracksReps ? ' \u00b7 TARGET $targetReps REPS' : '';
-  return 'SET ${logged + 1} OF $targetSets$reps';
+
+  final target = switch (metricType) {
+    'distanceTime' =>
+      targetDistanceMetres == null
+          ? ''
+          : ' \u00b7 TARGET ${formatDistance(targetDistanceMetres)}',
+    'timeOnly' =>
+      targetDurationSeconds == null
+          ? ''
+          : ' \u00b7 TARGET ${formatDuration(targetDurationSeconds)}',
+    _ => ' \u00b7 TARGET $targetReps REPS',
+  };
+  return 'SET ${logged + 1} OF $targetSets$target';
+}
+
+/// The routine's plan for one exercise, as a compact right-aligned label.
+///
+/// `3 x 10` for a lift, `3 x 5.0km` for a run, `3 x 45s` for a hold — and just
+/// `3 sets` when the routine names no target for a non-rep exercise.
+String formatTargetSummary({
+  required int targetSets,
+  required int targetReps,
+  required String metricType,
+  double? targetDistanceMetres,
+  int? targetDurationSeconds,
+}) {
+  final per = switch (metricType) {
+    'distanceTime' =>
+      targetDistanceMetres == null
+          ? null
+          : formatDistance(targetDistanceMetres),
+    'timeOnly' =>
+      targetDurationSeconds == null
+          ? null
+          : formatDuration(targetDurationSeconds),
+    _ => '$targetReps',
+  };
+  if (per == null) return '$targetSets sets';
+  return '$targetSets \u00d7 $per';
 }

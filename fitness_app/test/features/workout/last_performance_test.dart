@@ -342,14 +342,89 @@ void main() {
   // Formatting
   // ---------------------------------------------------------------------------
 
+  group('formatTargetSummary', () {
+    test('a lift reads as sets x reps', () {
+      expect(
+        formatTargetSummary(
+          targetSets: 3,
+          targetReps: 10,
+          metricType: 'weightReps',
+        ),
+        '3 × 10',
+      );
+    });
+
+    test('a run reads as sets x distance', () {
+      expect(
+        formatTargetSummary(
+          targetSets: 1,
+          targetReps: 10,
+          metricType: 'distanceTime',
+          targetDistanceMetres: 5000,
+        ),
+        '1 × 5.0km',
+      );
+    });
+
+    test('a hold reads as sets x time', () {
+      expect(
+        formatTargetSummary(
+          targetSets: 3,
+          targetReps: 10,
+          metricType: 'timeOnly',
+          targetDurationSeconds: 45,
+        ),
+        '3 × 45s',
+      );
+    });
+
+    test('no target for a non-rep exercise reads as the set count', () {
+      // Every routine written before targets existed says exactly this, and
+      // "3 x 10 reps" for a run said something untrue.
+      expect(
+        formatTargetSummary(
+          targetSets: 3,
+          targetReps: 10,
+          metricType: 'distanceTime',
+        ),
+        '3 sets',
+      );
+    });
+  });
+
   group('formatTargetProgress', () {
+    test('names a distance target rather than a rep count', () {
+      expect(
+        formatTargetProgress(
+          logged: 0,
+          targetSets: 1,
+          targetReps: 10,
+          metricType: 'distanceTime',
+          targetDistanceMetres: 5000,
+        ),
+        'SET 1 OF 1 · TARGET 5.0km',
+      );
+    });
+
+    test('omits the clause when the routine names no target', () {
+      expect(
+        formatTargetProgress(
+          logged: 0,
+          targetSets: 3,
+          targetReps: 10,
+          metricType: 'timeOnly',
+        ),
+        'SET 1 OF 3',
+      );
+    });
+
     test('counts up to the planned sets', () {
       expect(
         formatTargetProgress(
           logged: 0,
           targetSets: 3,
           targetReps: 10,
-          tracksReps: true,
+          metricType: 'weightReps',
         ),
         'SET 1 OF 3 · TARGET 10 REPS',
       );
@@ -358,7 +433,7 @@ void main() {
           logged: 2,
           targetSets: 3,
           targetReps: 10,
-          tracksReps: true,
+          metricType: 'weightReps',
         ),
         'SET 3 OF 3 · TARGET 10 REPS',
       );
@@ -370,7 +445,7 @@ void main() {
           logged: 1,
           targetSets: 3,
           targetReps: 10,
-          tracksReps: false,
+          metricType: 'timeOnly',
         ),
         'SET 2 OF 3',
       );
@@ -382,7 +457,7 @@ void main() {
           logged: 3,
           targetSets: 3,
           targetReps: 10,
-          tracksReps: true,
+          metricType: 'weightReps',
         ),
         'TARGET MET · 3 OF 3 SETS',
       );
@@ -391,7 +466,7 @@ void main() {
           logged: 5,
           targetSets: 3,
           targetReps: 10,
-          tracksReps: true,
+          metricType: 'weightReps',
         ),
         'TARGET MET · 5 OF 3 SETS',
       );

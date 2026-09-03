@@ -124,9 +124,11 @@ void main() {
     expect(entry.exercise.bodyPart, 'Legs');
   });
 
-  test('deleting an exercise cascades its muscle rows away', () async {
-    // The cascade is load-bearing at runtime — beforeOpen turns foreign keys
-    // on — even though it is inert during a migration.
+  test('deleting an exercise retires it without destroying history', () async {
+    // A soft delete now, matching every other table. The hard delete it
+    // replaced threw on the foreign key as soon as the exercise had ever been
+    // logged — so the swipe gesture silently failed for exactly the exercises
+    // the user had actually trained.
     final id = await repository().addExercise(
       'Zercher Squat',
       'Barbell',
@@ -136,8 +138,17 @@ void main() {
 
     await repository().deleteExercise(id);
 
-    final orphans = await db.select(db.exerciseMuscles).get();
-    expect(orphans, isEmpty);
+    // Gone from the library...
+    expect(await catalogue(), isEmpty);
+
+    // ...but the row and its muscles survive, so any sets logged against it
+    // still read, and the retirement propagates on the next sync.
+    final row = await (db.select(
+      db.exercises,
+    )..where((e) => e.id.equals(id))).getSingle();
+    expect(row.deletedAt, isNotNull);
+    expect(row.syncedAt, isNull);
+    expect(await db.select(db.exerciseMuscles).get(), hasLength(2));
   });
 
   // ---------------------------------------------------------------------------

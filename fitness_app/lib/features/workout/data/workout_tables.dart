@@ -121,6 +121,19 @@ class RoutineExercises extends Table {
   IntColumn get orderIndex => integer()();
   IntColumn get targetSets => integer().withDefault(const Constant(3))();
   IntColumn get targetReps => integer().withDefault(const Constant(10))();
+
+  /// The target for an exercise that is not measured in reps.
+  ///
+  /// Both null for a lift, where [targetReps] is the plan. A run planned as
+  /// "3 sets of 10 reps" was the only thing a routine could say about it,
+  /// which is to say nothing at all.
+  ///
+  /// Which one applies follows the exercise's metric type: `distanceTime`
+  /// reads [targetDistanceMetres], `timeOnly` reads [targetDurationSeconds].
+  /// Storing both keeps a routine's plan intact if the exercise's metric type
+  /// is later changed.
+  RealColumn get targetDistanceMetres => real().nullable()();
+  IntColumn get targetDurationSeconds => integer().nullable()();
   TextColumn get remoteId => text().nullable()();
   TextColumn get userId => text().nullable()();
   DateTimeColumn get syncedAt => dateTime().nullable()();

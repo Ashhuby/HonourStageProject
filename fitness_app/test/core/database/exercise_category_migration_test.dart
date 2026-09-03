@@ -47,6 +47,13 @@ void main() {
     );
     await db.customStatement('ALTER TABLE exercises DROP COLUMN modality');
     await db.customStatement('ALTER TABLE exercises DROP COLUMN category');
+    // The v11 target columns did not exist yet either.
+    await db.customStatement(
+      'ALTER TABLE routine_exercises DROP COLUMN target_distance_metres',
+    );
+    await db.customStatement(
+      'ALTER TABLE routine_exercises DROP COLUMN target_duration_seconds',
+    );
     await seed(db);
     await db.customStatement('PRAGMA user_version = 9');
     await db.close();

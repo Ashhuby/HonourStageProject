@@ -96,6 +96,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
   /// The notification is scheduled up front rather than fired when the ticker
   /// runs out, so it still arrives if the phone is locked or the app is
   /// evicted during the set.
+  /// Whether logging this kind of set should start the rest countdown.
+  ///
+  /// True for the two rep-based metrics. Timed holds are borderline — a plank
+  /// is a set you rest after — but `timeOnly` also covers every stretch and a
+  /// jump-rope round, so the metric alone cannot tell them apart and the
+  /// quieter default is the right one.
+  bool _restsBetweenSets(String metricType) =>
+      metricType == 'weightReps' || metricType == 'bodyweightReps';
+
   void _startTimer() {
     final endsAt = DateTime.now().add(Duration(seconds: _restDuration));
     setState(() {
@@ -750,7 +759,13 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
         break;
     }
 
-    _startTimer();
+    // Rest between sets is a lifting idea. A run or a stretch is the session,
+    // not one effort within it, so counting down 90 seconds afterwards — and
+    // scheduling a notification for it — is noise. The user can still start
+    // the timer by hand from the rest card.
+    if (_restsBetweenSets(metricType)) {
+      _startTimer();
+    }
 
     final prResult = await ref
         .read(sessionRepositoryProvider.notifier)
@@ -907,16 +922,13 @@ class _RoutineTargetBar extends ConsumerWidget {
     final targetReps = target.routineExercise.targetReps;
     final met = logged >= targetSets;
 
-    // Reps are meaningless for time- and distance-based exercises.
-    final tracksReps =
-        exercise.metricType == 'weightReps' ||
-        exercise.metricType == 'bodyweightReps';
-
     final label = formatTargetProgress(
       logged: logged,
       targetSets: targetSets,
       targetReps: targetReps,
-      tracksReps: tracksReps,
+      metricType: exercise.metricType,
+      targetDistanceMetres: target.routineExercise.targetDistanceMetres,
+      targetDurationSeconds: target.routineExercise.targetDurationSeconds,
     );
 
     return Padding(
