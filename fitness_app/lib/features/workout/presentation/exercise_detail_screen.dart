@@ -7,14 +7,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/features/profile/data/profile_provider.dart';
 import 'package:fitness_app/features/workout/data/strength_standards_data.dart';
+import '../data/exercise_catalogue.dart';
 import '../data/personal_best_repository.dart';
 import '../data/session_repository.dart';
 import 'package:fitness_app/features/profile/presentation/profile_screen.dart';
 
 class ExerciseDetailScreen extends ConsumerWidget {
-  final Exercise exercise;
+  /// The exercise together with the muscles it trains.
+  ///
+  /// Carries the whole catalogue entry rather than a bare [Exercise] so the
+  /// subtitle can name the primary muscle and list the secondaries. `bodyPart`
+  /// alone would say "Arms" where "Biceps, also Forearms" is the useful thing.
+  final ExerciseWithMuscles entry;
 
-  const ExerciseDetailScreen({super.key, required this.exercise});
+  const ExerciseDetailScreen({super.key, required this.entry});
+
+  Exercise get exercise => entry.exercise;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,9 +40,20 @@ class ExerciseDetailScreen extends ConsumerWidget {
           _SectionHeader(title: exercise.name),
           const SizedBox(height: 4),
           Text(
-            '${exercise.bodyPart} • ${exercise.equipmentType}',
+            '${entry.muscleLabel} • ${exercise.equipmentType}',
             style: const TextStyle(color: OneRepColors.textSecondary),
           ),
+          if (entry.secondary.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'Also works ${entry.secondary.map((m) => m.label).join(', ')}',
+                style: const TextStyle(
+                  color: OneRepColors.textDisabled,
+                  fontSize: 12,
+                ),
+              ),
+            ),
           if (exercise.isCustom)
             const Padding(
               padding: EdgeInsets.only(top: 4),

@@ -188,7 +188,7 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ExerciseDetailScreen(exercise: entry.exercise),
+              builder: (_) => ExerciseDetailScreen(entry: entry),
             ),
           ),
         ),

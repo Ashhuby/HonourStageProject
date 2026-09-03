@@ -105,13 +105,10 @@ Path inertPathFor(BodyView view) {
   return _backInert ??= _parseAll(kBackInertPaths);
 }
 
-/// The tappable regions of [view]: one path per [MuscleGroup], unioned from
-/// the muscles of that group which this view actually shows.
-///
-/// Groups rather than muscles, deliberately. Seven regions on two figures are
-/// all comfortably fingertip-sized; a forearm or a calf is not, so the chip
-/// row below the diagram — not the diagram — is where those are chosen.
-Map<MuscleGroup, Path> groupRegionsFor(BodyView view) {
+Map<MuscleGroup, Path>? _frontRegions;
+Map<MuscleGroup, Path>? _backRegions;
+
+Map<MuscleGroup, Path> _buildRegions(BodyView view) {
   final muscles = musclePathsFor(view);
   final regions = <MuscleGroup, Path>{};
 
@@ -127,20 +124,44 @@ Map<MuscleGroup, Path> groupRegionsFor(BodyView view) {
   return regions;
 }
 
+/// The tappable regions of [view]: one path per [MuscleGroup], unioned from
+/// the muscles of that group which this view actually shows.
+///
+/// Groups rather than muscles, deliberately. Seven regions on two figures are
+/// all comfortably fingertip-sized; a forearm or a calf is not, so the chip
+/// row below the diagram — not the diagram — is where those are chosen.
+///
+/// Cached, like the muscle paths. Both the widget build and the painter read
+/// this, so rebuilding the unions on every call would redo sixteen path
+/// merges several times a frame while the library scrolls.
+Map<MuscleGroup, Path> groupRegionsFor(BodyView view) {
+  if (view == BodyView.front) return _frontRegions ??= _buildRegions(view);
+  return _backRegions ??= _buildRegions(view);
+}
+
+List<MuscleGroup>? _frontOrder;
+List<MuscleGroup>? _backOrder;
+
+List<MuscleGroup> _buildHitOrder(BodyView view) {
+  final regions = groupRegionsFor(view);
+  return regions.keys.toList()..sort((a, b) {
+    final aBounds = regions[a]!.getBounds();
+    final bBounds = regions[b]!.getBounds();
+    return (aBounds.width * aBounds.height).compareTo(
+      bBounds.width * bBounds.height,
+    );
+  });
+}
+
 /// Groups ordered smallest-area-first, so that where two overlap a tap
 /// resolves to the more specific one.
 ///
 /// Bounding-box area stands in for true area: it is cheap, stable, and the
 /// ordering only has to be roughly right to feel correct under a thumb.
+///
+/// Cached for the same reason as [groupRegionsFor] — and this one also calls
+/// `getBounds()` on every region, which is not free.
 List<MuscleGroup> hitOrderFor(BodyView view) {
-  final regions = groupRegionsFor(view);
-  final ordered = regions.keys.toList()
-    ..sort((a, b) {
-      final aBounds = regions[a]!.getBounds();
-      final bBounds = regions[b]!.getBounds();
-      return (aBounds.width * aBounds.height).compareTo(
-        bBounds.width * bBounds.height,
-      );
-    });
-  return ordered;
+  if (view == BodyView.front) return _frontOrder ??= _buildHitOrder(view);
+  return _backOrder ??= _buildHitOrder(view);
 }
