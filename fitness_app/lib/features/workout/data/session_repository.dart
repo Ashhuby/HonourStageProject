@@ -69,6 +69,59 @@ Future<ExerciseProgress> getProgressSeriesForExercise(
   );
 }
 
+/// The record series for one exercise — the best effort per session.
+///
+/// Sibling of [getProgressSeriesForExercise], which answers "how much did I
+/// do"; this answers "am I improving", so it takes the session *best* rather
+/// than the session total, and cardio is judged on pace rather than distance.
+///
+/// A provider rather than a `FutureBuilder` over a raw query, which is what
+/// the PR chart used to do — building the future inside `build` meant a fresh
+/// query on every rebuild, and no way for the chart to notice a new record.
+@riverpod
+Future<ExerciseProgress> getRecordSeriesForExercise(
+  Ref ref,
+  int exerciseId,
+) async {
+  final db = ref.watch(databaseProvider);
+
+  final exercise = await (db.select(
+    db.exercises,
+  )..where((e) => e.id.equals(exerciseId))).getSingleOrNull();
+  final metric = recordMetricFor(exercise?.metricType ?? 'weightReps');
+
+  final query =
+      db.select(db.workoutSets).join([
+          innerJoin(
+            db.workoutSessions,
+            db.workoutSessions.id.equalsExp(db.workoutSets.sessionId),
+          ),
+        ])
+        ..where(db.workoutSets.exerciseId.equals(exerciseId))
+        ..where(db.workoutSessions.endTime.isNotNull())
+        ..where(db.workoutSessions.deletedAt.isNull())
+        ..where(db.workoutSets.deletedAt.isNull())
+        ..orderBy([OrderingTerm.asc(db.workoutSessions.startTime)]);
+
+  final rows = await query.get();
+
+  final samples = <SetSample>[
+    for (final row in rows)
+      (
+        date: row.readTable(db.workoutSessions).startTime,
+        weight: row.readTable(db.workoutSets).weight,
+        reps: row.readTable(db.workoutSets).reps,
+        durationSeconds: row.readTable(db.workoutSets).durationSeconds,
+        distanceMetres: row.readTable(db.workoutSets).distanceMetres,
+      ),
+  ];
+
+  return ExerciseProgress(
+    metric: metric,
+    points: sessionBests(samples, metric),
+  );
+}
+
 /// An exercise's progress series, together with the metric that chose it.
 ///
 /// The metric travels with the points because the caller has to label the

@@ -160,6 +160,196 @@ class _GetProgressSeriesForExerciseProviderElement
       (origin as GetProgressSeriesForExerciseProvider).exerciseId;
 }
 
+String _$getRecordSeriesForExerciseHash() =>
+    r'a8d2f522773892aeac0bdeacb0f928072f000337';
+
+/// The record series for one exercise — the best effort per session.
+///
+/// Sibling of [getProgressSeriesForExercise], which answers "how much did I
+/// do"; this answers "am I improving", so it takes the session *best* rather
+/// than the session total, and cardio is judged on pace rather than distance.
+///
+/// A provider rather than a `FutureBuilder` over a raw query, which is what
+/// the PR chart used to do — building the future inside `build` meant a fresh
+/// query on every rebuild, and no way for the chart to notice a new record.
+///
+/// Copied from [getRecordSeriesForExercise].
+@ProviderFor(getRecordSeriesForExercise)
+const getRecordSeriesForExerciseProvider = GetRecordSeriesForExerciseFamily();
+
+/// The record series for one exercise — the best effort per session.
+///
+/// Sibling of [getProgressSeriesForExercise], which answers "how much did I
+/// do"; this answers "am I improving", so it takes the session *best* rather
+/// than the session total, and cardio is judged on pace rather than distance.
+///
+/// A provider rather than a `FutureBuilder` over a raw query, which is what
+/// the PR chart used to do — building the future inside `build` meant a fresh
+/// query on every rebuild, and no way for the chart to notice a new record.
+///
+/// Copied from [getRecordSeriesForExercise].
+class GetRecordSeriesForExerciseFamily
+    extends Family<AsyncValue<ExerciseProgress>> {
+  /// The record series for one exercise — the best effort per session.
+  ///
+  /// Sibling of [getProgressSeriesForExercise], which answers "how much did I
+  /// do"; this answers "am I improving", so it takes the session *best* rather
+  /// than the session total, and cardio is judged on pace rather than distance.
+  ///
+  /// A provider rather than a `FutureBuilder` over a raw query, which is what
+  /// the PR chart used to do — building the future inside `build` meant a fresh
+  /// query on every rebuild, and no way for the chart to notice a new record.
+  ///
+  /// Copied from [getRecordSeriesForExercise].
+  const GetRecordSeriesForExerciseFamily();
+
+  /// The record series for one exercise — the best effort per session.
+  ///
+  /// Sibling of [getProgressSeriesForExercise], which answers "how much did I
+  /// do"; this answers "am I improving", so it takes the session *best* rather
+  /// than the session total, and cardio is judged on pace rather than distance.
+  ///
+  /// A provider rather than a `FutureBuilder` over a raw query, which is what
+  /// the PR chart used to do — building the future inside `build` meant a fresh
+  /// query on every rebuild, and no way for the chart to notice a new record.
+  ///
+  /// Copied from [getRecordSeriesForExercise].
+  GetRecordSeriesForExerciseProvider call(int exerciseId) {
+    return GetRecordSeriesForExerciseProvider(exerciseId);
+  }
+
+  @override
+  GetRecordSeriesForExerciseProvider getProviderOverride(
+    covariant GetRecordSeriesForExerciseProvider provider,
+  ) {
+    return call(provider.exerciseId);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'getRecordSeriesForExerciseProvider';
+}
+
+/// The record series for one exercise — the best effort per session.
+///
+/// Sibling of [getProgressSeriesForExercise], which answers "how much did I
+/// do"; this answers "am I improving", so it takes the session *best* rather
+/// than the session total, and cardio is judged on pace rather than distance.
+///
+/// A provider rather than a `FutureBuilder` over a raw query, which is what
+/// the PR chart used to do — building the future inside `build` meant a fresh
+/// query on every rebuild, and no way for the chart to notice a new record.
+///
+/// Copied from [getRecordSeriesForExercise].
+class GetRecordSeriesForExerciseProvider
+    extends AutoDisposeFutureProvider<ExerciseProgress> {
+  /// The record series for one exercise — the best effort per session.
+  ///
+  /// Sibling of [getProgressSeriesForExercise], which answers "how much did I
+  /// do"; this answers "am I improving", so it takes the session *best* rather
+  /// than the session total, and cardio is judged on pace rather than distance.
+  ///
+  /// A provider rather than a `FutureBuilder` over a raw query, which is what
+  /// the PR chart used to do — building the future inside `build` meant a fresh
+  /// query on every rebuild, and no way for the chart to notice a new record.
+  ///
+  /// Copied from [getRecordSeriesForExercise].
+  GetRecordSeriesForExerciseProvider(int exerciseId)
+    : this._internal(
+        (ref) => getRecordSeriesForExercise(
+          ref as GetRecordSeriesForExerciseRef,
+          exerciseId,
+        ),
+        from: getRecordSeriesForExerciseProvider,
+        name: r'getRecordSeriesForExerciseProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$getRecordSeriesForExerciseHash,
+        dependencies: GetRecordSeriesForExerciseFamily._dependencies,
+        allTransitiveDependencies:
+            GetRecordSeriesForExerciseFamily._allTransitiveDependencies,
+        exerciseId: exerciseId,
+      );
+
+  GetRecordSeriesForExerciseProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.exerciseId,
+  }) : super.internal();
+
+  final int exerciseId;
+
+  @override
+  Override overrideWith(
+    FutureOr<ExerciseProgress> Function(GetRecordSeriesForExerciseRef provider)
+    create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: GetRecordSeriesForExerciseProvider._internal(
+        (ref) => create(ref as GetRecordSeriesForExerciseRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        exerciseId: exerciseId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeFutureProviderElement<ExerciseProgress> createElement() {
+    return _GetRecordSeriesForExerciseProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is GetRecordSeriesForExerciseProvider &&
+        other.exerciseId == exerciseId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, exerciseId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin GetRecordSeriesForExerciseRef
+    on AutoDisposeFutureProviderRef<ExerciseProgress> {
+  /// The parameter `exerciseId` of this provider.
+  int get exerciseId;
+}
+
+class _GetRecordSeriesForExerciseProviderElement
+    extends AutoDisposeFutureProviderElement<ExerciseProgress>
+    with GetRecordSeriesForExerciseRef {
+  _GetRecordSeriesForExerciseProviderElement(super.provider);
+
+  @override
+  int get exerciseId =>
+      (origin as GetRecordSeriesForExerciseProvider).exerciseId;
+}
+
 String _$getAttendanceDataHash() => r'3cac6246a31b12e502c48c537e8049e60ae0353b';
 
 /// See also [getAttendanceData].

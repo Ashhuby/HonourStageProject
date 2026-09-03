@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' hide Column;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +10,6 @@ import '../domain/session_highlights.dart';
 import 'widgets/exercise_field.dart';
 import 'widgets/session_chips.dart';
 import 'widgets/exercise_picker_sheet.dart';
-import '../../../core/database/database_provider.dart';
 
 class ProgressScreen extends ConsumerStatefulWidget {
   const ProgressScreen({super.key});
@@ -30,147 +28,162 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
     final attendanceAsync = ref.watch(getAttendanceDataProvider);
     final streakAsync = ref.watch(getWeeklyStreakProvider);
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 40),
-      children: [
-        // ----------------------------------------------------------------
-        // Stat cards
-        // ----------------------------------------------------------------
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Row(
-            children: [
-              _StatCard(
-                label: 'WEEKLY\nSTREAK',
-                value: streakAsync.when(
-                  data: (s) => '$s',
-                  loading: () => '—',
-                  error: (_, __) => '—',
-                ),
-                unit: 'wks',
-                icon: Icons.local_fire_department,
-                color: OneRepColors.coral,
-              ),
-              const SizedBox(width: 10),
-              _StatCard(
-                label: 'TOTAL\nSESSIONS',
-                value: sessionsAsync.when(
-                  data: (s) => '${s.length}',
-                  loading: () => '—',
-                  error: (_, __) => '—',
-                ),
-                unit: 'done',
-                icon: Icons.fitness_center,
-                color: OneRepColors.gold,
-              ),
-              const SizedBox(width: 10),
-              _StatCard(
-                label: 'THIS\nMONTH',
-                value: sessionsAsync.when(
-                  data: (sessions) {
-                    final now = DateTime.now();
-                    final count = sessions
-                        .where(
-                          (s) =>
-                              s.startTime.month == now.month &&
-                              s.startTime.year == now.year,
-                        )
-                        .length;
-                    return '$count';
-                  },
-                  loading: () => '—',
-                  error: (_, __) => '—',
-                ),
-                unit: 'sessions',
-                icon: Icons.calendar_month,
-                color: OneRepColors.back,
-              ),
-            ],
-          ),
-        ),
-
-        // ----------------------------------------------------------------
-        // Attendance heatmap
-        // ----------------------------------------------------------------
-        const _SectionLabel(title: 'ATTENDANCE — LAST 12 WEEKS'),
-        attendanceAsync.when(
-          data: (attendance) => _AttendanceHeatmap(attendance: attendance),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, _) => const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Text(
-                'Could not load this.',
-                style: TextStyle(color: OneRepColors.textSecondary),
+    // A CustomScrollView, not a ListView. The history used to be a
+    // shrinkWrap ListView nested inside this one with scrolling disabled,
+    // so every session row was built on every frame with no viewport
+    // culling — which only got more expensive once the rows started
+    // carrying highlight chips.
+    return CustomScrollView(
+      slivers: [
+        SliverList.list(
+          children: [
+            // ----------------------------------------------------------------
+            // Stat cards
+            // ----------------------------------------------------------------
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Row(
+                children: [
+                  _StatCard(
+                    label: 'WEEKLY\nSTREAK',
+                    value: streakAsync.when(
+                      data: (s) => '$s',
+                      loading: () => '—',
+                      error: (_, __) => '—',
+                    ),
+                    unit: 'wks',
+                    icon: Icons.local_fire_department,
+                    color: OneRepColors.coral,
+                  ),
+                  const SizedBox(width: 10),
+                  _StatCard(
+                    label: 'TOTAL\nSESSIONS',
+                    value: sessionsAsync.when(
+                      data: (s) => '${s.length}',
+                      loading: () => '—',
+                      error: (_, __) => '—',
+                    ),
+                    unit: 'done',
+                    icon: Icons.fitness_center,
+                    color: OneRepColors.gold,
+                  ),
+                  const SizedBox(width: 10),
+                  _StatCard(
+                    label: 'THIS\nMONTH',
+                    value: sessionsAsync.when(
+                      data: (sessions) {
+                        final now = DateTime.now();
+                        final count = sessions
+                            .where(
+                              (s) =>
+                                  s.startTime.month == now.month &&
+                                  s.startTime.year == now.year,
+                            )
+                            .length;
+                        return '$count';
+                      },
+                      loading: () => '—',
+                      error: (_, __) => '—',
+                    ),
+                    unit: 'sessions',
+                    icon: Icons.calendar_month,
+                    color: OneRepColors.back,
+                  ),
+                ],
               ),
             ),
-          ),
-        ),
 
-        // ----------------------------------------------------------------
-        // PR Progression tracker
-        // ----------------------------------------------------------------
-        const _SectionLabel(title: 'PR PROGRESSION'),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: ExerciseField(
-            exercise: _selectedExercise,
-            label: 'Select Exercise',
-            hint: 'Tap to choose',
-            onTap: () async {
-              final picked = await showExercisePicker(
-                context,
-                title: 'Choose exercise',
-              );
-              if (picked == null || !mounted) return;
-              setState(() => _selectedExercise = picked);
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (_selectedExercise != null) _PrChart(exercise: _selectedExercise!),
+            // ----------------------------------------------------------------
+            // Attendance heatmap
+            // ----------------------------------------------------------------
+            const _SectionLabel(title: 'ATTENDANCE — LAST 12 WEEKS'),
+            attendanceAsync.when(
+              data: (attendance) => _AttendanceHeatmap(attendance: attendance),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, _) => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'Could not load this.',
+                    style: TextStyle(color: OneRepColors.textSecondary),
+                  ),
+                ),
+              ),
+            ),
 
-        // ----------------------------------------------------------------
-        // Session history
-        // ----------------------------------------------------------------
-        const _SectionLabel(title: 'SESSION HISTORY'),
+            // ----------------------------------------------------------------
+            // PR Progression tracker
+            // ----------------------------------------------------------------
+            const _SectionLabel(title: 'PR PROGRESSION'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ExerciseField(
+                exercise: _selectedExercise,
+                label: 'Select Exercise',
+                hint: 'Tap to choose',
+                onTap: () async {
+                  final picked = await showExercisePicker(
+                    context,
+                    title: 'Choose exercise',
+                  );
+                  if (picked == null || !mounted) return;
+                  setState(() => _selectedExercise = picked);
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (_selectedExercise != null)
+              _PrChart(exercise: _selectedExercise!),
+
+            // ----------------------------------------------------------------
+            // Session history
+            // ----------------------------------------------------------------
+            const _SectionLabel(title: 'SESSION HISTORY'),
+          ],
+        ),
         sessionsAsync.when(
           data: (sessions) => sessions.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(
-                    child: Text(
-                      'No completed sessions yet.\nFinish a workout to see it here.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: OneRepColors.textSecondary),
+              ? const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: Text(
+                        'No completed sessions yet.\nFinish a workout to see it here.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: OneRepColors.textSecondary),
+                      ),
                     ),
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: sessions.length,
-                  itemBuilder: (context, index) {
-                    final session = sessions[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _SessionRow(
-                        session: session,
-                        highlights: highlightsAsync.valueOrNull?[session.id],
-                        onTap: () => _showSessionDetail(context, session),
-                        onDelete: () => _confirmDelete(context, ref, session),
-                      ),
-                    );
-                  },
+              : SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                  sliver: SliverList.builder(
+                    itemCount: sessions.length,
+                    itemBuilder: (context, index) {
+                      final session = sessions[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _SessionRow(
+                          session: session,
+                          highlights: highlightsAsync.valueOrNull?[session.id],
+                          onTap: () => _showSessionDetail(context, session),
+                          onDelete: () => _confirmDelete(context, ref, session),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, _) => const Center(
+          loading: () => const SliverToBoxAdapter(
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (_, _) => const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.all(24),
-              child: Text(
-                'Could not load this.',
-                style: TextStyle(color: OneRepColors.textSecondary),
+              child: Center(
+                child: Text(
+                  'Could not load this.',
+                  style: TextStyle(color: OneRepColors.textSecondary),
+                ),
               ),
             ),
           ),
@@ -439,6 +452,25 @@ class _SessionRow extends StatelessWidget {
 // Attendance heatmap
 // ---------------------------------------------------------------------------
 
+/// How many sessions a day can show before the shading stops deepening.
+///
+/// Three, because `_attendanceColor` saturates there — a legend offering a
+/// fourth step would be describing a colour the grid never draws.
+const int _kAttendanceMaxShade = 3;
+
+/// The colour one day of the heatmap is drawn in.
+///
+/// Shared by the grid and the legend. They used to compute their own ramps —
+/// `0.25 + count * 0.25` against `0.2 + i * 0.22` — which had no value in
+/// common, so the legend was a key to a scale that appeared nowhere on the
+/// chart it sat under.
+Color _attendanceColor(int sessions) {
+  if (sessions <= 0) return OneRepColors.surfaceElevated;
+  return OneRepColors.gold.withValues(
+    alpha: (0.25 + sessions * 0.25).clamp(0.25, 1.0),
+  );
+}
+
 class _AttendanceHeatmap extends StatelessWidget {
   final Map<DateTime, int> attendance;
 
@@ -456,6 +488,20 @@ class _AttendanceHeatmap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Without this the grid renders 84 blank cells, which reads as broken
+    // rather than as empty. Every other section on this tab says so in words.
+    if (attendance.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Center(
+          child: Text(
+            'No sessions in the last 12 weeks.',
+            style: TextStyle(color: OneRepColors.textSecondary, fontSize: 13),
+          ),
+        ),
+      );
+    }
+
     final stringMap = _toStringMap(attendance);
     final today = DateTime.now();
     final todayNorm = DateTime(today.year, today.month, today.day);
@@ -517,14 +563,7 @@ class _AttendanceHeatmap extends StatelessWidget {
                         margin: const EdgeInsets.symmetric(horizontal: 2),
                         height: 18,
                         decoration: BoxDecoration(
-                          color: count > 0
-                              ? OneRepColors.gold.withValues(
-                                  alpha: (0.25 + (count * 0.25)).clamp(
-                                    0.25,
-                                    1.0,
-                                  ),
-                                )
-                              : OneRepColors.surfaceElevated,
+                          color: _attendanceColor(count),
                           borderRadius: BorderRadius.circular(3),
                           border: isToday
                               ? Border.all(color: OneRepColors.gold, width: 1.5)
@@ -556,16 +595,16 @@ class _AttendanceHeatmap extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              ...List.generate(4, (i) {
+              // Starts at zero sessions, so the leftmost swatch is the empty
+              // cell the grid actually draws, and stops where the shading
+              // stops deepening rather than inventing a fourth step.
+              ...List.generate(_kAttendanceMaxShade + 1, (sessions) {
                 return Container(
                   width: 14,
                   height: 14,
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   decoration: BoxDecoration(
-                    // Opacity steps from 0.2 (1 session) to 0.88 (4+ sessions).
-                    color: OneRepColors.gold.withValues(
-                      alpha: 0.2 + (i * 0.22),
-                    ),
+                    color: _attendanceColor(sessions),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 );
@@ -601,32 +640,29 @@ class _PrChart extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final db = ref.watch(databaseProvider);
+    // A provider, not a FutureBuilder over a raw query. Building the future
+    // inside `build` — which is what this did — meant a fresh query on every
+    // rebuild and no way for the chart to notice a record it had just earned.
+    final seriesAsync = ref.watch(
+      getRecordSeriesForExerciseProvider(exercise.id),
+    );
 
-    return FutureBuilder(
-      future: _loadPrHistory(db, exercise),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            height: 200,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (snapshot.hasError) {
-          // Unchecked, a failed query fell through to `?? []` and rendered
-          // "no PRs recorded yet" — telling the user something false about
-          // their training rather than that something went wrong.
-          return const SizedBox(
-            height: 80,
-            child: Center(
-              child: Text(
-                'Could not load this history.',
-                style: TextStyle(color: OneRepColors.textSecondary),
-              ),
-            ),
-          );
-        }
-        final points = snapshot.data ?? [];
+    return seriesAsync.when(
+      loading: () => const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => const SizedBox(
+        height: 80,
+        child: Center(
+          child: Text(
+            'Could not load this history.',
+            style: TextStyle(color: OneRepColors.textSecondary),
+          ),
+        ),
+      ),
+      data: (series) {
+        final points = series.points;
         if (points.isEmpty) {
           return const SizedBox(
             height: 80,
@@ -639,8 +675,8 @@ class _PrChart extends ConsumerWidget {
           );
         }
 
-        final metricType = exercise.metricType;
-        final yLabel = _yAxisLabel(metricType);
+        final metric = series.metric;
+        final yLabel = metric.axisLabel;
 
         final spots = points
             .asMap()
@@ -718,7 +754,7 @@ class _PrChart extends ConsumerWidget {
                           showTitles: true,
                           reservedSize: 44,
                           getTitlesWidget: (value, meta) => Text(
-                            _formatYValue(value, metricType),
+                            formatSeriesValue(value, metric),
                             style: const TextStyle(
                               color: OneRepColors.textSecondary,
                               fontSize: 9,
@@ -777,63 +813,6 @@ class _PrChart extends ConsumerWidget {
       },
     );
   }
-
-  String _yAxisLabel(String metricType) =>
-      recordMetricFor(metricType).axisLabel;
-
-  String _formatYValue(double value, String metricType) =>
-      formatSeriesValue(value, recordMetricFor(metricType));
-
-  Future<List<_PrPoint>> _loadPrHistory(
-    AppDatabase db,
-    Exercise exercise,
-  ) async {
-    // Fetch all sets for this exercise that have a non-zero performance value,
-    // grouped by session date. Plot the best value per session date.
-    final query =
-        db.select(db.workoutSets).join([
-            innerJoin(
-              db.workoutSessions,
-              db.workoutSessions.id.equalsExp(db.workoutSets.sessionId),
-            ),
-          ])
-          ..where(db.workoutSets.exerciseId.equals(exercise.id))
-          ..where(db.workoutSessions.endTime.isNotNull())
-          ..where(db.workoutSessions.deletedAt.isNull())
-          ..where(db.workoutSets.deletedAt.isNull())
-          ..orderBy([OrderingTerm.asc(db.workoutSessions.startTime)]);
-
-    final rows = await query.get();
-
-    final samples = <SetSample>[
-      for (final row in rows)
-        (
-          date: row.readTable(db.workoutSessions).startTime,
-          weight: row.readTable(db.workoutSets).weight,
-          reps: row.readTable(db.workoutSets).reps,
-          durationSeconds: row.readTable(db.workoutSets).durationSeconds,
-          distanceMetres: row.readTable(db.workoutSets).distanceMetres,
-        ),
-    ];
-
-    // Cardio plots speed, aggregated across the whole session. Taking the
-    // best individual set instead let one 400 m interval stand in for an
-    // hour's running; inverting time around a constant — the previous
-    // approach — capped at 2h46m and went negative beyond it.
-    return [
-      for (final point in sessionBests(
-        samples,
-        recordMetricFor(exercise.metricType),
-      ))
-        _PrPoint(date: point.date, value: point.value),
-    ];
-  }
-}
-
-class _PrPoint {
-  final DateTime date;
-  final double value;
-  const _PrPoint({required this.date, required this.value});
 }
 
 // ---------------------------------------------------------------------------
