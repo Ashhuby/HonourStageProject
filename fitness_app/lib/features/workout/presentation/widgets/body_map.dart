@@ -25,8 +25,12 @@ class BodyMap extends StatelessWidget {
     this.figureHeight = 210,
   });
 
-  /// Per-group counts. A region with a zero [MuscleCount.total] is inert.
-  final Map<MuscleGroup, MuscleCount> counts;
+  /// Per-group counts, dimming a region that holds nothing.
+  ///
+  /// Null when the map is being used to *choose* a muscle rather than to
+  /// filter a list — in the exercise editor every region is a valid answer,
+  /// so dimming one would be saying it cannot be picked.
+  final Map<MuscleGroup, MuscleCount>? counts;
 
   final MuscleGroup? selected;
 
@@ -122,8 +126,11 @@ class BodyMap extends StatelessWidget {
     double origin,
   ) {
     final bounds = path.getBounds();
-    final count = counts[group]?.total ?? 0;
-    final plural = count == 1 ? 'exercise' : 'exercises';
+    final tally = counts;
+    final label = tally == null
+        ? group.label
+        : '${group.label}, ${tally[group]?.total ?? 0} '
+              '${(tally[group]?.total ?? 0) == 1 ? 'exercise' : 'exercises'}';
 
     return Positioned(
       left: (bounds.left - origin) * scale,
@@ -133,7 +140,7 @@ class BodyMap extends StatelessWidget {
       child: Semantics(
         button: true,
         selected: selected == group,
-        label: '${group.label}, $count $plural',
+        label: label,
         onTap: () => onSelected(selected == group ? null : group),
         child: const SizedBox.expand(),
       ),
@@ -147,7 +154,9 @@ class BodyMap extends StatelessWidget {
   /// own category, so every group on the map is a real place on the body and
   /// the diagram needs no escape hatch.
   Widget _buildPills() {
-    if (selected == null) return const SizedBox.shrink();
+    // Nothing to reset to when the map is a picker: some muscle is always the
+    // answer.
+    if (selected == null || counts == null) return const SizedBox.shrink();
 
     return _MapPill(
       label: 'Show all',
@@ -166,7 +175,7 @@ class _BodyPainter extends CustomPainter {
   });
 
   final BodyView view;
-  final Map<MuscleGroup, MuscleCount> counts;
+  final Map<MuscleGroup, MuscleCount>? counts;
   final MuscleGroup? selected;
 
   @override
@@ -183,7 +192,8 @@ class _BodyPainter extends CustomPainter {
     // Painted in reverse of the hit-test order, so the region that wins a tap
     // where two overlap is also the one drawn on top.
     for (final group in hitOrderFor(view).reversed) {
-      final count = counts[group]?.total ?? 0;
+      // A null tally means every region is live — see BodyMap.counts.
+      final count = counts?[group]?.total ?? 1;
       final isSelected = selected == group;
 
       final Color fill;

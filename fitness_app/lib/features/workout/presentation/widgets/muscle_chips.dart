@@ -13,7 +13,8 @@ import 'exercise_filter.dart';
 /// Body, whose single chip would just repeat the heading.
 ///
 /// A muscle with no exercises at all is shown disabled rather than omitted, so
-/// the row does not reflow as the library grows.
+/// the row does not reflow as the library grows — unless [counts] is null,
+/// which means the row is choosing a muscle rather than filtering by one.
 class MuscleChips extends StatelessWidget {
   const MuscleChips({
     super.key,
@@ -25,7 +26,10 @@ class MuscleChips extends StatelessWidget {
 
   final MuscleGroup group;
   final Muscle? selected;
-  final Map<Muscle, MuscleCount> counts;
+
+  /// Null when choosing rather than filtering: every muscle is then a valid
+  /// answer, so none is disabled.
+  final Map<Muscle, MuscleCount>? counts;
   final ValueChanged<Muscle?> onSelected;
 
   @override
@@ -42,7 +46,7 @@ class MuscleChips extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final muscle = muscles[index];
-          final total = counts[muscle]?.total ?? 0;
+          final total = counts?[muscle]?.total ?? 1;
           final isSelected = selected == muscle;
 
           return FilterChip(

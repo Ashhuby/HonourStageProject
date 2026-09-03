@@ -18,15 +18,20 @@ import '../../domain/muscle.dart';
 /// applies within each band: names *starting* with the query come before names
 /// merely containing it.
 ///
-/// [category] is a **pre-filter, never a sectioning axis**. Every exercise has
-/// exactly one category, so narrowing to one is a subset operation and cannot
-/// introduce a duplicate — which is what keeps [groupExercises] a partition.
+/// [category] and [isCustom] are **pre-filters, never sectioning axes**. Every
+/// exercise has exactly one of each, so narrowing is a subset operation and
+/// cannot introduce a duplicate — which is what keeps [groupExercises] a
+/// partition.
 List<ExerciseWithMuscles> filterExercises(
   List<ExerciseWithMuscles> all, {
   String query = '',
   ExerciseCategory? category,
   MuscleGroup? group,
   Muscle? muscle,
+
+  /// Null for the whole library; true for the user's own exercises only;
+  /// false for the built-in ones only.
+  bool? isCustom,
   Set<int> excludeIds = const {},
 
   /// When false only primary matches are kept, so the result is a strict
@@ -39,6 +44,7 @@ List<ExerciseWithMuscles> filterExercises(
   for (final entry in all) {
     if (excludeIds.contains(entry.id)) continue;
     if (category != null && entry.category != category) continue;
+    if (isCustom != null && entry.exercise.isCustom != isCustom) continue;
     if (needle.isNotEmpty && !entry.name.toLowerCase().contains(needle)) {
       continue;
     }

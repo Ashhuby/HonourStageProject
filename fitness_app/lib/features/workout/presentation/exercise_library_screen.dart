@@ -40,6 +40,7 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
   String _query = '';
   ExerciseCategory? _category;
   CardioModality? _modality;
+  bool _customOnly = false;
   MuscleGroup? _group;
   Muscle? _muscle;
 
@@ -74,14 +75,14 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
   Widget _buildLibrary(List<ExerciseWithMuscles> catalogue) {
     if (catalogue.isEmpty) return const _EmptyState();
 
-    // Counts are computed over the category-filtered pool, so the diagram
-    // under Mobility shows mobility counts rather than the whole library's.
-    final inCategory = _category == null
-        ? catalogue
-        : [
-            for (final e in catalogue)
-              if (e.category == _category) e,
-          ];
+    // Counts follow every filter except the diagram's own, so turning on
+    // Custom immediately shows which regions your own exercises cover.
+    final inCategory = [
+      for (final entry in catalogue)
+        if ((_category == null || entry.category == _category) &&
+            (!_customOnly || entry.exercise.isCustom))
+          entry,
+    ];
 
     final matches = filterExercises(
       catalogue,
@@ -89,6 +90,7 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
       category: _category,
       group: _group,
       muscle: _muscle,
+      isCustom: _customOnly ? true : null,
     ).where((e) => _modality == null || e.modality == _modality).toList();
 
     final sections = groupExercises(
@@ -115,7 +117,14 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
               const SizedBox(height: 8),
               CategoryChips(
                 selected: _category,
-                counts: _categoryCounts(catalogue),
+                counts: _categoryCounts(
+                  _customOnly
+                      ? [
+                          for (final e in catalogue)
+                            if (e.exercise.isCustom) e,
+                        ]
+                      : catalogue,
+                ),
                 onSelected: (category) => setState(() {
                   _category = category;
                   // A new category abandons everything narrowed within the
@@ -158,23 +167,55 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
               ],
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: TextField(
-                  controller: _searchController,
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    hintText: 'Search exercises',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: _query.isEmpty
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _query = '');
-                            },
-                          ),
-                  ),
-                  onChanged: (value) => setState(() => _query = value),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          hintText: 'Search exercises',
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          suffixIcon: _query.isEmpty
+                              ? null
+                              : IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _query = '');
+                                  },
+                                ),
+                        ),
+                        onChanged: (value) => setState(() => _query = value),
+                      ),
+                    ),
+                    // Beside search rather than in the category row: it
+                    // narrows the list the way search does, and it is
+                    // orthogonal to category — you can want your own cardio.
+                    if (_hasCustom(catalogue)) ...[
+                      const SizedBox(width: 8),
+                      FilterChip(
+                        label: const Text('Custom'),
+                        selected: _customOnly,
+                        showCheckmark: false,
+                        selectedColor: OneRepColors.gold.withValues(alpha: 0.2),
+                        side: BorderSide(
+                          color: _customOnly
+                              ? OneRepColors.gold
+                              : OneRepColors.surfaceHighest,
+                        ),
+                        labelStyle: TextStyle(
+                          color: _customOnly
+                              ? OneRepColors.gold
+                              : OneRepColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        onSelected: (value) =>
+                            setState(() => _customOnly = value),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
@@ -193,6 +234,13 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
       ],
     );
   }
+
+  /// Whether the user has any exercises of their own.
+  ///
+  /// The filter stays hidden until then — a toggle whose only possible effect
+  /// is to empty the list is worse than no toggle.
+  bool _hasCustom(List<ExerciseWithMuscles> catalogue) =>
+      catalogue.any((entry) => entry.exercise.isCustom);
 
   Map<ExerciseCategory, int> _categoryCounts(
     List<ExerciseWithMuscles> catalogue,

@@ -85,6 +85,20 @@ void main() {
     category: ExerciseCategory.mobility,
   );
 
+  const myOwnLift = ExerciseWithMuscles(
+    exercise: Exercise(
+      id: 10,
+      name: 'Nordic Curl',
+      bodyPart: 'Legs',
+      equipmentType: 'Barbell',
+      isCustom: true,
+      metricType: 'weightReps',
+      category: 'strength',
+    ),
+    primary: Muscle.hamstrings,
+    secondary: [Muscle.glutes],
+  );
+
   final library = [
     benchPress,
     inclineBench,
@@ -95,6 +109,7 @@ void main() {
     running,
     rower,
     hamstringStretch,
+    myOwnLift,
   ];
 
   // ---------------------------------------------------------------------------
@@ -523,6 +538,65 @@ void main() {
       expect(counts[CardioModality.run], 1);
       expect(counts[CardioModality.row], 1);
       expect(counts[CardioModality.cycle], isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Custom exercises
+  // ---------------------------------------------------------------------------
+
+  group('the custom filter', () {
+    test('keeps only the exercises the user made', () {
+      final matches = filterExercises(library, isCustom: true);
+      expect(matches.map((e) => e.name), ['Nordic Curl']);
+    });
+
+    test('can also exclude them', () {
+      final matches = filterExercises(library, isCustom: false);
+      expect(matches.map((e) => e.name), isNot(contains('Nordic Curl')));
+      expect(matches, hasLength(library.length - 1));
+    });
+
+    test('null leaves the library alone', () {
+      expect(filterExercises(library), hasLength(library.length));
+    });
+
+    test('composes with category, muscle and query', () {
+      // Orthogonal to every other axis, which is why it is its own toggle
+      // rather than another chip in the category row.
+      expect(
+        filterExercises(
+          library,
+          isCustom: true,
+          category: ExerciseCategory.strength,
+          muscle: Muscle.hamstrings,
+        ).map((e) => e.name),
+        ['Nordic Curl'],
+      );
+      expect(
+        filterExercises(
+          library,
+          isCustom: true,
+          category: ExerciseCategory.cardio,
+        ),
+        isEmpty,
+      );
+      expect(filterExercises(library, isCustom: true, query: 'bench'), isEmpty);
+    });
+
+    test('still partitions into one section per exercise', () {
+      // The invariant the Dismissible keys depend on, over the new axis.
+      for (final isCustom in [null, true, false]) {
+        final sections = groupExercises(
+          filterExercises(library, isCustom: isCustom),
+        );
+        final ids = sections.expand((s) => s.exercises).map((e) => e.id);
+        expect(
+          ids.toSet(),
+          hasLength(ids.length),
+          reason: 'isCustom: $isCustom',
+        );
+      }
     });
   });
 }

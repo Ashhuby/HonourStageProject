@@ -8,6 +8,8 @@ import '../../data/exercise_repository.dart';
 import '../../data/personal_best_repository.dart';
 import '../../domain/activity.dart';
 import '../../domain/muscle.dart';
+import 'body_map.dart';
+import 'muscle_chips.dart';
 
 /// Creates a custom exercise, or re-files an existing one.
 ///
@@ -63,6 +65,11 @@ class _ExerciseEditorDialogState extends ConsumerState<_ExerciseEditorDialog> {
   late ExerciseCategory _category;
   CardioModality? _modality;
   Muscle? _primary;
+
+  /// Which figure region is open. Follows [_primary] initially so editing an
+  /// exercise opens on the group it is already filed under.
+  MuscleGroup? _openGroup;
+
   late Set<Muscle> _secondary;
   String? _equipmentType;
   String _metricType = 'weightReps';
@@ -78,6 +85,7 @@ class _ExerciseEditorDialogState extends ConsumerState<_ExerciseEditorDialog> {
     _category = existing?.category ?? ExerciseCategory.strength;
     _modality = existing?.modality;
     _primary = existing?.primary;
+    _openGroup = existing?.primary?.group;
     _secondary = {...?existing?.secondary};
     _equipmentType = existing?.exercise.equipmentType;
     _metricType = existing?.exercise.metricType ?? 'weightReps';
@@ -148,28 +156,8 @@ class _ExerciseEditorDialogState extends ConsumerState<_ExerciseEditorDialog> {
                     setState(() => _modality = value ?? CardioModality.other),
               ),
             ],
-            const SizedBox(height: 16),
-            DropdownButtonFormField<Muscle>(
-              initialValue: _primary,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Main muscle',
-                helperText: 'Where this exercise is filed',
-              ),
-              dropdownColor: OneRepColors.surfaceElevated,
-              items: [
-                for (final group in MuscleGroup.values)
-                  for (final muscle in group.muscles)
-                    DropdownMenuItem(
-                      value: muscle,
-                      child: Text('${group.label} • ${muscle.label}'),
-                    ),
-              ],
-              onChanged: (value) => setState(() {
-                _primary = value;
-                _secondary.remove(value);
-              }),
-            ),
+            const SizedBox(height: 20),
+            _buildMainMusclePicker(),
             const SizedBox(height: 16),
             _SecondaryMusclePicker(
               primary: _primary,
@@ -244,6 +232,79 @@ class _ExerciseEditorDialogState extends ConsumerState<_ExerciseEditorDialog> {
     );
   }
 
+  /// Choosing the main muscle on the diagram rather than from a flat list of
+  /// sixteen "Group • Muscle" rows.
+  ///
+  /// The same two-level gesture as browsing — tap the region, then narrow with
+  /// a chip — so the control that *finds* an exercise and the control that
+  /// *files* one behave alike. `counts` is null throughout: every muscle is a
+  /// valid answer here, so nothing is dimmed or disabled.
+  Widget _buildMainMusclePicker() {
+    final primary = _primary;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'MAIN MUSCLE',
+          style: TextStyle(
+            color: OneRepColors.textSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          primary == null
+              ? 'Tap the body to choose'
+              : '${primary.group.label} • ${primary.label}',
+          style: TextStyle(
+            color: primary == null ? OneRepColors.textSecondary : primary.color,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        BodyMap(
+          counts: null,
+          selected: _openGroup,
+          figureHeight: 170,
+          onSelected: (group) => setState(() {
+            _openGroup = group;
+            if (group == null) {
+              _primary = null;
+              return;
+            }
+            // A group with one muscle has no narrowing left to do, and
+            // MuscleChips hides itself below two — so pick it outright rather
+            // than leaving the user with nothing to tap.
+            final muscles = group.muscles;
+            if (muscles.length == 1) {
+              _primary = muscles.single;
+              _secondary.remove(_primary);
+            } else if (_primary?.group != group) {
+              // Moving to a different region abandons the old choice.
+              _primary = null;
+            }
+          }),
+        ),
+        if (_openGroup != null) ...[
+          const SizedBox(height: 8),
+          MuscleChips(
+            group: _openGroup!,
+            selected: _primary,
+            counts: null,
+            onSelected: (muscle) => setState(() {
+              _primary = muscle;
+              _secondary.remove(muscle);
+            }),
+          ),
+        ],
+      ],
+    );
+  }
+
   Future<void> _save() async {
     // The old dialog returned silently on invalid input, so the button simply
     // did nothing and never said why.
@@ -255,7 +316,7 @@ class _ExerciseEditorDialogState extends ConsumerState<_ExerciseEditorDialog> {
       return;
     }
     if (primary == null) {
-      setState(() => _error = 'Choose the main muscle it works.');
+      setState(() => _error = 'Tap the body to choose a main muscle.');
       return;
     }
     if (equipment == null) {
