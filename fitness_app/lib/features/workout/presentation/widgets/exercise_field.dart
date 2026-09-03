@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/database/local_database.dart';
 import '../../../../core/theme/app_colors.dart';
-import 'body_part.dart';
+import '../../domain/muscle.dart';
 
 /// A form field that shows the chosen exercise and opens the picker on tap.
 ///
@@ -40,7 +40,7 @@ class ExerciseField extends StatelessWidget {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: BodyPart.colorFor(selected.bodyPart),
+                  color: muscleForLegacyBodyPart(selected.bodyPart).color,
                   shape: BoxShape.circle,
                 ),
               ),

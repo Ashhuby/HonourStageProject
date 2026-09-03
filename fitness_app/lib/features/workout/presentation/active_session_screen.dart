@@ -306,7 +306,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
   /// that day — the picker just presents them far better than the dropdown it
   /// replaces, showing each one's target alongside it.
   Future<void> _openExercisePicker() async {
-    List<Exercise>? restrictTo;
+    Set<int>? restrictToIds;
     var trailingLabels = const <int, String>{};
 
     final routineId = widget.routineId;
@@ -314,7 +314,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
       final planned = await ref.read(
         watchExercisesForRoutineWithNamesProvider(routineId).future,
       );
-      restrictTo = [for (final entry in planned) entry.exercise];
+      restrictToIds = {for (final entry in planned) entry.exercise.id};
       trailingLabels = {
         for (final entry in planned)
           entry.exercise.id:
@@ -326,7 +326,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
     if (!mounted) return;
     final picked = await showExercisePicker(
       context,
-      restrictTo: restrictTo,
+      restrictToIds: restrictToIds,
       trailingLabels: trailingLabels,
       title: 'Choose exercise',
     );

@@ -1,140 +1,41 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
-import 'body_part.dart';
+import '../../domain/muscle.dart';
+import 'body_geometry.dart';
+import 'exercise_filter.dart';
 
-/// The coordinate space the silhouette is authored in.
+/// Front and back figures, tapped to filter the exercise list by muscle group.
 ///
-/// Every path below is expressed in this fixed design box and scaled to the
-/// widget's real width at paint time, so the figure is resolution independent
-/// and taps map back to the same coordinates by dividing by that scale.
-const double _kDesignWidth = 100;
-const double _kDesignHeight = 220;
-
-enum _View { front, back }
-
-/// A tappable muscle group: the [BodyPart] it selects and the shape it fills.
-class _Region {
-  final BodyPart part;
-  final Path path;
-
-  const _Region(this.part, this.path);
-}
-
-// ---------------------------------------------------------------------------
-// Path authoring helpers
-// ---------------------------------------------------------------------------
-
-Path _rounded(double l, double t, double w, double h, double r) => Path()
-  ..addRRect(
-    RRect.fromRectAndRadius(Rect.fromLTWH(l, t, w, h), Radius.circular(r)),
-  );
-
-Path _oval(double cx, double cy, double w, double h) =>
-    Path()
-      ..addOval(Rect.fromCenter(center: Offset(cx, cy), width: w, height: h));
-
-Path _union(List<Path> parts) {
-  final path = Path();
-  for (final part in parts) {
-    path.addPath(part, Offset.zero);
-  }
-  return path;
-}
-
-/// The inert body outline both views share — head, neck, torso, limbs.
-final Path _silhouette = _union([
-  _oval(50, 16, 22, 24), // head
-  _rounded(45, 25, 10, 11, 3), // neck
-  Path()
-    ..moveTo(30, 34)
-    ..lineTo(70, 34)
-    ..lineTo(67, 80)
-    ..lineTo(65, 118)
-    ..lineTo(35, 118)
-    ..lineTo(33, 80)
-    ..close(), // torso
-  _rounded(33, 112, 34, 22, 6), // pelvis
-  _rounded(16, 42, 13, 44, 6), // upper arm, left
-  _rounded(71, 42, 13, 44, 6), // upper arm, right
-  _rounded(15, 86, 11, 42, 5), // forearm, left
-  _rounded(74, 86, 11, 42, 5), // forearm, right
-  _oval(20, 132, 11, 12), // hand, left
-  _oval(80, 132, 11, 12), // hand, right
-  _rounded(33, 128, 15, 50, 7), // thigh, left
-  _rounded(52, 128, 15, 50, 7), // thigh, right
-  _rounded(35, 176, 12, 38, 6), // calf, left
-  _rounded(53, 176, 12, 38, 6), // calf, right
-  _rounded(34, 211, 13, 7, 3), // foot, left
-  _rounded(53, 211, 13, 7, 3), // foot, right
-]);
-
-Path _shouldersPath() => _union([_oval(27, 44, 18, 17), _oval(73, 44, 18, 17)]);
-
-Path _armsPath() =>
-    _union([_rounded(17, 54, 11, 30, 5), _rounded(72, 54, 11, 30, 5)]);
-
-Path _legsPath() => _union([
-  _rounded(34, 130, 13, 46, 6),
-  _rounded(53, 130, 13, 46, 6),
-  _rounded(36, 178, 10, 34, 5),
-  _rounded(54, 178, 10, 34, 5),
-]);
-
-/// Regions are ordered smallest-area first so that where shapes overlap — the
-/// deltoid caps sit over the top of the chest and back — a tap resolves to the
-/// smaller, more specific group.
-final List<_Region> _frontRegions = [
-  _Region(BodyPart.shoulders, _shouldersPath()),
-  _Region(BodyPart.biceps, _armsPath()),
-  _Region(
-    BodyPart.chest,
-    _union([_rounded(31, 38, 18, 26, 6), _rounded(51, 38, 18, 26, 6)]),
-  ),
-  _Region(BodyPart.core, _rounded(36, 68, 28, 46, 8)),
-  _Region(BodyPart.legs, _legsPath()),
-];
-
-final List<_Region> _backRegions = [
-  _Region(BodyPart.shoulders, _shouldersPath()),
-  _Region(BodyPart.triceps, _armsPath()),
-  _Region(BodyPart.legs, _legsPath()),
-  _Region(BodyPart.back, _rounded(31, 38, 38, 54, 8)),
-];
-
-List<_Region> _regionsFor(_View view) =>
-    view == _View.front ? _frontRegions : _backRegions;
-
-// ---------------------------------------------------------------------------
-// Public widget
-// ---------------------------------------------------------------------------
-
-/// Front and back body diagrams whose muscle groups filter the exercise list.
+/// Only the seven [MuscleGroup]s are tappable. Individual muscles — forearms,
+/// calves, the three heads of the deltoid — are chosen from the chip row that
+/// appears beneath a selected group, because none of them is a comfortable
+/// target for a thumb at this size.
 ///
-/// Groups holding no exercises are drawn inert; the selected group is filled
-/// solid and outlined. Tapping the selected group again clears the filter, as
-/// does tapping empty space around the figure.
-///
-/// [BodyPart.wholeBody] has no anatomical region — it is offered as a pill
-/// beneath the figures instead, alongside a "Show all" reset.
+/// The outlines are real anatomy rather than rounded rectangles: SVG paths
+/// from the `body-muscles` project, parsed once into [Path]s. See
+/// `body_paths.g.dart` for provenance.
 class BodyMap extends StatelessWidget {
   const BodyMap({
     super.key,
     required this.counts,
     required this.selected,
     required this.onSelected,
-    this.figureHeight = 200,
+    this.figureHeight = 210,
   });
 
-  final Map<BodyPart, int> counts;
-  final BodyPart? selected;
-  final ValueChanged<BodyPart?> onSelected;
+  /// Per-group counts. A region with a zero [MuscleCount.total] is inert.
+  final Map<MuscleGroup, MuscleCount> counts;
 
-  /// Height of each figure. Width follows from the design box's aspect ratio,
-  /// so the pair stays a sensible size instead of filling the screen width.
+  final MuscleGroup? selected;
+
+  /// Tapping the selected group, or missing every region, passes null.
+  final ValueChanged<MuscleGroup?> onSelected;
+
+  /// Height of each figure in logical pixels; width follows from the artwork's
+  /// aspect ratio.
   final double figureHeight;
-
-  double get _figureWidth => figureHeight * _kDesignWidth / _kDesignHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -144,71 +45,54 @@ class BodyMap extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildView(_View.front),
-            const SizedBox(width: 20),
-            _buildView(_View.back),
+            _buildView(BodyView.front),
+            const SizedBox(width: 16),
+            _buildView(BodyView.back),
           ],
         ),
         const SizedBox(height: 6),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(width: _figureWidth, child: const _ViewLabel('FRONT')),
-            const SizedBox(width: 20),
-            SizedBox(width: _figureWidth, child: const _ViewLabel('BACK')),
+            _ViewLabel('FRONT', width: _widthFor(BodyView.front)),
+            const SizedBox(width: 16),
+            _ViewLabel('BACK', width: _widthFor(BodyView.back)),
           ],
         ),
         const SizedBox(height: 12),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _MapPill(
-              label: BodyPart.wholeBody.label,
-              color: BodyPart.wholeBody.color,
-              isSelected: selected == BodyPart.wholeBody,
-              isEnabled: (counts[BodyPart.wholeBody] ?? 0) > 0,
-              onTap: () => onSelected(
-                selected == BodyPart.wholeBody ? null : BodyPart.wholeBody,
-              ),
-            ),
-            if (selected != null)
-              _MapPill(
-                label: 'Show all',
-                color: OneRepColors.textSecondary,
-                isSelected: false,
-                isEnabled: true,
-                onTap: () => onSelected(null),
-              ),
-          ],
-        ),
+        _buildPills(),
       ],
     );
   }
 
-  Widget _buildView(_View view) {
-    final regions = _regionsFor(view);
-    final scale = figureHeight / _kDesignHeight;
+  double _widthFor(BodyView view) =>
+      figureHeight * designWidthFor(view) / kDesignHeight;
+
+  Widget _buildView(BodyView view) {
+    final scale = figureHeight / kDesignHeight;
+    final origin = designOriginFor(view);
+    final regions = groupRegionsFor(view);
+    final order = hitOrderFor(view);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapUp: (details) {
+        // Back into design space: undo the scale, then the view's own origin.
         final point = Offset(
-          details.localPosition.dx / scale,
+          details.localPosition.dx / scale + origin,
           details.localPosition.dy / scale,
         );
-        for (final region in regions) {
-          if (region.path.contains(point)) {
-            onSelected(selected == region.part ? null : region.part);
+        for (final group in order) {
+          if (regions[group]!.contains(point)) {
+            onSelected(selected == group ? null : group);
             return;
           }
         }
-        // A tap outside every muscle group clears the filter.
+        // A tap on the figure but outside every region clears the filter.
         onSelected(null);
       },
       child: SizedBox(
-        width: _figureWidth,
+        width: _widthFor(view),
         height: figureHeight,
         child: Stack(
           children: [
@@ -223,37 +107,69 @@ class BodyMap extends StatelessWidget {
             ),
             // Screen readers cannot see a CustomPaint, so each region gets an
             // invisible, non-hit-testing box carrying its semantics.
-            for (final region in regions) _semanticsFor(region, scale),
+            for (final group in order)
+              _semanticsFor(group, regions[group]!, scale, origin),
           ],
         ),
       ),
     );
   }
 
-  Widget _semanticsFor(_Region region, double scale) {
-    final bounds = region.path.getBounds();
-    final count = counts[region.part] ?? 0;
+  Widget _semanticsFor(
+    MuscleGroup group,
+    Path path,
+    double scale,
+    double origin,
+  ) {
+    final bounds = path.getBounds();
+    final count = counts[group]?.total ?? 0;
     final plural = count == 1 ? 'exercise' : 'exercises';
 
     return Positioned(
-      left: bounds.left * scale,
+      left: (bounds.left - origin) * scale,
       top: bounds.top * scale,
       width: bounds.width * scale,
       height: bounds.height * scale,
       child: Semantics(
         button: true,
-        selected: selected == region.part,
-        label: '${region.part.label}, $count $plural',
-        onTap: () => onSelected(selected == region.part ? null : region.part),
+        selected: selected == group,
+        label: '${group.label}, $count $plural',
+        onTap: () => onSelected(selected == group ? null : group),
         child: const SizedBox.expand(),
       ),
     );
   }
-}
 
-// ---------------------------------------------------------------------------
-// Painter
-// ---------------------------------------------------------------------------
+  /// Full Body has no anatomical region, so it lives as a pill alongside the
+  /// reset rather than being forced onto the drawing.
+  Widget _buildPills() {
+    final fullBody = counts[MuscleGroup.fullBody]?.total ?? 0;
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (fullBody > 0)
+          _MapPill(
+            label: MuscleGroup.fullBody.label,
+            color: MuscleGroup.fullBody.color,
+            isSelected: selected == MuscleGroup.fullBody,
+            onTap: () => onSelected(
+              selected == MuscleGroup.fullBody ? null : MuscleGroup.fullBody,
+            ),
+          ),
+        if (selected != null)
+          _MapPill(
+            label: 'Show all',
+            color: OneRepColors.textSecondary,
+            isSelected: false,
+            onTap: () => onSelected(null),
+          ),
+      ],
+    );
+  }
+}
 
 class _BodyPainter extends CustomPainter {
   _BodyPainter({
@@ -262,38 +178,46 @@ class _BodyPainter extends CustomPainter {
     required this.selected,
   });
 
-  final _View view;
-  final Map<BodyPart, int> counts;
-  final BodyPart? selected;
+  final BodyView view;
+  final Map<MuscleGroup, MuscleCount> counts;
+  final MuscleGroup? selected;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.scale(size.width / _kDesignWidth);
+    canvas.scale(size.height / kDesignHeight);
+    canvas.translate(-designOriginFor(view), 0);
 
-    canvas.drawPath(_silhouette, Paint()..color = OneRepColors.surfaceElevated);
+    canvas.drawPath(
+      inertPathFor(view),
+      Paint()..color = OneRepColors.surfaceElevated,
+    );
 
+    final regions = groupRegionsFor(view);
     // Painted in reverse of the hit-test order, so the region that wins a tap
-    // where two overlap is also the one drawn on top of the other.
-    for (final region in _regionsFor(view).reversed) {
-      final count = counts[region.part] ?? 0;
-      final isSelected = selected == region.part;
+    // where two overlap is also the one drawn on top.
+    for (final group in hitOrderFor(view).reversed) {
+      final count = counts[group]?.total ?? 0;
+      final isSelected = selected == group;
 
       final Color fill;
       if (isSelected) {
-        fill = region.part.color;
+        fill = group.color;
       } else if (count > 0) {
-        fill = region.part.color.withValues(alpha: 0.35);
+        // The silhouette beneath is very dark, so a light tint reads as almost
+        // nothing; 0.55 is where the groups become distinguishable at a glance
+        // without competing with the selected one.
+        fill = group.color.withValues(alpha: 0.55);
       } else {
         fill = OneRepColors.surfaceHighest;
       }
-      canvas.drawPath(region.path, Paint()..color = fill);
+      canvas.drawPath(regions[group]!, Paint()..color = fill);
 
       if (isSelected) {
         canvas.drawPath(
-          region.path,
+          regions[group]!,
           Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5
+            ..strokeWidth = 0.5
             ..color = OneRepColors.textPrimary,
         );
       }
@@ -301,55 +225,53 @@ class _BodyPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_BodyPainter oldDelegate) =>
-      oldDelegate.view != view ||
-      oldDelegate.selected != selected ||
-      !mapEquals(oldDelegate.counts, counts);
+  bool shouldRepaint(_BodyPainter old) =>
+      old.view != view ||
+      old.selected != selected ||
+      !mapEquals(old.counts, counts);
 }
 
-// ---------------------------------------------------------------------------
-// Small pieces
-// ---------------------------------------------------------------------------
-
 class _ViewLabel extends StatelessWidget {
-  final String text;
+  const _ViewLabel(this.text, {required this.width});
 
-  const _ViewLabel(this.text);
+  final String text;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        color: OneRepColors.textSecondary,
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.5,
+    return SizedBox(
+      width: width,
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: OneRepColors.textSecondary,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.5,
+        ),
       ),
     );
   }
 }
 
 class _MapPill extends StatelessWidget {
-  final String label;
-  final Color color;
-  final bool isSelected;
-  final bool isEnabled;
-  final VoidCallback onTap;
-
   const _MapPill({
     required this.label,
     required this.color,
     required this.isSelected,
-    required this.isEnabled,
     required this.onTap,
   });
+
+  final String label;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: isEnabled ? onTap : null,
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
@@ -363,10 +285,8 @@ class _MapPill extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            color: isEnabled
-                ? OneRepColors.textPrimary
-                : OneRepColors.textDisabled,
+          style: const TextStyle(
+            color: OneRepColors.textPrimary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),

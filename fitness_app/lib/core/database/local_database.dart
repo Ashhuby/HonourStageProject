@@ -5,12 +5,15 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../../features/workout/data/workout_tables.dart';
+import '../../features/workout/domain/muscle.dart';
+import 'exercise_seed.dart';
 
 part 'local_database.g.dart';
 
 @DriftDatabase(
   tables: [
     Exercises,
+    ExerciseMuscles,
     WorkoutSplits,
     WorkoutRoutines,
     RoutineExercises,
@@ -27,13 +30,15 @@ class AppDatabase extends _$AppDatabase {
   final bool _isTesting;
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
+        await _createMuscleIndexes();
+        await _guardExerciseUniqueness();
         if (!_isTesting) {
           await _seedExercises();
           await _seedBadges();
@@ -115,13 +120,18 @@ class AppDatabase extends _$AppDatabase {
           // seed therefore inserts rather than updates. Left as-is because
           // changing it now would alter an upgrade path already shipped; new
           // corrections must not re-run the seed (see _refileChinUps).
-          await _seedExercises();
+          // withMuscles: false — exercise_muscles does not exist until the
+          // v9 branch below, which backfills these rows by name anyway.
+          await _seedExercises(withMuscles: false);
         }
         if (from < 7) {
           await _rebuildPersonalBests();
         }
         if (from < 8) {
           await _refileChinUps();
+        }
+        if (from < 9) {
+          await _migrateToMuscleTaxonomy(m);
         }
       },
       beforeOpen: (details) async {
@@ -236,78 +246,326 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  Future<void> _seedExercises() async {
-    // Helper — insert or update by name
-    Future<void> seed(
-      String name,
-      String bodyPart,
-      String equipment,
-      String metricType,
-    ) async {
-      await into(exercises).insertOnConflictUpdate(
-        ExercisesCompanion.insert(
-          name: name,
-          bodyPart: bodyPart,
-          equipmentType: equipment,
-          metricType: Value(metricType),
-        ),
+  // ---------------------------------------------------------------------------
+  // v9 — the muscle taxonomy
+  // ---------------------------------------------------------------------------
+
+  /// Constraints on `exercise_muscles` that SQLite cannot express in the table
+  /// definition and drift cannot express as a `@TableIndex`.
+  ///
+  /// `IF NOT EXISTS` throughout so this is safe to call from both `onCreate`
+  /// and the v9 upgrade, and so the migration tests can drop the table without
+  /// having to track its indexes.
+  Future<void> _createMuscleIndexes() async {
+    // "Exactly one primary per exercise", as a constraint rather than a
+    // convention the writing code is trusted to honour.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_exercise_muscles_primary '
+      'ON exercise_muscles (exercise_id) WHERE is_primary = 1',
+    );
+    // Reverse lookup — every exercise training a muscle, primaries first.
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_exercise_muscles_lookup '
+      'ON exercise_muscles (muscle, is_primary)',
+    );
+  }
+
+  /// Uniqueness guards that make the two duplication bugs unrepeatable: the
+  /// seed re-run that inserted instead of updating, and the sync download that
+  /// does the same thing keyed on `remote_id`.
+  ///
+  /// Deliberately best-effort. A statement that throws inside `onUpgrade`
+  /// propagates out of the database open and bricks the app on launch, and
+  /// these indexes are a safety net rather than a correctness requirement — if
+  /// a library still holds duplicates the dedupe could not resolve, the app
+  /// must still start. The next release tries again.
+  Future<void> _guardExerciseUniqueness() async {
+    try {
+      await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_exercises_seed_name '
+        'ON exercises (name) WHERE is_custom = 0',
+      );
+    } catch (_) {
+      // Duplicates survive; the library shows them twice but still opens.
+    }
+    try {
+      await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_exercises_remote_id '
+        'ON exercises (remote_id) WHERE remote_id IS NOT NULL',
+      );
+    } catch (_) {
+      // As above — a duplicated download is visible, not fatal.
+    }
+  }
+
+  /// v8 to v9: replaces the single free-text `bodyPart` with a primary muscle
+  /// and zero or more secondaries in `exercise_muscles`.
+  ///
+  /// Foreign keys are OFF for the whole of this method — `PRAGMA foreign_keys`
+  /// is set in `beforeOpen`, which drift runs *after* `onUpgrade`. So
+  /// `ON DELETE CASCADE` does not fire here and every child row is handled by
+  /// hand; the upside is that re-pointing `exercise_id` is not FK-checked, so
+  /// the order of the repairs below does not matter.
+  ///
+  /// Does NOT re-run [_seedExercises] to pick up the new data. Before v9 there
+  /// was no unique constraint on `name`, so a re-run inserted 41 more rows
+  /// rather than updating. The existing library is enriched in place, matched
+  /// on name.
+  Future<void> _migrateToMuscleTaxonomy(Migrator m) async {
+    await m.createTable(exerciseMuscles);
+    await _createMuscleIndexes();
+    await _dedupeSeededExercises();
+    await _backfillSeededMuscles();
+    await _backfillRemainingMuscles();
+    await _syncBodyPartToPrimaryGroup();
+    await _guardExerciseUniqueness();
+  }
+
+  /// Collapses the duplicate seeded exercises left behind by the v6 upgrade.
+  ///
+  /// That branch called `_seedExercises()`, whose `insertOnConflictUpdate`
+  /// conflicted on `id` rather than `name` and so inserted a second copy of
+  /// every default exercise. The backfill below matches on name, and the
+  /// uniqueness guard cannot be applied, until these are resolved.
+  ///
+  /// The survivor is the lowest `id` — the original, and the one existing sets
+  /// and routines are most likely to reference already.
+  Future<void> _dedupeSeededExercises() async {
+    final groups = await customSelect(
+      'SELECT name, MIN(id) AS winner FROM exercises '
+      'WHERE is_custom = 0 GROUP BY name HAVING COUNT(*) > 1',
+    ).get();
+
+    for (final group in groups) {
+      final winner = group.read<int>('winner');
+      final losers = (await customSelect(
+        'SELECT id FROM exercises '
+        'WHERE is_custom = 0 AND name = ? AND id <> ?',
+        variables: [
+          Variable<String>(group.read<String>('name')),
+          Variable<int>(winner),
+        ],
+      ).get()).map((row) => row.read<int>('id'));
+
+      for (final loser in losers) {
+        await customStatement(
+          'UPDATE routine_exercises SET exercise_id = ? WHERE exercise_id = ?',
+          [winner, loser],
+        );
+        await customStatement(
+          'UPDATE workout_sets SET exercise_id = ? WHERE exercise_id = ?',
+          [winner, loser],
+        );
+        await _mergePersonalBests(loser: loser, winner: winner);
+        // Explicit — the FK cascade is inert during onUpgrade.
+        await customStatement('DELETE FROM exercises WHERE id = ?', [loser]);
+      }
+    }
+  }
+
+  /// Moves the loser's personal bests onto the winner, keeping the better
+  /// record wherever both hold one for the same key.
+  ///
+  /// A blind re-point would violate the v7 unique key
+  /// (exercise_id, metric_type, distance_metres). Survivors are left dirty so
+  /// the corrected record uploads on the next sync, matching what
+  /// [_rebuildPersonalBests] does.
+  Future<void> _mergePersonalBests({
+    required int loser,
+    required int winner,
+  }) async {
+    const columns =
+        'id, exercise_id, reps, weight, duration_seconds, distance_metres, '
+        'metric_type, achieved_at, remote_id, user_id, deleted_at';
+
+    final incoming = await customSelect(
+      'SELECT $columns FROM personal_bests WHERE exercise_id = ?',
+      variables: [Variable<int>(loser)],
+    ).get();
+
+    for (final row in incoming) {
+      // "IS" rather than "=" so a NULL distance matches a NULL distance,
+      // which is how the v7 unique key treats it.
+      final held = await customSelect(
+        'SELECT $columns FROM personal_bests '
+        'WHERE exercise_id = ? AND metric_type = ? AND distance_metres IS ?',
+        variables: [
+          Variable<int>(winner),
+          Variable<String>(row.read<String>('metric_type')),
+          Variable<double>(row.readNullable<double>('distance_metres')),
+        ],
+      ).getSingleOrNull();
+
+      if (held == null) {
+        await customStatement(
+          'UPDATE personal_bests SET exercise_id = ?, synced_at = NULL '
+          'WHERE id = ?',
+          [winner, row.read<int>('id')],
+        );
+        continue;
+      }
+
+      if (_supersedes(row, held)) {
+        // Drop the weaker record the winner held, then move the better one on.
+        await customStatement('DELETE FROM personal_bests WHERE id = ?', [
+          held.read<int>('id'),
+        ]);
+        await customStatement(
+          'UPDATE personal_bests SET exercise_id = ?, synced_at = NULL '
+          'WHERE id = ?',
+          [winner, row.read<int>('id')],
+        );
+      } else {
+        await customStatement('DELETE FROM personal_bests WHERE id = ?', [
+          row.read<int>('id'),
+        ]);
+      }
+    }
+  }
+
+  /// Gives the 41 default exercises their primary and secondary muscles.
+  ///
+  /// Matched on name, so it is indifferent to what `bodyPart` currently holds —
+  /// which matters for a library that never ran the v8 Chin Ups refile — and a
+  /// renamed or deleted default simply gets no rows here and falls through to
+  /// [_backfillRemainingMuscles].
+  Future<void> _backfillSeededMuscles() async {
+    for (final seed in kSeedExercises) {
+      final ids = (await customSelect(
+        'SELECT id FROM exercises WHERE name = ? AND is_custom = 0',
+        variables: [Variable<String>(seed.name)],
+      ).get()).map((row) => row.read<int>('id'));
+
+      for (final id in ids) {
+        await _writeSeedMuscles(id, seed);
+      }
+    }
+  }
+
+  /// Gives every remaining exercise a primary muscle derived from its old
+  /// `bodyPart` string — custom exercises, renamed defaults, and anything
+  /// downloaded from a client that predates the taxonomy.
+  ///
+  /// After this every exercise has exactly one primary, which is the invariant
+  /// the filtering and grouping code is written against.
+  Future<void> _backfillRemainingMuscles() async {
+    final orphans = await customSelect(
+      'SELECT id, body_part FROM exercises '
+      'WHERE id NOT IN (SELECT exercise_id FROM exercise_muscles)',
+    ).get();
+
+    for (final row in orphans) {
+      final muscle = muscleForLegacyBodyPart(row.read<String>('body_part'));
+      await customStatement(
+        'INSERT OR IGNORE INTO exercise_muscles '
+        '(exercise_id, muscle, is_primary) VALUES (?, ?, 1)',
+        [row.read<int>('id'), muscle.name],
       );
     }
+  }
 
-    // Chest
-    await seed('Bench Press', 'Chest', 'Barbell', 'weightReps');
-    await seed('Incline Bench Press', 'Chest', 'Barbell', 'weightReps');
-    await seed('Chest Fly', 'Chest', 'Dumbbell', 'weightReps');
-    await seed('Dips', 'Chest', 'Body Weight', 'bodyweightReps');
-    await seed('Cable Fly', 'Chest', 'Cable', 'weightReps');
+  /// Rewrites `bodyPart` to the primary muscle's group label.
+  ///
+  /// The column survives v9 as a denormalised cache: it is what sync uploads
+  /// and what the remote schema declares NOT NULL, so dropping it would mean
+  /// synthesising a placeholder on every upload. Driving it from the primary
+  /// muscle — rather than string-rewriting the old labels — makes it correct
+  /// by construction, including for rows whose `bodyPart` was free text.
+  ///
+  /// The vocabulary changes here: `Biceps` and `Triceps` become `Arms`, and
+  /// `Whole Body` becomes `Full Body`. An older client downloading such a row
+  /// fails to parse the label and files the exercise under "Other" — it
+  /// degrades rather than crashing, which is what the tolerant parser is for.
+  Future<void> _syncBodyPartToPrimaryGroup() async {
+    final rows = await customSelect(
+      'SELECT e.id AS id, e.body_part AS body_part, em.muscle AS muscle '
+      'FROM exercises e '
+      'JOIN exercise_muscles em ON em.exercise_id = e.id AND em.is_primary = 1',
+    ).get();
 
-    // Back
-    await seed('Deadlift', 'Back', 'Barbell', 'weightReps');
-    await seed('Barbell Row', 'Back', 'Barbell', 'weightReps');
-    await seed('Pull Ups', 'Back', 'Body Weight', 'bodyweightReps');
-    await seed('Chin Ups', 'Back', 'Body Weight', 'bodyweightReps');
-    await seed('Lat Pulldown', 'Back', 'Cable', 'weightReps');
-    await seed('Seated Cable Row', 'Back', 'Cable', 'weightReps');
-    await seed('T-Bar Row', 'Back', 'Machine', 'weightReps');
-    await seed('Dead Hang', 'Back', 'Body Weight', 'timeOnly');
+    for (final row in rows) {
+      final muscle =
+          Muscle.byNameOrNull(row.read<String>('muscle')) ?? Muscle.fullBody;
+      final label = muscle.group.label;
+      if (row.read<String>('body_part') == label) continue;
 
-    // Legs
-    await seed('Squat', 'Legs', 'Barbell', 'weightReps');
-    await seed('Romanian Deadlift', 'Legs', 'Barbell', 'weightReps');
-    await seed('Leg Press', 'Legs', 'Machine', 'weightReps');
-    await seed('Lunges', 'Legs', 'Dumbbell', 'weightReps');
-    await seed('Leg Curl', 'Legs', 'Machine', 'weightReps');
-    await seed('Leg Extension', 'Legs', 'Machine', 'weightReps');
-    await seed('Calf Raise', 'Legs', 'Machine', 'weightReps');
+      // Custom rows go dirty so the corrected label uploads on the next sync.
+      await customStatement(
+        'UPDATE exercises SET body_part = ?, '
+        'synced_at = CASE WHEN is_custom = 1 THEN NULL ELSE synced_at END '
+        'WHERE id = ?',
+        [label, row.read<int>('id')],
+      );
+    }
+  }
 
-    // Shoulders
-    await seed('Shoulder Press', 'Shoulders', 'Dumbbell', 'weightReps');
-    await seed('Overhead Press', 'Shoulders', 'Barbell', 'weightReps');
-    await seed('Lateral Raise', 'Shoulders', 'Dumbbell', 'weightReps');
-    await seed('Front Raise', 'Shoulders', 'Dumbbell', 'weightReps');
-    await seed('Face Pull', 'Shoulders', 'Cable', 'weightReps');
-    await seed('Shrugs', 'Shoulders', 'Barbell', 'weightReps');
+  /// Writes the default library, inserting missing rows and refreshing ones
+  /// that already exist.
+  ///
+  /// A real upsert keyed on name, unlike the `insertOnConflictUpdate` this
+  /// replaces: `exercises` has no unique constraint on `name`, so that
+  /// conflicted on `id` — which the companion never sets — and inserted a
+  /// duplicate every time the seed ran. The v6 upgrade branch calls this, so
+  /// libraries in the wild are already carrying duplicates; v9 collapses them.
+  ///
+  /// [withMuscles] is false when called from the v6 branch, which runs before
+  /// `exercise_muscles` exists. Those rows are backfilled by name in v9.
+  Future<void> _seedExercises({bool withMuscles = true}) async {
+    for (final seed in kSeedExercises) {
+      // limit(1) so this stays safe against pre-v9 duplicates.
+      final existing =
+          await (select(exercises)
+                ..where(
+                  (e) => e.name.equals(seed.name) & e.isCustom.equals(false),
+                )
+                ..limit(1))
+              .getSingleOrNull();
 
-    // Arms
-    await seed('Barbell Curl', 'Biceps', 'Barbell', 'weightReps');
-    await seed('Dumbbell Curl', 'Biceps', 'Dumbbell', 'weightReps');
-    await seed('Hammer Curl', 'Biceps', 'Dumbbell', 'weightReps');
-    await seed('Tricep Pushdown', 'Triceps', 'Cable', 'weightReps');
-    await seed('Skull Crushers', 'Triceps', 'Barbell', 'weightReps');
-    await seed('Close Grip Bench', 'Triceps', 'Barbell', 'weightReps');
+      final int id;
+      if (existing == null) {
+        id = await into(exercises).insert(
+          ExercisesCompanion.insert(
+            name: seed.name,
+            bodyPart: seed.primary.group.label,
+            equipmentType: seed.equipment,
+            metricType: Value(seed.metricType),
+          ),
+        );
+      } else {
+        id = existing.id;
+        await (update(exercises)..where((e) => e.id.equals(id))).write(
+          ExercisesCompanion(
+            bodyPart: Value(seed.primary.group.label),
+            equipmentType: Value(seed.equipment),
+            metricType: Value(seed.metricType),
+          ),
+        );
+      }
 
-    // Core
-    await seed('Plank', 'Core', 'Body Weight', 'timeOnly');
-    await seed('Crunches', 'Core', 'Body Weight', 'bodyweightReps');
-    await seed('Russian Twist', 'Core', 'Body Weight', 'bodyweightReps');
-    await seed('Leg Raise', 'Core', 'Body Weight', 'bodyweightReps');
-    await seed('Ab Wheel', 'Core', 'Body Weight', 'bodyweightReps');
-    await seed('Cable Crunch', 'Core', 'Cable', 'weightReps');
+      if (withMuscles) {
+        await _writeSeedMuscles(id, seed);
+      }
+    }
+  }
 
-    // Cardio
-    await seed('Running', 'Whole Body', 'Body Weight', 'distanceTime');
-    await seed('Cycling', 'Whole Body', 'Machine', 'distanceTime');
-    await seed('Rowing Machine', 'Whole Body', 'Machine', 'distanceTime');
+  /// Writes one exercise's primary and secondary muscle rows.
+  ///
+  /// Raw SQL with `INSERT OR IGNORE` so it is re-runnable and usable from
+  /// inside a migration, where the Dart table classes may be ahead of the
+  /// database's actual shape.
+  Future<void> _writeSeedMuscles(int exerciseId, SeedExercise seed) async {
+    await customStatement(
+      'INSERT OR IGNORE INTO exercise_muscles (exercise_id, muscle, is_primary) '
+      'VALUES (?, ?, 1)',
+      [exerciseId, seed.primary.name],
+    );
+    for (final muscle in seed.secondary) {
+      await customStatement(
+        'INSERT OR IGNORE INTO exercise_muscles (exercise_id, muscle, is_primary) '
+        'VALUES (?, ?, 0)',
+        [exerciseId, muscle.name],
+      );
+    }
   }
 
   Future<void> _seedBadges() async {

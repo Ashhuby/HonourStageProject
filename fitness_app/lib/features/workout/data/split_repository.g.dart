@@ -7,7 +7,7 @@ part of 'split_repository.dart';
 // **************************************************************************
 
 String _$watchExercisesForRoutineWithNamesHash() =>
-    r'8acfebd78ddbc858cfb45ffeec9a5600a5043111';
+    r'f79a5a8117c6f507e93b2f38e5ec0ddff4a846d8';
 
 /// Copied from Dart SDK
 class _SystemHash {

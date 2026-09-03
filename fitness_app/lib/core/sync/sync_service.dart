@@ -2,6 +2,8 @@ import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../database/local_database.dart';
+import '../../features/workout/domain/muscle.dart';
+import 'exercise_muscle_payload.dart';
 
 /// Handles upload of dirty (unsynced) local records to Supabase.
 /// Upload-only, last-write-wins. Download path is triggered on first login.
@@ -391,7 +393,8 @@ class SyncService {
   // Custom Exercises
   // ---------------------------------------------------------------------------
   // Only syncs exercises where isCustom == true — seeded exercises are
-  // identical for all users and do not need to be synced per-user.
+  // identical for all users and do not need to be synced per-user, and their
+  // muscle rows are written by the migration on every install.
 
   Future<int> _syncCustomExercises(String userId) async {
     final dirty =
@@ -402,17 +405,24 @@ class SyncService {
 
     for (final exercise in dirty) {
       final remoteId = exercise.remoteId ?? _uuid.v4();
+      final muscles = await _musclesFor(exercise.id);
 
       await supabase.from('exercises').upsert({
         'id': remoteId,
         'user_id': userId,
         'local_id': exercise.id,
         'name': exercise.name,
+        // Still sent, and still the primary muscle's group label. Remote
+        // declares it NOT NULL and older clients read nothing else.
         'body_part': exercise.bodyPart,
         'equipment_type': exercise.equipmentType,
         'notes': exercise.notes,
         'deleted_at': exercise.deletedAt?.toIso8601String(),
         'synced_at': DateTime.now().toIso8601String(),
+        ...muscleColumnsFor(
+          primary: muscles.primary,
+          secondary: muscles.secondary,
+        ),
       });
 
       await (db.update(
@@ -708,21 +718,107 @@ class SyncService {
         .isFilter('deleted_at', null);
 
     for (final row in rows) {
+      final remoteId = row['id'] as String;
+
+      // Keyed on remote_id, not on the primary key. The companion below never
+      // sets `id`, so insertOnConflictUpdate would conflict on a column that
+      // is absent and insert a fresh row — duplicating every custom exercise
+      // on every full download. A partial unique index on remote_id backs
+      // this up at the schema level (see _guardExerciseUniqueness).
+      final existing =
+          await (db.select(db.exercises)
+                ..where((e) => e.remoteId.equals(remoteId))
+                ..limit(1))
+              .getSingleOrNull();
+
+      final companion = ExercisesCompanion(
+        name: Value(row['name'] as String),
+        bodyPart: Value(bodyPartFromRemoteRow(row)),
+        equipmentType: Value(row['equipment_type'] as String),
+        isCustom: const Value(true),
+        notes: Value(row['notes'] as String?),
+        remoteId: Value(remoteId),
+        userId: Value(userId),
+        syncedAt: Value(DateTime.now()),
+      );
+
+      final int localId;
+      if (existing == null) {
+        localId = await db.into(db.exercises).insert(companion);
+      } else {
+        localId = existing.id;
+        await (db.update(
+          db.exercises,
+        )..where((e) => e.id.equals(localId))).write(companion);
+      }
+
+      final muscles = musclesFromRemoteRow(row);
+      await _writeDownloadedMuscles(
+        localId,
+        primary: muscles.primary,
+        secondary: muscles.secondary,
+      );
+    }
+  }
+
+  /// The muscles recorded locally for one exercise, for upload.
+  Future<({Muscle? primary, List<Muscle> secondary})> _musclesFor(
+    int exerciseId,
+  ) async {
+    final rows = await (db.select(
+      db.exerciseMuscles,
+    )..where((m) => m.exerciseId.equals(exerciseId))).get();
+
+    Muscle? primary;
+    final secondary = <Muscle>[];
+    for (final row in rows) {
+      final muscle = Muscle.byNameOrNull(row.muscle);
+      if (muscle == null) continue;
+      if (row.isPrimary) {
+        primary = muscle;
+      } else {
+        secondary.add(muscle);
+      }
+    }
+    secondary.sort((a, b) => a.index.compareTo(b.index));
+    return (primary: primary, secondary: secondary);
+  }
+
+  /// Replaces a downloaded exercise's muscle rows with what the remote holds.
+  ///
+  /// The remote row is authoritative for a custom exercise: it is the same
+  /// user's own edit arriving from another device.
+  Future<void> _writeDownloadedMuscles(
+    int exerciseId, {
+    required Muscle primary,
+    required List<Muscle> secondary,
+  }) async {
+    await db.transaction(() async {
+      await (db.delete(
+        db.exerciseMuscles,
+      )..where((m) => m.exerciseId.equals(exerciseId))).go();
+
       await db
-          .into(db.exercises)
-          .insertOnConflictUpdate(
-            ExercisesCompanion.insert(
-              name: row['name'] as String,
-              bodyPart: row['body_part'] as String,
-              equipmentType: row['equipment_type'] as String,
-              isCustom: const Value(true),
-              notes: Value(row['notes'] as String?),
-              remoteId: Value(row['id'] as String),
-              userId: Value(userId),
-              syncedAt: Value(DateTime.now()),
+          .into(db.exerciseMuscles)
+          .insert(
+            ExerciseMusclesCompanion.insert(
+              exerciseId: exerciseId,
+              muscle: primary.name,
+              isPrimary: const Value(true),
             ),
           );
-    }
+      for (final muscle in secondary) {
+        if (muscle == primary) continue;
+        await db
+            .into(db.exerciseMuscles)
+            .insert(
+              ExerciseMusclesCompanion.insert(
+                exerciseId: exerciseId,
+                muscle: muscle.name,
+              ),
+            );
+      }
+    });
   }
 
   Future<void> _downloadBadges(String userId) async {

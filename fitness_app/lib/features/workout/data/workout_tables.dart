@@ -30,6 +30,38 @@ class Exercises extends Table {
   DateTimeColumn get deletedAt => dateTime().nullable()();
 }
 
+/// Which muscles an exercise trains, and in what role.
+///
+/// The associative entity resolving the many-to-many between [Exercises] and
+/// the `Muscle` vocabulary. Exactly one row per exercise carries [isPrimary],
+/// enforced by a partial unique index created in the migration — SQLite cannot
+/// express "exactly one" as a table constraint, and drift's `@TableIndex`
+/// carries no `WHERE` predicate.
+///
+/// The muscle's group is deliberately NOT stored: group is functionally
+/// dependent on muscle, so persisting it would be a transitive dependency and
+/// a second place for the two to disagree. It is derived from the `Muscle`
+/// enum in Dart.
+///
+/// These rows carry no sync columns of their own. Only custom exercises sync,
+/// and their muscles travel as a projection on the parent's remote row, so
+/// this table has no independent remote identity to track.
+class ExerciseMuscles extends Table {
+  IntColumn get exerciseId =>
+      integer().references(Exercises, #id, onDelete: KeyAction.cascade)();
+
+  /// The `Muscle` enum's `name` (e.g. `frontDelts`), not its display label —
+  /// a code identifier, stable under UI copy changes.
+  TextColumn get muscle => text().withLength(min: 1, max: 32)();
+
+  BoolColumn get isPrimary => boolean().withDefault(const Constant(false))();
+
+  /// A muscle appears at most once per exercise, in one role — so an exercise
+  /// cannot list Chest as both its primary and a secondary.
+  @override
+  Set<Column> get primaryKey => {exerciseId, muscle};
+}
+
 /// A named training programme (e.g. Push/Pull/Legs, Upper/Lower).
 ///
 /// Contains one or more [WorkoutRoutines] representing individual training days.

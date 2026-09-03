@@ -2,26 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/local_database.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../data/exercise_catalogue.dart';
 import '../../data/exercise_repository.dart';
 import '../../data/session_repository.dart';
-import 'body_part.dart';
+import '../../domain/muscle.dart';
 import 'exercise_filter.dart';
 import 'exercise_list_tile.dart';
+import 'muscle_chips.dart';
 
 /// Opens the shared exercise picker and resolves to the chosen exercise, or
 /// null if the sheet was dismissed.
 ///
 /// Replaces the flat dropdowns and the fixed-height dialog that each screen
-/// used to roll for itself. Search, a recently-used row and body-part chips
+/// used to roll for itself. Search, a recently-used row and muscle-group chips
 /// mean the full library is reachable in one or two taps mid-workout.
 ///
-/// [restrictTo] narrows the pool — a routine-backed session passes only the
-/// exercises planned for that day. [excludeIds] hides rows entirely, which the
+/// [restrictToIds] narrows the pool — a routine-backed session passes only the
+/// exercises planned for that day. Ids rather than rows, because the sheet
+/// reads the catalogue stream (which carries muscle data) rather than being
+/// handed a plain exercise list. [excludeIds] hides rows entirely, which the
 /// routine builder uses so an exercise cannot be added to the same day twice.
 /// [trailingLabels] maps exercise id to a right-aligned label, e.g. `3 × 10`.
 Future<Exercise?> showExercisePicker(
   BuildContext context, {
-  List<Exercise>? restrictTo,
+  Set<int>? restrictToIds,
   Set<int> excludeIds = const {},
   String title = 'Add exercise',
   Map<int, String> trailingLabels = const {},
@@ -36,7 +40,7 @@ Future<Exercise?> showExercisePicker(
     builder: (_) => UncontrolledProviderScope(
       container: container,
       child: _ExercisePickerSheet(
-        restrictTo: restrictTo,
+        restrictToIds: restrictToIds,
         excludeIds: excludeIds,
         title: title,
         trailingLabels: trailingLabels,
@@ -46,13 +50,13 @@ Future<Exercise?> showExercisePicker(
 }
 
 class _ExercisePickerSheet extends ConsumerStatefulWidget {
-  final List<Exercise>? restrictTo;
+  final Set<int>? restrictToIds;
   final Set<int> excludeIds;
   final String title;
   final Map<int, String> trailingLabels;
 
   const _ExercisePickerSheet({
-    required this.restrictTo,
+    required this.restrictToIds,
     required this.excludeIds,
     required this.title,
     required this.trailingLabels,
@@ -66,7 +70,8 @@ class _ExercisePickerSheet extends ConsumerStatefulWidget {
 class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
   final _searchController = TextEditingController();
   String _query = '';
-  BodyPart? _bodyPart;
+  MuscleGroup? _group;
+  Muscle? _muscle;
 
   @override
   void dispose() {
@@ -76,13 +81,16 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // A restricted pool is already in hand; otherwise stream the library.
-    final restrictTo = widget.restrictTo;
-    if (restrictTo != null) return _buildSheet(restrictTo);
-
-    final exercisesAsync = ref.watch(watchExercisesProvider);
-    return exercisesAsync.when(
-      data: _buildSheet,
+    final catalogueAsync = ref.watch(watchExerciseCatalogueProvider);
+    return catalogueAsync.when(
+      data: (catalogue) {
+        final restrict = widget.restrictToIds;
+        if (restrict == null) return _buildSheet(catalogue);
+        return _buildSheet([
+          for (final entry in catalogue)
+            if (restrict.contains(entry.id)) entry,
+        ]);
+      },
       loading: () => const SizedBox(
         height: 200,
         child: Center(child: CircularProgressIndicator()),
@@ -92,7 +100,7 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
     );
   }
 
-  Widget _buildSheet(List<Exercise> pool) {
+  Widget _buildSheet(List<ExerciseWithMuscles> pool) {
     final available = pool
         .where((e) => !widget.excludeIds.contains(e.id))
         .toList();
@@ -100,11 +108,12 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
     final matches = filterExercises(
       pool,
       query: _query,
-      bodyPart: _bodyPart,
+      group: _group,
+      muscle: _muscle,
       excludeIds: widget.excludeIds,
     );
-    final sections = groupExercisesByBodyPart(matches);
-    final isBrowsing = _query.isEmpty && _bodyPart == null;
+    final sections = groupExercises(matches, group: _group, muscle: _muscle);
+    final isBrowsing = _query.isEmpty && _group == null;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -119,7 +128,14 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
             _buildHeader(),
             _buildSearchField(),
             if (isBrowsing) _RecentRow(pool: available, onPick: _pick),
-            _buildBodyPartChips(available),
+            _buildGroupChips(available),
+            if (_group != null)
+              MuscleChips(
+                group: _group!,
+                selected: _muscle,
+                counts: countByMuscle(available),
+                onSelected: (muscle) => setState(() => _muscle = muscle),
+              ),
             const SizedBox(height: 4),
             Expanded(
               child: matches.isEmpty
@@ -186,10 +202,15 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
     );
   }
 
-  Widget _buildBodyPartChips(List<Exercise> pool) {
-    final counts = countByBodyPart(pool);
-    final present = BodyPart.values
-        .where((part) => (counts[part] ?? 0) > 0)
+  /// The first level: one chip per muscle group present in the pool.
+  ///
+  /// The picker has no room for the body diagram — it is a sheet over a
+  /// half-finished set — so the group level is chips here and the diagram on
+  /// the Exercises tab. Selecting one reveals [MuscleChips] beneath.
+  Widget _buildGroupChips(List<ExerciseWithMuscles> pool) {
+    final counts = countByMuscleGroup(pool);
+    final present = MuscleGroup.values
+        .where((group) => (counts[group]?.total ?? 0) > 0)
         .toList();
     if (present.length < 2) return const SizedBox.shrink();
 
@@ -201,15 +222,15 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
         itemCount: present.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final part = present[index];
-          final isSelected = _bodyPart == part;
+          final group = present[index];
+          final isSelected = _group == group;
           return FilterChip(
-            label: Text(part.label),
+            label: Text(group.label),
             selected: isSelected,
             showCheckmark: false,
-            selectedColor: part.color.withValues(alpha: 0.25),
+            selectedColor: group.color.withValues(alpha: 0.25),
             side: BorderSide(
-              color: isSelected ? part.color : OneRepColors.surfaceHighest,
+              color: isSelected ? group.color : OneRepColors.surfaceHighest,
             ),
             labelStyle: TextStyle(
               color: isSelected
@@ -218,8 +239,11 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
-            onSelected: (_) =>
-                setState(() => _bodyPart = isSelected ? null : part),
+            onSelected: (_) => setState(() {
+              _group = isSelected ? null : group;
+              // Changing group abandons any muscle narrowed within the old one.
+              _muscle = null;
+            }),
           );
         },
       ),
@@ -242,20 +266,21 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
             ),
           ),
         ),
-        for (final exercise in section.exercises)
+        for (final entry in section.exercises)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: ExerciseListTile(
-              exercise: exercise,
-              trailingLabel: widget.trailingLabels[exercise.id],
-              onTap: () => _pick(exercise),
+              entry: entry,
+              trailingLabel: widget.trailingLabels[entry.id],
+              onTap: () => _pick(entry),
             ),
           ),
       ],
     );
   }
 
-  void _pick(Exercise exercise) => Navigator.pop(context, exercise);
+  void _pick(ExerciseWithMuscles entry) =>
+      Navigator.pop(context, entry.exercise);
 }
 
 // ---------------------------------------------------------------------------
@@ -264,8 +289,8 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
 
 /// The exercises logged most recently, so a repeat session is a single tap.
 class _RecentRow extends ConsumerWidget {
-  final List<Exercise> pool;
-  final ValueChanged<Exercise> onPick;
+  final List<ExerciseWithMuscles> pool;
+  final ValueChanged<ExerciseWithMuscles> onPick;
 
   const _RecentRow({required this.pool, required this.onPick});
 
@@ -276,7 +301,7 @@ class _RecentRow extends ConsumerWidget {
     final recentIds = recentAsync.valueOrNull ?? const <int>[];
     if (recentIds.isEmpty) return const SizedBox.shrink();
 
-    final byId = {for (final exercise in pool) exercise.id: exercise};
+    final byId = {for (final entry in pool) entry.id: entry};
     final recent = [
       for (final id in recentIds)
         if (byId[id] != null) byId[id]!,
@@ -306,10 +331,10 @@ class _RecentRow extends ConsumerWidget {
             itemCount: recent.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              final exercise = recent[index];
-              final color = BodyPart.colorFor(exercise.bodyPart);
+              final entry = recent[index];
+              final color = entry.color;
               return GestureDetector(
-                onTap: () => onPick(exercise),
+                onTap: () => onPick(entry),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -321,7 +346,7 @@ class _RecentRow extends ConsumerWidget {
                     border: Border(left: BorderSide(color: color, width: 3)),
                   ),
                   child: Text(
-                    exercise.name,
+                    entry.name,
                     style: const TextStyle(
                       color: OneRepColors.textPrimary,
                       fontSize: 13,
