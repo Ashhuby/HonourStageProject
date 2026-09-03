@@ -9,6 +9,7 @@ import '../../../core/utils/set_formatter.dart';
 import '../domain/session_highlights.dart';
 import 'widgets/exercise_field.dart';
 import 'widgets/session_chips.dart';
+import 'widgets/session_note_dialog.dart';
 import 'widgets/exercise_picker_sheet.dart';
 
 class ProgressScreen extends ConsumerStatefulWidget {
@@ -436,6 +437,13 @@ class _SessionRow extends StatelessWidget {
                 ],
               ),
             ),
+            // A note is worth finding without opening every session, but not
+            // worth quoting in a list — so the row marks it and the sheet
+            // shows it.
+            if (session.note != null) ...[
+              const Icon(Icons.notes, color: OneRepColors.gold, size: 14),
+              const SizedBox(width: 8),
+            ],
             const Icon(
               Icons.chevron_right,
               color: OneRepColors.textDisabled,
@@ -824,10 +832,40 @@ class SessionDetailSheet extends ConsumerWidget {
 
   const SessionDetailSheet({super.key, required this.session});
 
+  /// Opens the note editor and saves whatever comes back.
+  ///
+  /// A dialog rather than an inline field: this sheet is a
+  /// `DraggableScrollableSheet` inside a modal route, and putting a
+  /// multi-line input in it means fighting the keyboard for the drag.
+  Future<void> _editNote(
+    BuildContext context,
+    WidgetRef ref,
+    CompletedSession live,
+  ) async {
+    final result = await showSessionNoteDialog(context, initial: live.note);
+    // Null means dismissed; a record carrying a null note means cleared.
+    if (result == null) return;
+
+    await ref
+        .read(sessionRepositoryProvider.notifier)
+        .setSessionNote(live.id, result.note);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The sheet is handed a snapshot when it opens, so it re-reads the live
+    // row: editing the note here has to be visible here, not only after the
+    // sheet is closed and reopened.
+    final live =
+        ref
+            .watch(watchCompletedSessionDetailsProvider)
+            .valueOrNull
+            ?.where((s) => s.id == session.id)
+            .firstOrNull ??
+        session;
+
     final setsAsync = ref.watch(watchSetsForSessionProvider(session.id));
-    final duration = session.duration;
+    final duration = live.duration;
     final highlights = ref
         .watch(watchSessionHighlightsProvider)
         .valueOrNull?[session.id];
@@ -861,7 +899,7 @@ class SessionDetailSheet extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        session.title,
+                        live.title,
                         style: const TextStyle(
                           color: OneRepColors.textPrimary,
                           fontSize: 17,
@@ -870,8 +908,8 @@ class SessionDetailSheet extends ConsumerWidget {
                       ),
                       Text(
                         [
-                          if (session.subtitle != null) session.subtitle!,
-                          formatSessionDate(session.startTime),
+                          if (live.subtitle != null) live.subtitle!,
+                          formatSessionDate(live.startTime),
                           if (duration != null) formatSessionDuration(duration),
                         ].join(' · '),
                         style: const TextStyle(
@@ -892,6 +930,13 @@ class SessionDetailSheet extends ConsumerWidget {
                 // What a session achieved is worth a badge; that it happened
                 // is not.
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+            child: SessionNoteSection(
+              note: live.note,
+              onEdit: () => _editNote(context, ref, live),
             ),
           ),
           Container(height: 1, color: OneRepColors.surfaceElevated),

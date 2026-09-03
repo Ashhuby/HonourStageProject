@@ -223,6 +223,9 @@ class CompletedSession {
 
   /// The split, when the routine belongs to one — "PPL" beneath "Push Day".
   String? get subtitle => routineName == null ? null : splitName;
+
+  /// What the user wrote about this session, if anything.
+  String? get note => session.sessionNote;
 }
 
 /// Completed sessions, newest first, each named by its routine and split.
@@ -655,6 +658,30 @@ class SessionRepository extends _$SessionRepository {
           exerciseId: exercise.id,
           metricType: exercise.metricType,
         );
+  }
+
+  /// Attaches a note to a session, or clears it.
+  ///
+  /// `sessionNote` has been a column since the schema had sync columns at all,
+  /// and it round-trips through Supabase in both directions — but nothing in
+  /// the app ever wrote one, so it has only ever held null.
+  ///
+  /// Blank input clears the note rather than storing an empty string: a note
+  /// either says something or does not exist, and two ways of saying "nothing"
+  /// is one too many.
+  Future<void> setSessionNote(int sessionId, String? note) async {
+    final db = ref.read(databaseProvider);
+    final trimmed = note?.trim();
+
+    await (db.update(
+      db.workoutSessions,
+    )..where((s) => s.id.equals(sessionId))).write(
+      WorkoutSessionsCompanion(
+        sessionNote: Value(trimmed == null || trimmed.isEmpty ? null : trimmed),
+        // Dirty, so the note reaches the other device.
+        syncedAt: const Value(null),
+      ),
+    );
   }
 
   /// Soft-deletes a session and all its sets, then rebuilds the records those
