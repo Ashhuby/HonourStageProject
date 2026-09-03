@@ -5,9 +5,11 @@ import '../data/badge_service.dart';
 import '../data/exercise_catalogue.dart';
 import '../data/exercise_repository.dart';
 import '../data/personal_best_repository.dart';
+import '../domain/activity.dart';
 import '../domain/muscle.dart';
 import 'exercise_detail_screen.dart';
 import 'widgets/body_map.dart';
+import 'widgets/category_chips.dart';
 import 'widgets/exercise_filter.dart';
 import 'widgets/exercise_list_tile.dart';
 import 'widgets/muscle_chips.dart';
@@ -18,10 +20,14 @@ import 'widgets/muscle_chips.dart';
 /// of its own — the diagram and search box live in the body, scrolling away
 /// with the list rather than pinned above it.
 ///
-/// Browsing is two levels. The diagram selects a [MuscleGroup]; the chip row
-/// that then appears narrows to a single [Muscle]. Nothing on the diagram is
-/// ever smaller than a fingertip, which is what makes forearms and calves
-/// reachable at all.
+/// Browsing is three levels. A category row scopes everything below it; the
+/// diagram then selects a [MuscleGroup], and the chip row that appears narrows
+/// to a single [Muscle]. Nothing on the diagram is ever smaller than a
+/// fingertip, which is what makes forearms and calves reachable at all.
+///
+/// Cardio is the exception: it swaps the diagram for [ModalityChips], because
+/// you look for the rowers rather than for your lats. Strength and Mobility
+/// both keep the diagram — a stretch is looked up by the muscle it targets.
 class ExerciseLibraryScreen extends ConsumerStatefulWidget {
   const ExerciseLibraryScreen({super.key});
 
@@ -33,6 +39,8 @@ class ExerciseLibraryScreen extends ConsumerStatefulWidget {
 class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
   final _searchController = TextEditingController();
   String _query = '';
+  ExerciseCategory? _category;
+  CardioModality? _modality;
   MuscleGroup? _group;
   Muscle? _muscle;
 
@@ -67,13 +75,29 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
   Widget _buildLibrary(List<ExerciseWithMuscles> catalogue) {
     if (catalogue.isEmpty) return const _EmptyState();
 
+    // Counts are computed over the category-filtered pool, so the diagram
+    // under Mobility shows mobility counts rather than the whole library's.
+    final inCategory = _category == null
+        ? catalogue
+        : [
+            for (final e in catalogue)
+              if (e.category == _category) e,
+          ];
+
     final matches = filterExercises(
       catalogue,
       query: _query,
+      category: _category,
+      group: _group,
+      muscle: _muscle,
+    ).where((e) => _modality == null || e.modality == _modality).toList();
+
+    final sections = groupExercises(
+      matches,
+      category: _category,
       group: _group,
       muscle: _muscle,
     );
-    final sections = groupExercises(matches, group: _group, muscle: _muscle);
 
     // Flatten sections into header/exercise rows so one sliver renders them.
     // groupExercises guarantees each exercise appears in exactly one section,
@@ -89,26 +113,49 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
         SliverToBoxAdapter(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: BodyMap(
-                  counts: countByMuscleGroup(catalogue),
-                  selected: _group,
-                  onSelected: (group) => setState(() {
-                    _group = group;
-                    // A new group abandons the muscle narrowed within the old.
-                    _muscle = null;
-                  }),
-                ),
+              const SizedBox(height: 8),
+              CategoryChips(
+                selected: _category,
+                counts: _categoryCounts(catalogue),
+                onSelected: (category) => setState(() {
+                  _category = category;
+                  // A new category abandons everything narrowed within the
+                  // old one, mirroring how a new group abandons its muscle.
+                  _modality = null;
+                  _group = null;
+                  _muscle = null;
+                }),
               ),
-              if (_group != null) ...[
-                const SizedBox(height: 12),
-                MuscleChips(
-                  group: _group!,
-                  selected: _muscle,
-                  counts: countByMuscle(catalogue),
-                  onSelected: (muscle) => setState(() => _muscle = muscle),
+              if (_category?.isSectionedByModality ?? false) ...[
+                const SizedBox(height: 4),
+                ModalityChips(
+                  selected: _modality,
+                  counts: countByModality(inCategory),
+                  onSelected: (modality) =>
+                      setState(() => _modality = modality),
                 ),
+              ] else ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: BodyMap(
+                    counts: countByMuscleGroup(inCategory),
+                    selected: _group,
+                    onSelected: (group) => setState(() {
+                      _group = group;
+                      // A new group abandons the muscle narrowed within it.
+                      _muscle = null;
+                    }),
+                  ),
+                ),
+                if (_group != null) ...[
+                  const SizedBox(height: 12),
+                  MuscleChips(
+                    group: _group!,
+                    selected: _muscle,
+                    counts: countByMuscle(inCategory),
+                    onSelected: (muscle) => setState(() => _muscle = muscle),
+                  ),
+                ],
               ],
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -146,6 +193,16 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
           ),
       ],
     );
+  }
+
+  Map<ExerciseCategory, int> _categoryCounts(
+    List<ExerciseWithMuscles> catalogue,
+  ) {
+    final counts = <ExerciseCategory, int>{};
+    for (final entry in catalogue) {
+      counts[entry.category] = (counts[entry.category] ?? 0) + 1;
+    }
+    return counts;
   }
 
   Widget _buildItem(Object item) {
@@ -216,6 +273,8 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
 
   void _showAddExerciseDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
+    var category = ExerciseCategory.strength;
+    CardioModality? modality;
     Muscle? primary;
     final secondary = <Muscle>{};
     String? selectedEquipment;
@@ -236,6 +295,56 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
                   autofocus: true,
                   decoration: const InputDecoration(labelText: 'Exercise Name'),
                 ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<ExerciseCategory>(
+                  initialValue: category,
+                  decoration: const InputDecoration(
+                    labelText: 'Activity',
+                    helperText: 'What kind of training this is',
+                  ),
+                  dropdownColor: OneRepColors.surfaceElevated,
+                  items: [
+                    for (final option in ExerciseCategory.values)
+                      DropdownMenuItem(
+                        value: option,
+                        child: Text(option.label),
+                      ),
+                  ],
+                  onChanged: (value) => setDialogState(() {
+                    category = value ?? ExerciseCategory.strength;
+                    // The trigger and the repository both require modality to
+                    // be present exactly when the category is cardio.
+                    modality = category.isSectionedByModality
+                        ? (modality ?? CardioModality.other)
+                        : null;
+                    selectedMetricType = switch (category) {
+                      ExerciseCategory.cardio => 'distanceTime',
+                      ExerciseCategory.mobility => 'timeOnly',
+                      ExerciseCategory.strength => 'weightReps',
+                    };
+                  }),
+                ),
+                if (category.isSectionedByModality) ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<CardioModality>(
+                    initialValue: modality,
+                    decoration: const InputDecoration(
+                      labelText: 'Kind',
+                      helperText: 'Where this is filed under Cardio',
+                    ),
+                    dropdownColor: OneRepColors.surfaceElevated,
+                    items: [
+                      for (final option in CardioModality.values)
+                        DropdownMenuItem(
+                          value: option,
+                          child: Text(option.label),
+                        ),
+                    ],
+                    onChanged: (value) => setDialogState(
+                      () => modality = value ?? CardioModality.other,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 DropdownButtonFormField<Muscle>(
                   initialValue: primary,
@@ -316,6 +425,8 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
                       primary: primary!,
                       secondary: secondary,
                       metricType: selectedMetricType,
+                      category: category,
+                      modality: modality,
                     );
 
                 final prCount = await ref
@@ -376,7 +487,7 @@ class _SecondaryMusclePicker extends StatelessWidget {
           runSpacing: 6,
           children: [
             for (final muscle in Muscle.values)
-              if (muscle != primary && muscle != Muscle.fullBody)
+              if (muscle != primary)
                 FilterChip(
                   label: Text(muscle.label),
                   selected: selected.contains(muscle),

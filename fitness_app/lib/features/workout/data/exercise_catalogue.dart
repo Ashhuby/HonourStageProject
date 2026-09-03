@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/material.dart' show Color, immutable;
 import '../../../core/database/local_database.dart';
 import '../../../core/theme/app_colors.dart';
+import '../domain/activity.dart';
 import '../domain/muscle.dart';
 
 /// An exercise together with the muscles it trains.
@@ -30,6 +31,25 @@ class ExerciseWithMuscles {
   int get id => exercise.id;
   String get name => exercise.name;
   MuscleGroup? get primaryGroup => primary?.group;
+
+  /// The category this exercise is filed under.
+  ///
+  /// Total where [ExerciseCategory.byNameOrNull] is partial: every exercise is
+  /// *some* category, and a value written by a newer client must file
+  /// somewhere rather than vanish. Strength is the default because it is what
+  /// every pre-v10 row was.
+  ExerciseCategory get category =>
+      ExerciseCategory.byNameOrNull(exercise.category) ??
+      ExerciseCategory.strength;
+
+  /// The modality, for cardio only.
+  ///
+  /// [CardioModality.other] rather than null for an unrecognised value: a
+  /// cardio exercise always has a section to sit in, which is what keeps
+  /// grouping a partition.
+  CardioModality? get modality => category.isSectionedByModality
+      ? (CardioModality.byNameOrNull(exercise.modality) ?? CardioModality.other)
+      : null;
 
   /// Tint for the tile stripe, the dot and the section heading.
   Color get color => primary?.color ?? OneRepColors.textSecondary;

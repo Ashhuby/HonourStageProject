@@ -40,7 +40,9 @@ class ExerciseField extends StatelessWidget {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: muscleForLegacyBodyPart(selected.bodyPart).color,
+                  color:
+                      muscleForBodyPartOrNull(selected.bodyPart)?.color ??
+                      OneRepColors.textSecondary,
                   shape: BoxShape.circle,
                 ),
               ),

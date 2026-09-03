@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/features/workout/data/exercise_catalogue.dart';
+import 'package:fitness_app/features/workout/domain/activity.dart';
 import 'package:fitness_app/features/workout/domain/muscle.dart';
 import 'package:fitness_app/features/workout/presentation/widgets/exercise_filter.dart';
 
@@ -17,6 +18,8 @@ void main() {
     Muscle primary, {
     List<Muscle> secondary = const [],
     String equipment = 'Barbell',
+    ExerciseCategory category = ExerciseCategory.strength,
+    CardioModality? modality,
   }) {
     return ExerciseWithMuscles(
       exercise: Exercise(
@@ -26,6 +29,8 @@ void main() {
         equipmentType: equipment,
         isCustom: false,
         metricType: 'weightReps',
+        category: category.name,
+        modality: modality?.name,
       ),
       primary: primary,
       secondary: secondary,
@@ -55,6 +60,31 @@ void main() {
   );
   final pushdown = ex(6, 'Tricep Pushdown', Muscle.triceps, equipment: 'Cable');
 
+  final running = ex(
+    7,
+    'Running',
+    Muscle.quads,
+    secondary: [Muscle.calves],
+    equipment: 'Body Weight',
+    category: ExerciseCategory.cardio,
+    modality: CardioModality.run,
+  );
+  final rower = ex(
+    8,
+    'Rowing Machine',
+    Muscle.lats,
+    equipment: 'Machine',
+    category: ExerciseCategory.cardio,
+    modality: CardioModality.row,
+  );
+  final hamstringStretch = ex(
+    9,
+    'Hamstring Stretch',
+    Muscle.hamstrings,
+    equipment: 'Body Weight',
+    category: ExerciseCategory.mobility,
+  );
+
   final library = [
     benchPress,
     inclineBench,
@@ -62,6 +92,9 @@ void main() {
     squat,
     plank,
     pushdown,
+    running,
+    rower,
+    hamstringStretch,
   ];
 
   // ---------------------------------------------------------------------------
@@ -99,7 +132,9 @@ void main() {
 
     test('excluded ids are dropped', () {
       final matches = filterExercises(library, excludeIds: {1, 4});
-      expect(matches.map((e) => e.id), [2, 3, 5, 6]);
+      expect(matches.map((e) => e.id), isNot(contains(1)));
+      expect(matches.map((e) => e.id), isNot(contains(4)));
+      expect(matches, hasLength(library.length - 2));
     });
 
     test('no match yields an empty list rather than everything', () {
@@ -154,8 +189,8 @@ void main() {
       ]);
     });
 
-    test('a group nothing trains yields an empty list', () {
-      expect(filterExercises(library, group: MuscleGroup.fullBody), isEmpty);
+    test('a muscle nothing trains yields an empty list', () {
+      expect(filterExercises(library, muscle: Muscle.rearDelts), isEmpty);
     });
   });
 
@@ -180,7 +215,7 @@ void main() {
       for (final group in MuscleGroup.values) {
         expect(MuscleGroup.fromLabel(group.label), group);
       }
-      expect(MuscleGroup.fromLabel('  full body '), MuscleGroup.fullBody);
+      expect(MuscleGroup.fromLabel('  legs '), MuscleGroup.legs);
       expect(MuscleGroup.fromLabel('CHEST'), MuscleGroup.chest);
       expect(MuscleGroup.fromLabel('Forearms'), isNull);
     });
@@ -206,16 +241,19 @@ void main() {
         'Biceps': Muscle.biceps,
         'Triceps': Muscle.triceps,
         'Core': Muscle.abs,
-        'Whole Body': Muscle.fullBody,
       };
       legacy.forEach((label, muscle) {
-        expect(muscleForLegacyBodyPart(label), muscle, reason: label);
+        expect(muscleForBodyPartOrNull(label), muscle, reason: label);
       });
     });
 
-    test('an unrecognised legacy label falls back rather than throwing', () {
-      expect(muscleForLegacyBodyPart('Nonsense'), Muscle.fullBody);
-      expect(muscleForLegacyBodyPart(''), Muscle.fullBody);
+    test('a label naming no muscle returns null rather than guessing', () {
+      // 'Whole Body' is the interesting one: it was a real stored value, and
+      // it names no muscle. Such a row is left unassigned — visible and
+      // correctable — rather than being given a fabricated anatomical claim.
+      expect(muscleForBodyPartOrNull('Whole Body'), isNull);
+      expect(muscleForBodyPartOrNull('Nonsense'), isNull);
+      expect(muscleForBodyPartOrNull(''), isNull);
     });
   });
 
@@ -263,6 +301,7 @@ void main() {
           equipmentType: 'Other',
           isCustom: true,
           metricType: 'weightReps',
+          category: 'strength',
         ),
         primary: null,
         secondary: [],
@@ -364,8 +403,10 @@ void main() {
 
     test('a group with no exercises is absent, so it reads as zero', () {
       final counts = countByMuscleGroup(library);
-      expect(counts[MuscleGroup.fullBody], isNull);
-      expect(counts[MuscleGroup.fullBody]?.total ?? 0, 0);
+      // Nothing in the fixture trains legs as a secondary either, so Legs is
+      // present with a primary count; Chest has no secondary use at all.
+      expect(counts[MuscleGroup.core]?.primary, 1);
+      expect(counts[MuscleGroup.shoulders]?.primary, 0);
     });
   });
 
@@ -377,7 +418,111 @@ void main() {
     });
 
     test('a muscle nothing trains is absent', () {
-      expect(countByMuscle(library)[Muscle.calves], isNull);
+      expect(countByMuscle(library)[Muscle.rearDelts], isNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Categories
+  // ---------------------------------------------------------------------------
+
+  group('categories', () {
+    test('a category filter is a strict subset', () {
+      final all = filterExercises(library);
+      for (final category in ExerciseCategory.values) {
+        final subset = filterExercises(library, category: category);
+        expect(subset.length, lessThan(all.length), reason: category.label);
+        expect(
+          subset.every((e) => e.category == category),
+          isTrue,
+          reason: category.label,
+        );
+      }
+    });
+
+    test('the categories partition the library', () {
+      var total = 0;
+      for (final category in ExerciseCategory.values) {
+        total += filterExercises(library, category: category).length;
+      }
+      expect(total, library.length);
+    });
+
+    test('cardio sections by modality, not by muscle', () {
+      // Running's primary is Quads. Under Strength that would file it in Legs;
+      // under Cardio it belongs under Run, because that is how it is looked
+      // for.
+      final matches = filterExercises(
+        library,
+        category: ExerciseCategory.cardio,
+      );
+      final sections = groupExercises(
+        matches,
+        category: ExerciseCategory.cardio,
+      );
+      expect(sections.map((s) => s.title), ['Run', 'Row']);
+    });
+
+    test('mobility keeps sectioning by muscle group', () {
+      // A stretch is looked up by the muscle it targets, so it keeps the
+      // diagram and the anatomical sections.
+      final matches = filterExercises(
+        library,
+        category: ExerciseCategory.mobility,
+      );
+      final sections = groupExercises(
+        matches,
+        category: ExerciseCategory.mobility,
+      );
+      expect(sections.single.title, 'Legs');
+    });
+
+    test('an unrecognised stored category files as strength', () {
+      // Total where the parser is partial: a value from a newer client must
+      // land somewhere rather than vanish from the library.
+      const odd = ExerciseWithMuscles(
+        exercise: Exercise(
+          id: 50,
+          name: 'Something New',
+          bodyPart: 'Chest',
+          equipmentType: 'Barbell',
+          isCustom: false,
+          metricType: 'weightReps',
+          category: 'breathwork',
+        ),
+        primary: Muscle.chest,
+        secondary: [],
+      );
+      expect(odd.category, ExerciseCategory.strength);
+      expect(odd.modality, isNull);
+    });
+
+    test('a cardio row with no stored modality still has a section', () {
+      const odd = ExerciseWithMuscles(
+        exercise: Exercise(
+          id: 51,
+          name: 'Mystery Cardio',
+          bodyPart: 'Legs',
+          equipmentType: 'Other',
+          isCustom: true,
+          metricType: 'distanceTime',
+          category: 'cardio',
+        ),
+        primary: Muscle.quads,
+        secondary: [],
+      );
+      // Otherwise it would fall out of every section and grouping would stop
+      // being a partition.
+      expect(odd.modality, CardioModality.other);
+    });
+
+    test('countByModality counts each cardio exercise once', () {
+      final counts = countByModality(
+        filterExercises(library, category: ExerciseCategory.cardio),
+      );
+      expect(counts[CardioModality.run], 1);
+      expect(counts[CardioModality.row], 1);
+      expect(counts[CardioModality.cycle], isNull);
     });
   });
 }

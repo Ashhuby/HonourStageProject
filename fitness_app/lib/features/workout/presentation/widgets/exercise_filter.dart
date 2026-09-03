@@ -1,4 +1,5 @@
 import '../../data/exercise_catalogue.dart';
+import '../../domain/activity.dart';
 import '../../domain/muscle.dart';
 
 /// Filters the catalogue down to what a search box, a body-map selection and a
@@ -16,9 +17,14 @@ import '../../domain/muscle.dart';
 /// rather than replacing it. When a [query] is set, the existing rule still
 /// applies within each band: names *starting* with the query come before names
 /// merely containing it.
+///
+/// [category] is a **pre-filter, never a sectioning axis**. Every exercise has
+/// exactly one category, so narrowing to one is a subset operation and cannot
+/// introduce a duplicate — which is what keeps [groupExercises] a partition.
 List<ExerciseWithMuscles> filterExercises(
   List<ExerciseWithMuscles> all, {
   String query = '',
+  ExerciseCategory? category,
   MuscleGroup? group,
   Muscle? muscle,
   Set<int> excludeIds = const {},
@@ -32,6 +38,7 @@ List<ExerciseWithMuscles> filterExercises(
 
   for (final entry in all) {
     if (excludeIds.contains(entry.id)) continue;
+    if (category != null && entry.category != category) continue;
     if (needle.isNotEmpty && !entry.name.toLowerCase().contains(needle)) {
       continue;
     }
@@ -69,14 +76,16 @@ class ExerciseSection {
     required this.exercises,
     this.group,
     this.muscle,
+    this.modality,
   });
 
   final String title;
 
-  /// The group or muscle this section is headed by, for its heading tint.
-  /// Both null for "Unassigned".
+  /// The group, muscle or modality this section is headed by, for its heading
+  /// tint. All null for "Unassigned".
   final MuscleGroup? group;
   final Muscle? muscle;
+  final CardioModality? modality;
 
   /// Only meaningful when a filter is active; always [MuscleMatch.primary]
   /// otherwise.
@@ -95,18 +104,25 @@ class ExerciseSection {
 /// patching it with a composite key, which would also break dismissal state
 /// across rebuilds.
 ///
-/// Two modes:
+/// Three modes, in precedence order:
 ///
-/// * **Unfiltered** — partition by the exercise's *primary* muscle group, in
+/// * **Filtered by muscle or group** — sectioning by primary group would
+///   misfile the results (tap Arms and Dips would appear under "Chest"), so
+///   emit at most two sections mirroring the ranking: the primary matches
+///   under the filter's own label, then the secondary matches under
+///   "Also works …".
+/// * **Cardio** — by [CardioModality], the one category whose second level is
+///   not derivable from the muscles. Every cardio exercise has exactly one
+///   modality, guaranteed by the database trigger, the seed's const assert and
+///   [ExerciseWithMuscles.modality]'s total fallback — so this stays a
+///   partition too.
+/// * **Otherwise** — partition by the exercise's *primary* muscle group, in
 ///   [MuscleGroup] declaration order, alphabetical within, with a trailing
 ///   "Unassigned" for rows carrying no primary. Secondary muscles are ignored
 ///   for sectioning.
-/// * **Filtered** — sectioning by primary group would misfile the results
-///   (tap Arms and Dips would appear under "Chest"), so emit at most two
-///   sections mirroring the ranking: the primary matches under the filter's
-///   own label, then the secondary matches under "Also works …".
 List<ExerciseSection> groupExercises(
   List<ExerciseWithMuscles> exercises, {
+  ExerciseCategory? category,
   MuscleGroup? group,
   Muscle? muscle,
 }) {
@@ -141,6 +157,10 @@ List<ExerciseSection> groupExercises(
           exercises: secondary,
         ),
     ];
+  }
+
+  if (category != null && category.isSectionedByModality) {
+    return _groupByModality(exercises);
   }
 
   final buckets = <MuscleGroup, List<ExerciseWithMuscles>>{};
@@ -180,6 +200,47 @@ List<ExerciseSection> groupExercises(
     );
   }
   return sections;
+}
+
+/// Sections cardio by modality, in [CardioModality] declaration order.
+List<ExerciseSection> _groupByModality(List<ExerciseWithMuscles> exercises) {
+  final buckets = <CardioModality, List<ExerciseWithMuscles>>{};
+  for (final entry in exercises) {
+    final modality = entry.modality;
+    if (modality == null) continue;
+    buckets.putIfAbsent(modality, () => []).add(entry);
+  }
+
+  final sections = <ExerciseSection>[];
+  for (final modality in CardioModality.values) {
+    final bucket = buckets[modality];
+    if (bucket == null || bucket.isEmpty) continue;
+    bucket.sort((a, b) => a.name.compareTo(b.name));
+    sections.add(
+      ExerciseSection(
+        title: modality.label,
+        modality: modality,
+        role: MuscleMatch.primary,
+        exercises: bucket,
+      ),
+    );
+  }
+  return sections;
+}
+
+/// Counts exercises per cardio modality, for the chip row that stands in for
+/// the body diagram under Cardio.
+///
+/// A plain count: the primary/total split is a muscle concept — an exercise
+/// has one modality and no secondary ones.
+Map<CardioModality, int> countByModality(List<ExerciseWithMuscles> exercises) {
+  final counts = <CardioModality, int>{};
+  for (final entry in exercises) {
+    final modality = entry.modality;
+    if (modality == null) continue;
+    counts[modality] = (counts[modality] ?? 0) + 1;
+  }
+  return counts;
 }
 
 /// How many exercises sit in a group or muscle, counted two ways.

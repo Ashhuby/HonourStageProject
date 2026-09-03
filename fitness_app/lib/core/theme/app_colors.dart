@@ -59,7 +59,19 @@ class OneRepColors {
   static const Color legs = Color(0xFFA5D6A7);
   static const Color shoulders = Color(0xFFFFCC80);
   static const Color biceps = Color(0xFFCE93D8);
-  static const Color triceps = Color(0xFF80DEEA);
   static const Color core = Color(0xFFF48FB1);
-  static const Color wholeBody = Color(0xFFFFAB91);
+
+  // ---------------------------------------------------------------------------
+  // Activity category colours — the axis above muscle groups
+  // ---------------------------------------------------------------------------
+  //
+  // Strength takes the app accent rather than a pastel: it is the default mode
+  // and its rows are already tinted by muscle group. The other two adopt the
+  // two body-part pastels the muscle vocabulary no longer uses — the cyan was
+  // never claimed by a MuscleGroup once Arms took the purple, and the peach
+  // was freed by retiring Full Body. No new hex values.
+
+  static const Color strength = accent;
+  static const Color cardio = Color(0xFFFFAB91);
+  static const Color mobility = Color(0xFF80DEEA);
 }

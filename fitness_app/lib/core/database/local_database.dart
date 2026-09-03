@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../../features/workout/data/workout_tables.dart';
+import '../../features/workout/domain/activity.dart';
 import '../../features/workout/domain/muscle.dart';
 import 'exercise_seed.dart';
 
@@ -30,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
   final bool _isTesting;
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration {
@@ -39,6 +40,7 @@ class AppDatabase extends _$AppDatabase {
         await m.createAll();
         await _createMuscleIndexes();
         await _guardExerciseUniqueness();
+        await _guardCategoryModality();
         if (!_isTesting) {
           await _seedExercises();
           await _seedBadges();
@@ -132,6 +134,9 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 9) {
           await _migrateToMuscleTaxonomy(m);
+        }
+        if (from < 10) {
+          await _migrateToCategories(from);
         }
       },
       beforeOpen: (details) async {
@@ -246,6 +251,192 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // v10 — activity categories
+  // ---------------------------------------------------------------------------
+
+  /// Enforces `category = 'cardio'` if and only if `modality IS NOT NULL`.
+  ///
+  /// A table-level CHECK would be the natural expression, but SQLite has no
+  /// `ADD CONSTRAINT`, so one declared through drift would bind fresh installs
+  /// and not upgraded ones — an asymmetry worth avoiding. Rebuilding a table
+  /// referenced by `workout_sets`, `routine_exercises` and `personal_bests`
+  /// inside `onUpgrade` is the riskiest option of all. Triggers can be created
+  /// after the fact, which is why `_createMuscleIndexes` exists in the same
+  /// shape.
+  ///
+  /// `category` is NOT NULL, so both sides of the comparison are total.
+  /// Consequence to write against: every statement must set both columns at
+  /// once — setting the category first and the modality second aborts halfway.
+  Future<void> _guardCategoryModality() async {
+    const rule =
+        "WHEN (NEW.category = 'cardio') <> (NEW.modality IS NOT NULL) "
+        "BEGIN SELECT RAISE(ABORT, 'modality is required for cardio and "
+        "forbidden otherwise'); END";
+    try {
+      await customStatement(
+        'CREATE TRIGGER IF NOT EXISTS trg_exercises_modality_insert '
+        'BEFORE INSERT ON exercises $rule',
+      );
+      await customStatement(
+        'CREATE TRIGGER IF NOT EXISTS trg_exercises_modality_update '
+        'BEFORE UPDATE OF category, modality ON exercises $rule',
+      );
+    } catch (_) {
+      // Best-effort, like _guardExerciseUniqueness: a throw inside onUpgrade
+      // propagates out of the database open and bricks launch. The rule is
+      // also asserted by SeedExercise's const constructor and by a unit test,
+      // so the trigger is a net rather than the only line of defence.
+    }
+  }
+
+  /// v9 to v10: gives every exercise an activity category, and retires the
+  /// `Full Body` muscle that cardio was being filed under.
+  ///
+  /// Foreign keys are off here, as in v9 — `PRAGMA foreign_keys = ON` lives in
+  /// `beforeOpen`, which drift runs after `onUpgrade` — so the
+  /// `exercise_muscles` cascade is inert and every delete is explicit.
+  Future<void> _migrateToCategories(int from) async {
+    await customStatement(
+      'ALTER TABLE exercises ADD COLUMN category TEXT NOT NULL '
+      "DEFAULT 'strength'",
+    );
+    await customStatement('ALTER TABLE exercises ADD COLUMN modality TEXT');
+
+    await _refileSeededCategories();
+    await _insertSeedsAddedSince(from);
+    await _purgeRetiredFullBody();
+    await _categoriseCustomExercises();
+    await _guardCategoryModality();
+  }
+
+  /// Sets the category and modality of the default exercises that are not
+  /// strength, driven from [kSeedExercises] so the seed stays the single
+  /// source of truth.
+  ///
+  /// Guarded on the old value, the [_refileChinUps] pattern, so a user who has
+  /// already re-filed one is left alone. Both columns move in one statement
+  /// because the trigger checks them together.
+  Future<void> _refileSeededCategories() async {
+    for (final seed in kSeedExercises) {
+      if (seed.category == ExerciseCategory.strength) continue;
+      await customStatement(
+        'UPDATE exercises SET category = ?, modality = ? '
+        "WHERE name = ? AND is_custom = 0 AND category = 'strength'",
+        [seed.category.name, seed.modality?.name, seed.name],
+      );
+    }
+  }
+
+  /// Inserts the exercises introduced at a version newer than [from].
+  ///
+  /// The one narrow exception to "a migration must never re-run the seed". It
+  /// is safe only because `since` restricts it to names that have never
+  /// shipped, and a name that never shipped cannot have been deliberately
+  /// deleted — so `'a deleted default is a no-op'` still holds. The existence
+  /// check covers custom rows too, so a user's own "Jump Rope" does not gain a
+  /// twin.
+  Future<void> _insertSeedsAddedSince(int from) async {
+    for (final seed in kSeedExercises) {
+      if (seed.since <= from) continue;
+
+      final existing = await customSelect(
+        'SELECT id FROM exercises WHERE name = ? LIMIT 1',
+        variables: [Variable<String>(seed.name)],
+      ).getSingleOrNull();
+      if (existing != null) continue;
+
+      await customStatement(
+        'INSERT INTO exercises '
+        '(name, body_part, equipment_type, is_custom, metric_type, '
+        'category, modality) VALUES (?, ?, ?, 0, ?, ?, ?)',
+        [
+          seed.name,
+          seed.primary?.group.label ?? kUnassignedBodyPart,
+          seed.equipment,
+          seed.metricType,
+          seed.category.name,
+          seed.modality?.name,
+        ],
+      );
+      final row = await customSelect(
+        'SELECT last_insert_rowid() AS id',
+      ).getSingle();
+      await _writeSeedMuscles(row.read<int>('id'), seed);
+    }
+  }
+
+  /// Removes every trace of the retired `Full Body` muscle.
+  ///
+  /// This is the step that cannot be skipped. An install that ran v9 holds
+  /// `exercise_muscles` rows whose `muscle` is `'fullBody'`; deleting the enum
+  /// value would leave `Muscle.byNameOrNull` returning null, the catalogue
+  /// fold silently skipping the row, and Running rendering as Unassigned with
+  /// nothing anywhere to explain why.
+  Future<void> _purgeRetiredFullBody() async {
+    // The three seeded cardio exercises get the real muscles the seed now
+    // gives them — guarded on still holding the retired value, so a user who
+    // reassigned Running's muscles by hand keeps their choice.
+    for (final seed in kSeedExercises) {
+      if (seed.category != ExerciseCategory.cardio) continue;
+
+      final rows = await customSelect(
+        'SELECT e.id AS id FROM exercises e '
+        'JOIN exercise_muscles em '
+        '  ON em.exercise_id = e.id AND em.is_primary = 1 '
+        "WHERE e.is_custom = 0 AND e.name = ? AND em.muscle = 'fullBody'",
+        variables: [Variable<String>(seed.name)],
+      ).get();
+
+      for (final row in rows) {
+        final id = row.read<int>('id');
+        await customStatement(
+          'DELETE FROM exercise_muscles WHERE exercise_id = ?',
+          [id],
+        );
+        await _writeSeedMuscles(id, seed);
+      }
+    }
+
+    // Anything still holding it — a custom exercise the user filed under Full
+    // Body, or a stray secondary. Those exercises lose their primary and read
+    // as Unassigned: visible and correctable, where a guessed muscle would be
+    // a claim about anatomy the app cannot support.
+    await customStatement(
+      "DELETE FROM exercise_muscles WHERE muscle = 'fullBody'",
+    );
+    await customStatement(
+      'UPDATE exercises SET body_part = ?, '
+      'synced_at = CASE WHEN is_custom = 1 THEN NULL ELSE synced_at END '
+      "WHERE body_part = 'Full Body'",
+      [kUnassignedBodyPart],
+    );
+  }
+
+  /// Gives custom exercises a category.
+  ///
+  /// The only signal available is `metric_type`, and it is a weak one, so this
+  /// is honest about being a heuristic:
+  ///
+  /// * a `distanceTime` custom becomes Cardio / Other. **A loaded carry logged
+  ///   by distance is misfiled** — it is strength — but distance-and-time is
+  ///   overwhelmingly cardio, and "Other" is a self-describing bucket rather
+  ///   than a silent wrong answer.
+  /// * a `timeOnly` custom **stays Strength**, deliberately. That metric
+  ///   covers Plank and Dead Hang as well as every stretch, so guessing
+  ///   Mobility would misfile the holds instead. Leaving it put means the
+  ///   exercise stays exactly where the user last saw it.
+  /// * nothing is ever guessed into Mobility. Only the seed knows Mobility.
+  ///
+  /// Rows it touches go dirty so the correction uploads.
+  Future<void> _categoriseCustomExercises() async {
+    await customStatement(
+      "UPDATE exercises SET category = 'cardio', modality = 'other', "
+      'synced_at = NULL '
+      "WHERE is_custom = 1 AND metric_type = 'distanceTime' "
+      "AND category = 'strength'",
+    );
+  }
   // ---------------------------------------------------------------------------
   // v9 — the muscle taxonomy
   // ---------------------------------------------------------------------------
@@ -455,7 +646,11 @@ class AppDatabase extends _$AppDatabase {
     ).get();
 
     for (final row in orphans) {
-      final muscle = muscleForLegacyBodyPart(row.read<String>('body_part'));
+      final muscle = muscleForBodyPartOrNull(row.read<String>('body_part'));
+      // No muscle named — the row stays Unassigned rather than being given a
+      // fabricated one. The schema allows it: the primary index is UNIQUE
+      // ... WHERE is_primary = 1, which is at most one, not exactly one.
+      if (muscle == null) continue;
       await customStatement(
         'INSERT OR IGNORE INTO exercise_muscles '
         '(exercise_id, muscle, is_primary) VALUES (?, ?, 1)',
@@ -484,8 +679,10 @@ class AppDatabase extends _$AppDatabase {
     ).get();
 
     for (final row in rows) {
-      final muscle =
-          Muscle.byNameOrNull(row.read<String>('muscle')) ?? Muscle.fullBody;
+      final muscle = Muscle.byNameOrNull(row.read<String>('muscle'));
+      // An unparseable muscle name says nothing about the group, so leave
+      // body_part as it stands rather than overwriting it with a guess.
+      if (muscle == null) continue;
       final label = muscle.group.label;
       if (row.read<String>('body_part') == label) continue;
 
@@ -526,18 +723,22 @@ class AppDatabase extends _$AppDatabase {
         id = await into(exercises).insert(
           ExercisesCompanion.insert(
             name: seed.name,
-            bodyPart: seed.primary.group.label,
+            bodyPart: seed.primary?.group.label ?? kUnassignedBodyPart,
             equipmentType: seed.equipment,
             metricType: Value(seed.metricType),
+            category: Value(seed.category.name),
+            modality: Value(seed.modality?.name),
           ),
         );
       } else {
         id = existing.id;
         await (update(exercises)..where((e) => e.id.equals(id))).write(
           ExercisesCompanion(
-            bodyPart: Value(seed.primary.group.label),
+            bodyPart: Value(seed.primary?.group.label ?? kUnassignedBodyPart),
             equipmentType: Value(seed.equipment),
             metricType: Value(seed.metricType),
+            category: Value(seed.category.name),
+            modality: Value(seed.modality?.name),
           ),
         );
       }
@@ -554,11 +755,14 @@ class AppDatabase extends _$AppDatabase {
   /// inside a migration, where the Dart table classes may be ahead of the
   /// database's actual shape.
   Future<void> _writeSeedMuscles(int exerciseId, SeedExercise seed) async {
-    await customStatement(
-      'INSERT OR IGNORE INTO exercise_muscles (exercise_id, muscle, is_primary) '
-      'VALUES (?, ?, 1)',
-      [exerciseId, seed.primary.name],
-    );
+    final primary = seed.primary;
+    if (primary != null) {
+      await customStatement(
+        'INSERT OR IGNORE INTO exercise_muscles '
+        '(exercise_id, muscle, is_primary) VALUES (?, ?, 1)',
+        [exerciseId, primary.name],
+      );
+    }
     for (final muscle in seed.secondary) {
       await customStatement(
         'INSERT OR IGNORE INTO exercise_muscles (exercise_id, muscle, is_primary) '

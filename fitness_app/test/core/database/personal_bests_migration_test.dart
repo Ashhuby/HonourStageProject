@@ -37,6 +37,18 @@ void main() {
     // Create the tables at the current schema, then restore personal_bests to
     // its v6 definition and rewind the version drift reads on open.
     await db.customStatement('SELECT 1');
+    // The v10 columns and their trigger did not exist yet. Dropping them is
+    // what makes this file genuinely look like the older schema — without it
+    // the v10 branch tries to add a column that is already there. Triggers go
+    // first: SQLite refuses to drop a column a trigger references.
+    await db.customStatement(
+      'DROP TRIGGER IF EXISTS trg_exercises_modality_insert',
+    );
+    await db.customStatement(
+      'DROP TRIGGER IF EXISTS trg_exercises_modality_update',
+    );
+    await db.customStatement('ALTER TABLE exercises DROP COLUMN modality');
+    await db.customStatement('ALTER TABLE exercises DROP COLUMN category');
     await db.customStatement('DROP TABLE personal_bests');
     await db.customStatement('''
       CREATE TABLE personal_bests (

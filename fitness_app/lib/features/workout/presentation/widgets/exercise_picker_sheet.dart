@@ -5,8 +5,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../data/exercise_catalogue.dart';
 import '../../data/exercise_repository.dart';
 import '../../data/session_repository.dart';
+import '../../domain/activity.dart';
 import '../../domain/muscle.dart';
 import 'exercise_filter.dart';
+import 'category_chips.dart';
 import 'exercise_list_tile.dart';
 import 'muscle_chips.dart';
 
@@ -70,6 +72,7 @@ class _ExercisePickerSheet extends ConsumerStatefulWidget {
 class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
   final _searchController = TextEditingController();
   String _query = '';
+  ExerciseCategory? _category;
   MuscleGroup? _group;
   Muscle? _muscle;
 
@@ -105,15 +108,28 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
         .where((e) => !widget.excludeIds.contains(e.id))
         .toList();
 
+    final inCategory = _category == null
+        ? available
+        : [
+            for (final e in available)
+              if (e.category == _category) e,
+          ];
+
     final matches = filterExercises(
       pool,
       query: _query,
+      category: _category,
       group: _group,
       muscle: _muscle,
       excludeIds: widget.excludeIds,
     );
-    final sections = groupExercises(matches, group: _group, muscle: _muscle);
-    final isBrowsing = _query.isEmpty && _group == null;
+    final sections = groupExercises(
+      matches,
+      category: _category,
+      group: _group,
+      muscle: _muscle,
+    );
+    final isBrowsing = _query.isEmpty && _category == null && _group == null;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -128,12 +144,24 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
             _buildHeader(),
             _buildSearchField(),
             if (isBrowsing) _RecentRow(pool: available, onPick: _pick),
-            _buildGroupChips(available),
+            // Category sits below Recent, not above search: this is a sheet
+            // over a half-finished set, so the fast paths stay at the top.
+            CategoryChips(
+              selected: _category,
+              counts: _categoryCounts(available),
+              onSelected: (category) => setState(() {
+                _category = category;
+                _group = null;
+                _muscle = null;
+              }),
+            ),
+            if (!(_category?.isSectionedByModality ?? false))
+              _buildGroupChips(inCategory),
             if (_group != null)
               MuscleChips(
                 group: _group!,
                 selected: _muscle,
-                counts: countByMuscle(available),
+                counts: countByMuscle(inCategory),
                 onSelected: (muscle) => setState(() => _muscle = muscle),
               ),
             const SizedBox(height: 4),
@@ -202,7 +230,15 @@ class _ExercisePickerSheetState extends ConsumerState<_ExercisePickerSheet> {
     );
   }
 
-  /// The first level: one chip per muscle group present in the pool.
+  Map<ExerciseCategory, int> _categoryCounts(List<ExerciseWithMuscles> pool) {
+    final counts = <ExerciseCategory, int>{};
+    for (final entry in pool) {
+      counts[entry.category] = (counts[entry.category] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /// The muscle level: one chip per muscle group present in the pool.
   ///
   /// The picker has no room for the body diagram — it is a sheet over a
   /// half-finished set — so the group level is chips here and the diagram on

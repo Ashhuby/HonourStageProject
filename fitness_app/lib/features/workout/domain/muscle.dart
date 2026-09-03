@@ -17,8 +17,7 @@ enum MuscleGroup {
   shoulders('Shoulders', OneRepColors.shoulders),
   arms('Arms', OneRepColors.biceps),
   core('Core', OneRepColors.core),
-  legs('Legs', OneRepColors.legs),
-  fullBody('Full Body', OneRepColors.wholeBody);
+  legs('Legs', OneRepColors.legs);
 
   const MuscleGroup(this.label, this.color);
 
@@ -67,12 +66,7 @@ enum Muscle {
   quads('Quads', MuscleGroup.legs),
   hamstrings('Hamstrings', MuscleGroup.legs),
   glutes('Glutes', MuscleGroup.legs),
-  calves('Calves', MuscleGroup.legs),
-
-  /// Cardio and other whole-body work. The sole member of its own group —
-  /// a deliberate wrinkle that keeps an exercise's primary muscle total and
-  /// non-nullable, rather than special-casing "no muscle" through every query.
-  fullBody('Full Body', MuscleGroup.fullBody);
+  calves('Calves', MuscleGroup.legs);
 
   const Muscle(this.label, this.group);
 
@@ -101,6 +95,15 @@ enum Muscle {
   }
 }
 
+/// The label carried by an exercise whose muscles are unknown.
+///
+/// Matches the "Unassigned" section heading, so the tile and the section it
+/// sits under agree. Before v10 this role was played by a fake muscle called
+/// Full Body; absence is the honest representation, and the schema always
+/// allowed it — `idx_exercise_muscles_primary` is UNIQUE ... WHERE
+/// is_primary = 1, which is *at most* one primary, not exactly one.
+const String kUnassignedBodyPart = 'Unassigned';
+
 /// Maps a pre-v9 `bodyPart` string to the muscle it most nearly names.
 ///
 /// Used by the v9 backfill for custom exercises, and by sync downloads of rows
@@ -109,7 +112,9 @@ enum Muscle {
 /// Spelled out rather than derived from `group.muscles.first` so that
 /// reordering [Muscle] cannot silently rewrite a shipped migration.
 const Map<String, Muscle> _legacyBodyParts = {
-  // The eight labels the pre-v9 dropdown offered.
+  // The seven muscle labels the pre-v9 dropdown offered. 'Whole Body' is
+  // deliberately absent: it named no muscle, and a row carrying it is better
+  // left unassigned than given a fabricated anatomical claim.
   'chest': Muscle.chest,
   'back': Muscle.lats,
   'legs': Muscle.quads,
@@ -117,14 +122,15 @@ const Map<String, Muscle> _legacyBodyParts = {
   'biceps': Muscle.biceps,
   'triceps': Muscle.triceps,
   'core': Muscle.abs,
-  'whole body': Muscle.fullBody,
 };
 
-/// Resolves a legacy `bodyPart` string to a primary [Muscle].
+/// Resolves a legacy `bodyPart` string to a primary [Muscle], or null when the
+/// string names no muscle at all.
 ///
-/// Falls back to [Muscle.fullBody] so every exercise ends up with exactly one
-/// primary, however odd the string it carried.
-Muscle muscleForLegacyBodyPart(String bodyPart) {
+/// Null rather than a catch-all: an exercise with no primary renders under
+/// "Unassigned", which is visible and correctable, where a guessed muscle is a
+/// claim about anatomy the app cannot support and would never get revisited.
+Muscle? muscleForBodyPartOrNull(String bodyPart) {
   final needle = bodyPart.trim().toLowerCase();
 
   // An exact legacy label wins.
@@ -141,5 +147,5 @@ Muscle muscleForLegacyBodyPart(String bodyPart) {
   final group = MuscleGroup.fromLabel(bodyPart);
   if (group != null) return group.muscles.first;
 
-  return Muscle.fullBody;
+  return null;
 }

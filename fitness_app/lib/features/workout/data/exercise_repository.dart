@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:riverpod/riverpod.dart';
 import '../../../core/database/database_provider.dart';
 import '../../../core/database/local_database.dart';
+import '../domain/activity.dart';
 import '../domain/muscle.dart';
 import 'exercise_catalogue.dart';
 import 'package:drift/drift.dart';
@@ -26,7 +27,16 @@ class ExerciseRepository extends _$ExerciseRepository {
     required Muscle primary,
     Set<Muscle> secondary = const {},
     String metricType = 'weightReps',
+    ExerciseCategory category = ExerciseCategory.strength,
+    CardioModality? modality,
   }) async {
+    // The same biconditional the database trigger enforces, checked here so
+    // an abort from SQLite is never the first thing the user meets.
+    assert(
+      (category == ExerciseCategory.cardio) == (modality != null),
+      'modality is required for cardio and forbidden otherwise',
+    );
+
     final db = ref.read(databaseProvider);
     return db.transaction(() async {
       final id = await db
@@ -38,6 +48,8 @@ class ExerciseRepository extends _$ExerciseRepository {
               equipmentType: equipmentType,
               isCustom: const Value(true),
               metricType: Value(metricType),
+              category: Value(category.name),
+              modality: Value(modality?.name),
             ),
           );
       await _writeMuscles(db, id, primary: primary, secondary: secondary);

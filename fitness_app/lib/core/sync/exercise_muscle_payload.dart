@@ -35,18 +35,20 @@ Map<String, dynamic> muscleColumnsFor({
 
 /// Reads an exercise's muscles back from a remote row.
 ///
-/// Falls back to [muscleForLegacyBodyPart] when `primary_muscle` is absent —
-/// the row was written by a client that predates the taxonomy — so a download
-/// always yields exactly one primary.
+/// Falls back to [muscleForBodyPartOrNull] when `primary_muscle` is absent —
+/// the row was written by a client that predates the taxonomy.
+///
+/// The primary is nullable: a row naming no muscle we recognise is left
+/// unassigned rather than being given a fabricated one.
 ///
 /// Unrecognised names are skipped rather than thrown on, which is what lets a
 /// newer client add a muscle to the vocabulary without breaking an older one.
-({Muscle primary, List<Muscle> secondary}) musclesFromRemoteRow(
+({Muscle? primary, List<Muscle> secondary}) musclesFromRemoteRow(
   Map<String, dynamic> row,
 ) {
   final primary =
       Muscle.byNameOrNull(row['primary_muscle'] as String?) ??
-      muscleForLegacyBodyPart(bodyPartFromRemoteRow(row));
+      muscleForBodyPartOrNull(bodyPartFromRemoteRow(row));
 
   final raw = (row['secondary_muscles'] as String?) ?? '';
   final secondary = <Muscle>[];
@@ -68,4 +70,4 @@ Map<String, dynamic> muscleColumnsFor({
 /// rather than one exercise. Falling back keeps the rest of the download
 /// running.
 String bodyPartFromRemoteRow(Map<String, dynamic> row) =>
-    (row['body_part'] as String?) ?? Muscle.fullBody.group.label;
+    (row['body_part'] as String?) ?? kUnassignedBodyPart;

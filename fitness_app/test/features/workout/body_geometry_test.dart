@@ -16,10 +16,11 @@ void main() {
       ...musclePathsFor(BodyView.back).keys,
     };
 
+    // No exemptions any more. Full Body used to be one — a muscle with no
+    // anatomical region, invented so cardio could satisfy the taxonomy — and
+    // retiring it means every muscle in the vocabulary is a real place on the
+    // body that the diagram can draw.
     for (final muscle in Muscle.values) {
-      // Full Body is the exception by design — it has no anatomical region and
-      // is offered as a pill beneath the figures instead.
-      if (muscle == Muscle.fullBody) continue;
       expect(drawn, contains(muscle), reason: '${muscle.label} is not drawn');
     }
   });

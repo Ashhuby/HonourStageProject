@@ -140,33 +140,20 @@ class BodyMap extends StatelessWidget {
     );
   }
 
-  /// Full Body has no anatomical region, so it lives as a pill alongside the
-  /// reset rather than being forced onto the drawing.
+  /// The reset.
+  ///
+  /// This used to also carry a "Full Body" pill, because cardio was filed
+  /// under a muscle that had no anatomical region to draw. Cardio is now its
+  /// own category, so every group on the map is a real place on the body and
+  /// the diagram needs no escape hatch.
   Widget _buildPills() {
-    final fullBody = counts[MuscleGroup.fullBody]?.total ?? 0;
+    if (selected == null) return const SizedBox.shrink();
 
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        if (fullBody > 0)
-          _MapPill(
-            label: MuscleGroup.fullBody.label,
-            color: MuscleGroup.fullBody.color,
-            isSelected: selected == MuscleGroup.fullBody,
-            onTap: () => onSelected(
-              selected == MuscleGroup.fullBody ? null : MuscleGroup.fullBody,
-            ),
-          ),
-        if (selected != null)
-          _MapPill(
-            label: 'Show all',
-            color: OneRepColors.textSecondary,
-            isSelected: false,
-            onTap: () => onSelected(null),
-          ),
-      ],
+    return _MapPill(
+      label: 'Show all',
+      color: OneRepColors.textSecondary,
+      isSelected: false,
+      onTap: () => onSelected(null),
     );
   }
 }

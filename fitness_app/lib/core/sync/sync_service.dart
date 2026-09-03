@@ -860,7 +860,7 @@ class SyncService {
   /// user's own edit arriving from another device.
   Future<void> _writeDownloadedMuscles(
     int exerciseId, {
-    required Muscle primary,
+    required Muscle? primary,
     required List<Muscle> secondary,
   }) async {
     await db.transaction(() async {
@@ -868,15 +868,19 @@ class SyncService {
         db.exerciseMuscles,
       )..where((m) => m.exerciseId.equals(exerciseId))).go();
 
-      await db
-          .into(db.exerciseMuscles)
-          .insert(
-            ExerciseMusclesCompanion.insert(
-              exerciseId: exerciseId,
-              muscle: primary.name,
-              isPrimary: const Value(true),
-            ),
-          );
+      // Null when the remote row named no muscle we recognise. The exercise
+      // renders under "Unassigned" rather than being given a fabricated one.
+      if (primary != null) {
+        await db
+            .into(db.exerciseMuscles)
+            .insert(
+              ExerciseMusclesCompanion.insert(
+                exerciseId: exerciseId,
+                muscle: primary.name,
+                isPrimary: const Value(true),
+              ),
+            );
+      }
       for (final muscle in secondary) {
         if (muscle == primary) continue;
         await db

@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/core/database/exercise_seed.dart';
 import 'package:fitness_app/core/database/local_database.dart';
+import 'package:fitness_app/features/workout/domain/activity.dart';
 import 'package:fitness_app/features/workout/domain/muscle.dart';
 
 /// Tests the v8 → v9 move from a single `body_part` string to a primary muscle
@@ -41,6 +42,18 @@ void main() {
   ) async {
     final db = AppDatabase.forTesting(NativeDatabase(dbFile));
     await db.customStatement('SELECT 1'); // force onCreate
+    // The v10 columns and their trigger did not exist yet. Dropping them is
+    // what makes this file genuinely look like the older schema — without it
+    // the v10 branch tries to add a column that is already there. Triggers go
+    // first: SQLite refuses to drop a column a trigger references.
+    await db.customStatement(
+      'DROP TRIGGER IF EXISTS trg_exercises_modality_insert',
+    );
+    await db.customStatement(
+      'DROP TRIGGER IF EXISTS trg_exercises_modality_update',
+    );
+    await db.customStatement('ALTER TABLE exercises DROP COLUMN modality');
+    await db.customStatement('ALTER TABLE exercises DROP COLUMN category');
     await db.customStatement('DROP TABLE exercise_muscles');
     // The uniqueness guards did not exist at v8 either, and the duplicate
     // fixtures below could not be inserted while they do.
@@ -177,7 +190,7 @@ void main() {
     expect(await bodyPartOf(db, chinUps), 'Back');
   });
 
-  test('every exercise ends with exactly one primary', () async {
+  test('no exercise ends with more than one primary', () async {
     await buildV8Database((db) async {
       await insertExercise(db, name: 'Squat', bodyPart: 'Legs');
       await insertExercise(db, name: 'Plank', bodyPart: 'Core');
@@ -203,12 +216,27 @@ void main() {
 
     expect(rows, isNotEmpty);
     for (final row in rows) {
+      // At most one, not exactly one. The index is
+      // UNIQUE ... WHERE is_primary = 1, and zero is a legitimate state — a
+      // yoga flow trains everything and nothing in particular, and a row whose
+      // stored muscle we cannot parse is better left unassigned than guessed
+      // at. Such rows render under "Unassigned".
       expect(
         row.read<int>('primaries'),
-        1,
+        lessThanOrEqualTo(1),
         reason: 'id ${row.read<int>('id')}',
       );
     }
+
+    // The ones that were seeded with a muscle do have exactly one.
+    final squat = await db
+        .customSelect(
+          'SELECT COUNT(*) AS n FROM exercise_muscles em '
+          'JOIN exercises e ON e.id = em.exercise_id '
+          "WHERE e.name = 'Squat' AND em.is_primary = 1",
+        )
+        .getSingle();
+    expect(squat.read<int>('n'), 1);
   });
 
   // ---------------------------------------------------------------------------
@@ -262,9 +290,16 @@ void main() {
     final db = await migrate();
     addTearDown(db.close);
 
+    // No primary at all: the string names no muscle, and inventing one would
+    // be a claim the app cannot support. It sections under "Unassigned".
     final muscles = await musclesOf(db, odd);
-    expect(muscles.primary, Muscle.fullBody);
-    expect(await bodyPartOf(db, odd), 'Full Body');
+    expect(muscles.primary, isNull);
+
+    // body_part keeps what the user typed rather than being overwritten with
+    // a placeholder. The section heading says Unassigned; the tile still says
+    // "Nonsense", which tells them what they entered and is more use than
+    // erasing it.
+    expect(await bodyPartOf(db, odd), 'Nonsense');
   });
 
   test('a renamed default falls through to the label path', () async {
@@ -480,10 +515,50 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('kSeedExercises', () {
-    test('holds 41 uniquely named exercises', () {
-      expect(kSeedExercises, hasLength(41));
+    test('holds 72 uniquely named exercises', () {
+      expect(kSeedExercises, hasLength(72));
       final names = kSeedExercises.map((s) => s.name).toSet();
       expect(names, hasLength(kSeedExercises.length));
+    });
+
+    test('modality is present exactly when the category is cardio', () {
+      // The same biconditional the database trigger enforces and the const
+      // constructor asserts — three independent checks of one rule, because
+      // a violation is only visible at runtime in one of the three.
+      for (final seed in kSeedExercises) {
+        expect(
+          seed.modality != null,
+          seed.category == ExerciseCategory.cardio,
+          reason: seed.name,
+        );
+      }
+    });
+
+    test('no seed is filed under the retired Full Body muscle', () {
+      // It is gone from the enum, so this is really a guard against anyone
+      // reintroducing a catch-all: a seed either names a real muscle or names
+      // none at all.
+      for (final seed in kSeedExercises) {
+        final primary = seed.primary;
+        if (primary == null) continue;
+        expect(Muscle.values, contains(primary), reason: seed.name);
+      }
+    });
+
+    test('every muscle group is reachable under Strength and Mobility', () {
+      // Or a region of the body map would be permanently dead under one of
+      // those category filters.
+      for (final category in [
+        ExerciseCategory.strength,
+        ExerciseCategory.mobility,
+      ]) {
+        final groups = {
+          for (final seed in kSeedExercises)
+            if (seed.category == category && seed.primary != null)
+              seed.primary!.group,
+        };
+        expect(groups, containsAll(MuscleGroup.values), reason: category.label);
+      }
     });
 
     test('no exercise lists its primary among its secondaries', () {

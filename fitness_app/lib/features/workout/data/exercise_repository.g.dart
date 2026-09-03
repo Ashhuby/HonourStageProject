@@ -55,7 +55,7 @@ final watchExerciseCatalogueProvider =
 typedef WatchExerciseCatalogueRef =
     AutoDisposeStreamProviderRef<List<ExerciseWithMuscles>>;
 String _$exerciseRepositoryHash() =>
-    r'5f32c004221c5a6c5122edd4e6404a041f5dd38e';
+    r'97c382ebd82148270878f4ad81c85ceb45c807cb';
 
 /// See also [ExerciseRepository].
 @ProviderFor(ExerciseRepository)

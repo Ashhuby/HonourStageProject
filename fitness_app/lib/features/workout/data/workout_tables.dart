@@ -23,6 +23,28 @@ class Exercises extends Table {
   // Defaults to weightReps so all existing exercises are unaffected by migrations.
   TextColumn get metricType =>
       text().withDefault(const Constant('weightReps'))();
+
+  /// What kind of training this is: `strength`, `cardio` or `mobility`.
+  ///
+  /// Stores the `ExerciseCategory` enum's `name` — a code identifier, like
+  /// `exercise_muscles.muscle` and deliberately unlike [bodyPart], which
+  /// stores a display label and is the mistake this column does not repeat.
+  ///
+  /// Not derivable, which is what justifies storing it: [metricType] cannot
+  /// tell a Plank from a hamstring stretch, the primary muscle cannot tell
+  /// Running from a Squat, and [equipmentType] files Leg Press, Cycling and
+  /// Rowing Machine all as `Machine`.
+  TextColumn get category => text().withDefault(const Constant('strength'))();
+
+  /// The within-category section for the one category whose section cannot be
+  /// derived. NULL for Strength and Mobility, whose second level is the
+  /// primary muscle's group and is therefore already stored.
+  ///
+  /// The null means "not applicable", not "unknown" — the trigger pair in
+  /// `_guardCategoryModality` makes that a constraint rather than a
+  /// convention.
+  TextColumn get modality => text().nullable()();
+
   // Sync columns — only written for custom exercises (isCustom == true).
   TextColumn get remoteId => text().nullable()();
   TextColumn get userId => text().nullable()();

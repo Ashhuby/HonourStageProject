@@ -104,13 +104,17 @@ void main() {
     test('a null body_part falls back rather than throwing', () {
       // This used to be an unconditional cast, so one bad row took down the
       // whole download instead of one exercise.
-      expect(bodyPartFromRemoteRow({'body_part': null}), 'Full Body');
-      expect(bodyPartFromRemoteRow({}), 'Full Body');
+      expect(bodyPartFromRemoteRow({'body_part': null}), 'Unassigned');
+      expect(bodyPartFromRemoteRow({}), 'Unassigned');
     });
 
-    test('a row with no muscle data still yields one primary', () {
+    test('a row naming no muscle is left unassigned, not guessed at', () {
+      // The primary is nullable now. It used to fall back to a fake muscle
+      // called Full Body, which was a claim about anatomy the app could not
+      // support and which nothing would ever revisit.
       final decoded = musclesFromRemoteRow({});
-      expect(decoded.primary, Muscle.fullBody);
+      expect(decoded.primary, isNull);
+      expect(decoded.secondary, isEmpty);
     });
   });
 }

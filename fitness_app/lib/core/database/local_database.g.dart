@@ -93,6 +93,29 @@ class $ExercisesTable extends Exercises
     requiredDuringInsert: false,
     defaultValue: const Constant('weightReps'),
   );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('strength'),
+  );
+  static const VerificationMeta _modalityMeta = const VerificationMeta(
+    'modality',
+  );
+  @override
+  late final GeneratedColumn<String> modality = GeneratedColumn<String>(
+    'modality',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _remoteIdMeta = const VerificationMeta(
     'remoteId',
   );
@@ -144,6 +167,8 @@ class $ExercisesTable extends Exercises
     isCustom,
     notes,
     metricType,
+    category,
+    modality,
     remoteId,
     userId,
     syncedAt,
@@ -209,6 +234,18 @@ class $ExercisesTable extends Exercises
         metricType.isAcceptableOrUnknown(data['metric_type']!, _metricTypeMeta),
       );
     }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    }
+    if (data.containsKey('modality')) {
+      context.handle(
+        _modalityMeta,
+        modality.isAcceptableOrUnknown(data['modality']!, _modalityMeta),
+      );
+    }
     if (data.containsKey('remote_id')) {
       context.handle(
         _remoteIdMeta,
@@ -270,6 +307,14 @@ class $ExercisesTable extends Exercises
         DriftSqlType.string,
         data['${effectivePrefix}metric_type'],
       )!,
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      )!,
+      modality: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}modality'],
+      ),
       remoteId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}remote_id'],
@@ -303,6 +348,27 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   final bool isCustom;
   final String? notes;
   final String metricType;
+
+  /// What kind of training this is: `strength`, `cardio` or `mobility`.
+  ///
+  /// Stores the `ExerciseCategory` enum's `name` — a code identifier, like
+  /// `exercise_muscles.muscle` and deliberately unlike [bodyPart], which
+  /// stores a display label and is the mistake this column does not repeat.
+  ///
+  /// Not derivable, which is what justifies storing it: [metricType] cannot
+  /// tell a Plank from a hamstring stretch, the primary muscle cannot tell
+  /// Running from a Squat, and [equipmentType] files Leg Press, Cycling and
+  /// Rowing Machine all as `Machine`.
+  final String category;
+
+  /// The within-category section for the one category whose section cannot be
+  /// derived. NULL for Strength and Mobility, whose second level is the
+  /// primary muscle's group and is therefore already stored.
+  ///
+  /// The null means "not applicable", not "unknown" — the trigger pair in
+  /// `_guardCategoryModality` makes that a constraint rather than a
+  /// convention.
+  final String? modality;
   final String? remoteId;
   final String? userId;
   final DateTime? syncedAt;
@@ -315,6 +381,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     required this.isCustom,
     this.notes,
     required this.metricType,
+    required this.category,
+    this.modality,
     this.remoteId,
     this.userId,
     this.syncedAt,
@@ -332,6 +400,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       map['notes'] = Variable<String>(notes);
     }
     map['metric_type'] = Variable<String>(metricType);
+    map['category'] = Variable<String>(category);
+    if (!nullToAbsent || modality != null) {
+      map['modality'] = Variable<String>(modality);
+    }
     if (!nullToAbsent || remoteId != null) {
       map['remote_id'] = Variable<String>(remoteId);
     }
@@ -358,6 +430,10 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ? const Value.absent()
           : Value(notes),
       metricType: Value(metricType),
+      category: Value(category),
+      modality: modality == null && nullToAbsent
+          ? const Value.absent()
+          : Value(modality),
       remoteId: remoteId == null && nullToAbsent
           ? const Value.absent()
           : Value(remoteId),
@@ -386,6 +462,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       notes: serializer.fromJson<String?>(json['notes']),
       metricType: serializer.fromJson<String>(json['metricType']),
+      category: serializer.fromJson<String>(json['category']),
+      modality: serializer.fromJson<String?>(json['modality']),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
       userId: serializer.fromJson<String?>(json['userId']),
       syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
@@ -403,6 +481,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'isCustom': serializer.toJson<bool>(isCustom),
       'notes': serializer.toJson<String?>(notes),
       'metricType': serializer.toJson<String>(metricType),
+      'category': serializer.toJson<String>(category),
+      'modality': serializer.toJson<String?>(modality),
       'remoteId': serializer.toJson<String?>(remoteId),
       'userId': serializer.toJson<String?>(userId),
       'syncedAt': serializer.toJson<DateTime?>(syncedAt),
@@ -418,6 +498,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     bool? isCustom,
     Value<String?> notes = const Value.absent(),
     String? metricType,
+    String? category,
+    Value<String?> modality = const Value.absent(),
     Value<String?> remoteId = const Value.absent(),
     Value<String?> userId = const Value.absent(),
     Value<DateTime?> syncedAt = const Value.absent(),
@@ -430,6 +512,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     isCustom: isCustom ?? this.isCustom,
     notes: notes.present ? notes.value : this.notes,
     metricType: metricType ?? this.metricType,
+    category: category ?? this.category,
+    modality: modality.present ? modality.value : this.modality,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
     userId: userId.present ? userId.value : this.userId,
     syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
@@ -448,6 +532,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       metricType: data.metricType.present
           ? data.metricType.value
           : this.metricType,
+      category: data.category.present ? data.category.value : this.category,
+      modality: data.modality.present ? data.modality.value : this.modality,
       remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       userId: data.userId.present ? data.userId.value : this.userId,
       syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
@@ -465,6 +551,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('isCustom: $isCustom, ')
           ..write('notes: $notes, ')
           ..write('metricType: $metricType, ')
+          ..write('category: $category, ')
+          ..write('modality: $modality, ')
           ..write('remoteId: $remoteId, ')
           ..write('userId: $userId, ')
           ..write('syncedAt: $syncedAt, ')
@@ -482,6 +570,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     isCustom,
     notes,
     metricType,
+    category,
+    modality,
     remoteId,
     userId,
     syncedAt,
@@ -498,6 +588,8 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.isCustom == this.isCustom &&
           other.notes == this.notes &&
           other.metricType == this.metricType &&
+          other.category == this.category &&
+          other.modality == this.modality &&
           other.remoteId == this.remoteId &&
           other.userId == this.userId &&
           other.syncedAt == this.syncedAt &&
@@ -512,6 +604,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<bool> isCustom;
   final Value<String?> notes;
   final Value<String> metricType;
+  final Value<String> category;
+  final Value<String?> modality;
   final Value<String?> remoteId;
   final Value<String?> userId;
   final Value<DateTime?> syncedAt;
@@ -524,6 +618,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.isCustom = const Value.absent(),
     this.notes = const Value.absent(),
     this.metricType = const Value.absent(),
+    this.category = const Value.absent(),
+    this.modality = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.userId = const Value.absent(),
     this.syncedAt = const Value.absent(),
@@ -537,6 +633,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.isCustom = const Value.absent(),
     this.notes = const Value.absent(),
     this.metricType = const Value.absent(),
+    this.category = const Value.absent(),
+    this.modality = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.userId = const Value.absent(),
     this.syncedAt = const Value.absent(),
@@ -552,6 +650,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<bool>? isCustom,
     Expression<String>? notes,
     Expression<String>? metricType,
+    Expression<String>? category,
+    Expression<String>? modality,
     Expression<String>? remoteId,
     Expression<String>? userId,
     Expression<DateTime>? syncedAt,
@@ -565,6 +665,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (isCustom != null) 'is_custom': isCustom,
       if (notes != null) 'notes': notes,
       if (metricType != null) 'metric_type': metricType,
+      if (category != null) 'category': category,
+      if (modality != null) 'modality': modality,
       if (remoteId != null) 'remote_id': remoteId,
       if (userId != null) 'user_id': userId,
       if (syncedAt != null) 'synced_at': syncedAt,
@@ -580,6 +682,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<bool>? isCustom,
     Value<String?>? notes,
     Value<String>? metricType,
+    Value<String>? category,
+    Value<String?>? modality,
     Value<String?>? remoteId,
     Value<String?>? userId,
     Value<DateTime?>? syncedAt,
@@ -593,6 +697,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       isCustom: isCustom ?? this.isCustom,
       notes: notes ?? this.notes,
       metricType: metricType ?? this.metricType,
+      category: category ?? this.category,
+      modality: modality ?? this.modality,
       remoteId: remoteId ?? this.remoteId,
       userId: userId ?? this.userId,
       syncedAt: syncedAt ?? this.syncedAt,
@@ -624,6 +730,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (metricType.present) {
       map['metric_type'] = Variable<String>(metricType.value);
     }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (modality.present) {
+      map['modality'] = Variable<String>(modality.value);
+    }
     if (remoteId.present) {
       map['remote_id'] = Variable<String>(remoteId.value);
     }
@@ -649,6 +761,8 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('isCustom: $isCustom, ')
           ..write('notes: $notes, ')
           ..write('metricType: $metricType, ')
+          ..write('category: $category, ')
+          ..write('modality: $modality, ')
           ..write('remoteId: $remoteId, ')
           ..write('userId: $userId, ')
           ..write('syncedAt: $syncedAt, ')
@@ -5068,6 +5182,8 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       Value<bool> isCustom,
       Value<String?> notes,
       Value<String> metricType,
+      Value<String> category,
+      Value<String?> modality,
       Value<String?> remoteId,
       Value<String?> userId,
       Value<DateTime?> syncedAt,
@@ -5082,6 +5198,8 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<bool> isCustom,
       Value<String?> notes,
       Value<String> metricType,
+      Value<String> category,
+      Value<String?> modality,
       Value<String?> remoteId,
       Value<String?> userId,
       Value<DateTime?> syncedAt,
@@ -5219,6 +5337,16 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<String> get metricType => $composableBuilder(
     column: $table.metricType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get modality => $composableBuilder(
+    column: $table.modality,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5387,6 +5515,16 @@ class $$ExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get modality => $composableBuilder(
+    column: $table.modality,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get remoteId => $composableBuilder(
     column: $table.remoteId,
     builder: (column) => ColumnOrderings(column),
@@ -5441,6 +5579,12 @@ class $$ExercisesTableAnnotationComposer
     column: $table.metricType,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<String> get modality =>
+      $composableBuilder(column: $table.modality, builder: (column) => column);
 
   GeneratedColumn<String> get remoteId =>
       $composableBuilder(column: $table.remoteId, builder: (column) => column);
@@ -5595,6 +5739,8 @@ class $$ExercisesTableTableManager
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String> metricType = const Value.absent(),
+                Value<String> category = const Value.absent(),
+                Value<String?> modality = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
@@ -5607,6 +5753,8 @@ class $$ExercisesTableTableManager
                 isCustom: isCustom,
                 notes: notes,
                 metricType: metricType,
+                category: category,
+                modality: modality,
                 remoteId: remoteId,
                 userId: userId,
                 syncedAt: syncedAt,
@@ -5621,6 +5769,8 @@ class $$ExercisesTableTableManager
                 Value<bool> isCustom = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String> metricType = const Value.absent(),
+                Value<String> category = const Value.absent(),
+                Value<String?> modality = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
@@ -5633,6 +5783,8 @@ class $$ExercisesTableTableManager
                 isCustom: isCustom,
                 notes: notes,
                 metricType: metricType,
+                category: category,
+                modality: modality,
                 remoteId: remoteId,
                 userId: userId,
                 syncedAt: syncedAt,
