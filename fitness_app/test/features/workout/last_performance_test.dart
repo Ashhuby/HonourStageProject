@@ -290,26 +290,51 @@ void main() {
       expect(pb.reps, 3);
     });
 
-    test('returns the longest distance for distanceTime records', () async {
+    test('returns the best pace for distanceTime records', () async {
+      // One record per distance bucket, so raw distances are incomparable:
+      // the headline has to be the pace. This used to return the longest
+      // distance, which made a 10 km jog outrank a fast 5 km.
       await insertPr(
         weight: 0,
         reps: 1,
         metricType: 'distanceTime',
         distanceMetres: 400,
-        durationSeconds: 80,
+        durationSeconds: 80, // 3:20/km
       );
       await insertPr(
         weight: 0,
         reps: 2,
         metricType: 'distanceTime',
         distanceMetres: 5000,
-        durationSeconds: 1500,
+        durationSeconds: 1500, // 5:00/km
+      );
+
+      final pb = await firstValue(watchBestPrForExerciseProvider(exerciseId));
+
+      expect(pb!.distanceMetres, 400);
+      expect(pb.durationSeconds, 80);
+    });
+
+    test('a longer run wins when it is also the faster pace', () async {
+      // Distance is not ignored — it simply is not the tiebreaker.
+      await insertPr(
+        weight: 0,
+        reps: 1,
+        metricType: 'distanceTime',
+        distanceMetres: 400,
+        durationSeconds: 140, // 5:50/km
+      );
+      await insertPr(
+        weight: 0,
+        reps: 2,
+        metricType: 'distanceTime',
+        distanceMetres: 5000,
+        durationSeconds: 1500, // 5:00/km
       );
 
       final pb = await firstValue(watchBestPrForExerciseProvider(exerciseId));
 
       expect(pb!.distanceMetres, 5000);
-      expect(pb.durationSeconds, 1500);
     });
   });
 

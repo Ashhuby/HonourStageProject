@@ -140,6 +140,57 @@ void main() {
       expect(fiveK.durationSeconds, 1500);
     });
 
+    test('a run of slightly different distances mints one record', () async {
+      // The regression. Records key on a standard distance, so 5000 m then
+      // 5040 m then 5080 m is the same 5 km three times — not three PRs.
+      // Keyed on the raw distance, every run was a personal best, the table
+      // grew without bound and `pr_10` fired after ten runs having beaten
+      // nothing at all.
+      for (var i = 0; i < 10; i++) {
+        await log(
+          metricType: 'distanceTime',
+          distanceMetres: 5000 + i * 40.0,
+          durationSeconds: 1500 + i * 10,
+        );
+      }
+
+      final rows = await records();
+      expect(rows, hasLength(1));
+      expect(rows.single.distanceMetres, 5000);
+      expect(
+        rows.single.durationSeconds,
+        1500,
+        reason: 'the first run was the fastest, and nothing since beat it',
+      );
+    });
+
+    test('a longer distance still earns its own record', () async {
+      await log(
+        metricType: 'distanceTime',
+        distanceMetres: 5200,
+        durationSeconds: 1500,
+      );
+      await log(
+        metricType: 'distanceTime',
+        distanceMetres: 10400,
+        durationSeconds: 3200,
+      );
+
+      final rows = await records();
+      expect(rows.map((r) => r.distanceMetres).toSet(), {5000.0, 10000.0});
+    });
+
+    test('an effort shorter than any standard distance earns none', () async {
+      final pr = await log(
+        metricType: 'distanceTime',
+        distanceMetres: 60,
+        durationSeconds: 12,
+      );
+
+      expect(pr, isNull);
+      expect(await records(), isEmpty);
+    });
+
     test('a faster time over the same distance replaces the record', () async {
       await log(
         metricType: 'distanceTime',

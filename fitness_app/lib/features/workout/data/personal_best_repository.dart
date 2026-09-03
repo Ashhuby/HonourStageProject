@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:riverpod/riverpod.dart';
 import '../../../core/database/database_provider.dart';
+import '../domain/distance_bucket.dart';
 import '../../../core/database/local_database.dart';
 
 part 'personal_best_repository.g.dart';
@@ -112,8 +113,13 @@ class PbRecord {
 /// set are judged on different terms and the later set wins its own contest.
 ///
 /// Returns one record for every metric type except distanceTime, which returns
-/// one per distance. [achievedAt] comes from the set that earned it, so
-/// rebuilding never rewrites history to today.
+/// one per standard distance bucket. [achievedAt] comes from the set that
+/// earned it, so rebuilding never rewrites history to today.
+///
+/// The bucketing has to match live logging exactly, or editing a set would
+/// resurrect the raw-distance rows this replaced. It also means an untouched
+/// library heals itself: the first rebuild after an edit retires any legacy
+/// raw-distance record, because it is no longer among the surviving keys.
 List<PbRecord> computeRecords(
   List<WorkoutSet> setsOldestFirst,
   String metricType,
@@ -121,8 +127,15 @@ List<PbRecord> computeRecords(
   final byDistance = <double, PbRecord>{};
 
   for (final set in setsOldestFirst) {
-    final distance = set.distanceMetres ?? 0.0;
-    final key = metricType == MetricType.distanceTime.value ? distance : 0.0;
+    final double key;
+    if (metricType == MetricType.distanceTime.value) {
+      final bucket = distanceBucketFor(set.distanceMetres ?? 0.0);
+      // Shorter than the smallest standard distance — logged, but no record.
+      if (bucket == null) continue;
+      key = bucket;
+    } else {
+      key = 0.0;
+    }
     final current = byDistance[key];
 
     final candidate = PbRecord(
@@ -147,7 +160,7 @@ bool _setBeats(PbRecord candidate, PbRecord current, String metricType) {
     case MetricType.timeOnly:
       return (candidate.durationSeconds ?? 0) > (current.durationSeconds ?? 0);
     case MetricType.distanceTime:
-      // Same distance by construction — the faster time wins.
+      // Same distance bucket by construction — the faster time wins.
       const noTime = 1 << 30;
       return (candidate.durationSeconds ?? noTime) <
           (current.durationSeconds ?? noTime);
@@ -217,8 +230,15 @@ bool _beats(PersonalBest candidate, PersonalBest current) {
       // Longest hold wins.
       return (candidate.durationSeconds ?? 0) > (current.durationSeconds ?? 0);
     case MetricType.distanceTime:
-      // One row per distance — the longest distance is the headline record.
-      return candidate.distanceMetres > current.distanceMetres;
+      // Best pace, not longest distance: a 10 km jog is not a better record
+      // than a fast 5 km, and one row per bucket means the two are otherwise
+      // incomparable. Both fields sit on the row, so this needs no join.
+      final ourTime = candidate.durationSeconds;
+      final theirTime = current.durationSeconds;
+      if (ourTime == null || candidate.distanceMetres <= 0) return false;
+      if (theirTime == null || current.distanceMetres <= 0) return true;
+      return ourTime / candidate.distanceMetres <
+          theirTime / current.distanceMetres;
     case MetricType.bodyweightReps:
       return candidate.reps > current.reps;
     case MetricType.weightReps:
@@ -418,7 +438,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
   }
 
   // ---------------------------------------------------------------------------
-  // distanceTime — shortest time for a given distance (lower is better)
+  // distanceTime — fastest time for a standard distance (lower is better)
   // ---------------------------------------------------------------------------
 
   Future<PrResult?> _checkDistanceTimePr({
@@ -427,11 +447,16 @@ class PersonalBestRepository extends _$PersonalBestRepository {
     required double distanceMetres,
     required int durationSeconds,
   }) async {
-    // PR per distance — find the existing record for this exact distance.
+    // Records are filed under standard distances, not raw ones. Keyed on the
+    // raw distance, 5000 m then 5200 m found no existing record and inserted
+    // unconditionally — so every run was a "personal best".
+    final bucket = distanceBucketFor(distanceMetres);
+    if (bucket == null) return null;
+
     final existing = await _existingRecord(
       exerciseId: exerciseId,
       metricType: MetricType.distanceTime.value,
-      distanceMetres: distanceMetres,
+      distanceMetres: bucket,
     );
 
     // Sentinel value used when no existing distance PR is recorded.
@@ -445,7 +470,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
       exerciseId: exerciseId,
       metricType: MetricType.distanceTime.value,
       durationSeconds: durationSeconds,
-      distanceMetres: distanceMetres,
+      distanceMetres: bucket,
     );
 
     return PrResult(
@@ -453,7 +478,7 @@ class PersonalBestRepository extends _$PersonalBestRepository {
       exerciseName: exerciseName,
       metricType: MetricType.distanceTime.value,
       durationSeconds: durationSeconds,
-      distanceMetres: distanceMetres,
+      distanceMetres: bucket,
     );
   }
 
