@@ -5,6 +5,7 @@ import '../../../core/utils/date_formatter.dart';
 import '../data/split_repository.dart';
 import '../../../core/database/local_database.dart';
 import 'split_detail_screen.dart';
+import 'widgets/rename_dialog.dart';
 
 class SplitListScreen extends ConsumerWidget {
   const SplitListScreen({super.key});
@@ -36,6 +37,17 @@ class SplitListScreen extends ConsumerWidget {
                           builder: (_) => SplitDetailScreen(split: split),
                         ),
                       ),
+                      onRename: () async {
+                        final name = await showRenameDialog(
+                          context,
+                          title: 'Rename split',
+                          current: split.name,
+                        );
+                        if (name == null) return;
+                        await ref
+                            .read(splitRepositoryProvider.notifier)
+                            .renameSplit(split.id, name);
+                      },
                       onDelete: () => ref
                           .read(splitRepositoryProvider.notifier)
                           .deleteSplit(split.id),
@@ -102,11 +114,13 @@ class SplitListScreen extends ConsumerWidget {
 class _SplitCard extends StatelessWidget {
   final WorkoutSplit split;
   final VoidCallback onTap;
+  final VoidCallback onRename;
   final VoidCallback onDelete;
 
   const _SplitCard({
     required this.split,
     required this.onTap,
+    required this.onRename,
     required this.onDelete,
   });
 
@@ -127,6 +141,10 @@ class _SplitCard extends StatelessWidget {
       onDismissed: (_) => onDelete(),
       child: GestureDetector(
         onTap: onTap,
+        // Long-press to rename. A split's name is the only part of it that is
+        // safe to change, and until now changing it meant deleting the split —
+        // which takes every routine and planned exercise with it.
+        onLongPress: onRename,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           decoration: BoxDecoration(

@@ -6,6 +6,7 @@ import '../data/split_repository.dart';
 import '../data/session_repository.dart';
 import 'active_session_screen.dart';
 import 'widgets/exercise_picker_sheet.dart';
+import 'widgets/rename_dialog.dart';
 import 'widgets/routine_target_dialog.dart';
 
 class SplitDetailScreen extends ConsumerWidget {
@@ -18,7 +19,30 @@ class SplitDetailScreen extends ConsumerWidget {
     final routinesAsync = ref.watch(watchRoutinesForSplitProvider(split.id));
 
     return Scaffold(
-      appBar: AppBar(title: Text(split.name), centerTitle: true),
+      appBar: AppBar(
+        title: Text(split.name),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.drive_file_rename_outline),
+            tooltip: 'Rename split',
+            onPressed: () async {
+              final name = await showRenameDialog(
+                context,
+                title: 'Rename split',
+                current: split.name,
+              );
+              if (name == null || !context.mounted) return;
+              await ref
+                  .read(splitRepositoryProvider.notifier)
+                  .renameSplit(split.id, name);
+              // The screen holds the split it was pushed with, so the title
+              // would otherwise keep the old name until you navigated away.
+              if (context.mounted) Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
       body: routinesAsync.when(
         data: (routines) => routines.isEmpty
             ? const Center(
@@ -54,6 +78,19 @@ class SplitDetailScreen extends ConsumerWidget {
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () =>
                           _showRoutineExercisesSheet(context, ref, routine),
+                      // Renaming a routine rewrites what session history calls
+                      // it too, which is right — they are the same day.
+                      onLongPress: () async {
+                        final name = await showRenameDialog(
+                          context,
+                          title: 'Rename day',
+                          current: routine.name,
+                        );
+                        if (name == null) return;
+                        await ref
+                            .read(splitRepositoryProvider.notifier)
+                            .renameRoutine(routine.id, name);
+                      },
                     ),
                   );
                 },
@@ -174,9 +211,25 @@ class RoutineExercisesSheet extends ConsumerWidget {
                   ? const Center(
                       child: Text('No exercises yet. Tap + to add some.'),
                     )
-                  : ListView.builder(
-                      controller: scrollController,
+                  // Reorderable, because the order is the order you do
+                  // them in. `orderIndex` has existed since routines did and
+                  // was until now only ever written, never changed.
+                  : ReorderableListView.builder(
+                      scrollController: scrollController,
                       itemCount: routineExercises.length,
+                      // onReorderItem rather than the deprecated onReorder:
+                      // it hands back an index already adjusted for the moved
+                      // item's removal, so there is no off-by-one to undo.
+                      onReorderItem: (oldIndex, newIndex) {
+                        final ids = [
+                          for (final e in routineExercises)
+                            e.routineExercise.id,
+                        ];
+                        ids.insert(newIndex, ids.removeAt(oldIndex));
+                        ref
+                            .read(splitRepositoryProvider.notifier)
+                            .reorderRoutineExercises(ids);
+                      },
                       itemBuilder: (context, index) {
                         final re = routineExercises[index];
                         return Dismissible(
@@ -207,6 +260,17 @@ class RoutineExercisesSheet extends ConsumerWidget {
                             leading: const CircleAvatar(
                               child: Icon(Icons.fitness_center),
                             ),
+                            trailing: ReorderableDragStartListener(
+                              index: index,
+                              child: const Icon(
+                                Icons.drag_handle,
+                                color: OneRepColors.textDisabled,
+                              ),
+                            ),
+                            // The target dialog has always accepted an
+                            // `initial`; nothing ever passed one, so a plan
+                            // could be set once and never corrected.
+                            onTap: () => _editTarget(context, ref, re),
                           ),
                         );
                       },
@@ -218,6 +282,35 @@ class RoutineExercisesSheet extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Changes what this routine plans for one exercise.
+  Future<void> _editTarget(
+    BuildContext context,
+    WidgetRef ref,
+    RoutineExerciseWithName entry,
+  ) async {
+    final target = await showRoutineTargetDialog(
+      context,
+      entry.exercise,
+      initial: (
+        sets: entry.routineExercise.targetSets,
+        reps: entry.routineExercise.targetReps,
+        distanceMetres: entry.routineExercise.targetDistanceMetres,
+        durationSeconds: entry.routineExercise.targetDurationSeconds,
+      ),
+    );
+    if (target == null) return;
+
+    await ref
+        .read(splitRepositoryProvider.notifier)
+        .updateRoutineExerciseTarget(
+          entry.routineExercise.id,
+          targetSets: target.sets,
+          targetReps: target.reps,
+          targetDistanceMetres: target.distanceMetres,
+          targetDurationSeconds: target.durationSeconds,
+        );
   }
 
   Future<void> _showExercisePicker(BuildContext context, WidgetRef ref) async {

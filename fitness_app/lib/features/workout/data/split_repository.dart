@@ -109,6 +109,102 @@ class SplitRepository extends _$SplitRepository {
         .insert(WorkoutSplitsCompanion.insert(name: name));
   }
 
+  /// Renames a split.
+  ///
+  /// Creating and deleting were the only operations a split had, so fixing a
+  /// typo meant deleting it — and [deleteSplit] takes every routine and every
+  /// planned exercise with it. A name is the one thing about a split that is
+  /// safe to change.
+  ///
+  /// A blank name is ignored rather than stored: a split with no name is
+  /// unfindable, and the dialog would have to invent a placeholder to render
+  /// it.
+  Future<void> renameSplit(int splitId, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    final db = ref.read(databaseProvider);
+    await (db.update(
+      db.workoutSplits,
+    )..where((s) => s.id.equals(splitId))).write(
+      WorkoutSplitsCompanion(name: Value(trimmed), syncedAt: const Value(null)),
+    );
+  }
+
+  /// Renames a routine — a training day within a split.
+  ///
+  /// Session history names the routine a session belonged to, so this rewrites
+  /// history's labels too. That is the right behaviour: renaming "Push A" to
+  /// "Push" should not leave old sessions insisting on the old name, because
+  /// they are the same day.
+  Future<void> renameRoutine(int routineId, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    final db = ref.read(databaseProvider);
+    await (db.update(
+      db.workoutRoutines,
+    )..where((r) => r.id.equals(routineId))).write(
+      WorkoutRoutinesCompanion(
+        name: Value(trimmed),
+        syncedAt: const Value(null),
+      ),
+    );
+  }
+
+  /// Changes what a routine plans for one exercise.
+  ///
+  /// The target dialog has always been able to edit — it takes an `initial` —
+  /// but nothing ever passed one, so a target could only be set when the
+  /// exercise was first added and never corrected.
+  Future<void> updateRoutineExerciseTarget(
+    int routineExerciseId, {
+    required int targetSets,
+    required int targetReps,
+    double? targetDistanceMetres,
+    int? targetDurationSeconds,
+  }) async {
+    final db = ref.read(databaseProvider);
+    await (db.update(
+      db.routineExercises,
+    )..where((re) => re.id.equals(routineExerciseId))).write(
+      RoutineExercisesCompanion(
+        targetSets: Value(targetSets),
+        targetReps: Value(targetReps),
+        targetDistanceMetres: Value(targetDistanceMetres),
+        targetDurationSeconds: Value(targetDurationSeconds),
+        syncedAt: const Value(null),
+      ),
+    );
+  }
+
+  /// Reorders a routine's exercises to match [orderedIds].
+  ///
+  /// `orderIndex` has existed since routines did, and until now was only ever
+  /// written — set to the count at the time an exercise was added and never
+  /// touched again. The order is the order you do them in, so it is worth
+  /// being able to change.
+  ///
+  /// Every row is rewritten from its position in the list rather than the two
+  /// being swapped, which also compacts the gaps [removeExerciseFromRoutine]
+  /// leaves behind when it soft-deletes something from the middle.
+  Future<void> reorderRoutineExercises(List<int> orderedIds) async {
+    final db = ref.read(databaseProvider);
+
+    await db.transaction(() async {
+      for (var index = 0; index < orderedIds.length; index++) {
+        await (db.update(
+          db.routineExercises,
+        )..where((re) => re.id.equals(orderedIds[index]))).write(
+          RoutineExercisesCompanion(
+            orderIndex: Value(index),
+            syncedAt: const Value(null),
+          ),
+        );
+      }
+    });
+  }
+
   /// Soft-deletes a split and all its child routines and routine exercises.
   Future<void> deleteSplit(int splitId) async {
     final db = ref.read(databaseProvider);
