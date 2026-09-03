@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../database/local_database.dart';
 import '../../features/workout/domain/muscle.dart';
 import 'exercise_muscle_payload.dart';
+import 'set_payload.dart';
 
 /// Handles upload of dirty (unsynced) local records to Supabase.
 /// Upload-only, last-write-wins. Download path is triggered on first login.
@@ -309,6 +310,11 @@ class SyncService {
         'timestamp': set.timestamp.toIso8601String(),
         'deleted_at': set.deletedAt?.toIso8601String(),
         'synced_at': DateTime.now().toIso8601String(),
+        // Without these a run uploaded as 0 kg x 0 reps.
+        ...setMetricColumns(
+          durationSeconds: set.durationSeconds,
+          distanceMetres: set.distanceMetres,
+        ),
       });
 
       await (db.update(
@@ -336,8 +342,11 @@ class SyncService {
   // ---------------------------------------------------------------------------
   // No parent FK dependency — exercise rows are seeded globally and not synced.
   // exercise_id is stored as a plain integer reference, not a remote UUID.
-  // The UNIQUE (user_id, exercise_id, reps) constraint in Supabase handles
-  // conflict resolution — upsert will update weight + achieved_at if beaten.
+  //
+  // A record's identity is (exercise, metric type, distance) — the v7 local
+  // key. The remote key must match it; see the SQL in set_payload.dart. The
+  // old remote key was (user_id, exercise_id, reps), which cannot tell a 5 km
+  // record from a 10 km one because both carry reps = 0.
 
   Future<int> _syncPersonalBests(String userId) async {
     final dirty = await (db.select(
@@ -357,6 +366,11 @@ class SyncService {
         'achieved_at': pr.achievedAt.toIso8601String(),
         'deleted_at': pr.deletedAt?.toIso8601String(),
         'synced_at': DateTime.now().toIso8601String(),
+        ...personalBestMetricColumns(
+          metricType: pr.metricType,
+          durationSeconds: pr.durationSeconds,
+          distanceMetres: pr.distanceMetres,
+        ),
       });
 
       await (db.update(
@@ -416,6 +430,8 @@ class SyncService {
         // declares it NOT NULL and older clients read nothing else.
         'body_part': exercise.bodyPart,
         'equipment_type': exercise.equipmentType,
+        // Absent before, so a custom cardio exercise round-tripped as a lift.
+        'metric_type': exercise.metricType,
         'notes': exercise.notes,
         'deleted_at': exercise.deletedAt?.toIso8601String(),
         'synced_at': DateTime.now().toIso8601String(),
@@ -664,25 +680,61 @@ class SyncService {
               .getSingleOrNull();
       if (session == null) continue;
 
-      await db
-          .into(db.workoutSets)
-          .insertOnConflictUpdate(
-            WorkoutSetsCompanion.insert(
-              sessionId: session.id,
-              exerciseId: row['exercise_id'] as int,
-              weight: Value((row['weight'] as num).toDouble()),
-              reps: Value(row['reps'] as int),
-              isCompleted: Value(row['is_completed'] as bool? ?? false),
-              timestamp: Value(
-                row['timestamp'] != null
-                    ? _parseLocal(row['timestamp'] as String)
-                    : DateTime.now(),
-              ),
-              remoteId: Value(row['id'] as String),
-              userId: Value(userId),
-              syncedAt: Value(DateTime.now()),
-            ),
-          );
+      final remoteId = row['id'] as String;
+      final metrics = setMetricsFromRemoteRow(row);
+
+      final companion = WorkoutSetsCompanion(
+        sessionId: Value(session.id),
+        exerciseId: Value(row['exercise_id'] as int),
+        weight: Value(weightFromRemoteRow(row)),
+        reps: Value(repsFromRemoteRow(row)),
+        durationSeconds: Value(metrics.durationSeconds),
+        distanceMetres: Value(metrics.distanceMetres),
+        isCompleted: Value(row['is_completed'] as bool? ?? false),
+        timestamp: Value(
+          row['timestamp'] != null
+              ? _parseLocal(row['timestamp'] as String)
+              : DateTime.now(),
+        ),
+        remoteId: Value(remoteId),
+        userId: Value(userId),
+        syncedAt: Value(DateTime.now()),
+      );
+
+      // Keyed on remote_id, not on the primary key. insertOnConflictUpdate
+      // conflicts on `id`, which the companion never sets, so it inserted a
+      // fresh row every time — duplicating every set on each full download.
+      // Same bug, and same fix, as _downloadCustomExercises.
+      await _upsertByRemoteId(
+        findLocalId: () async =>
+            (await (db.select(db.workoutSets)
+                      ..where((s) => s.remoteId.equals(remoteId))
+                      ..limit(1))
+                    .getSingleOrNull())
+                ?.id,
+        insert: () => db.into(db.workoutSets).insert(companion),
+        update: (localId) => (db.update(
+          db.workoutSets,
+        )..where((s) => s.id.equals(localId))).write(companion),
+      );
+    }
+  }
+
+  /// Insert-or-update keyed on the row's remote id.
+  ///
+  /// Drift's `insertOnConflictUpdate` conflicts on the primary key, and every
+  /// download companion here leaves `id` unset — so it can only ever insert.
+  /// Factored out because three download paths need the same shape.
+  Future<void> _upsertByRemoteId({
+    required Future<int?> Function() findLocalId,
+    required Future<void> Function() insert,
+    required Future<void> Function(int localId) update,
+  }) async {
+    final localId = await findLocalId();
+    if (localId == null) {
+      await insert();
+    } else {
+      await update(localId);
     }
   }
 
@@ -694,19 +746,36 @@ class SyncService {
         .isFilter('deleted_at', null);
 
     for (final row in rows) {
-      await db
-          .into(db.personalBests)
-          .insertOnConflictUpdate(
-            PersonalBestsCompanion.insert(
-              exerciseId: row['exercise_id'] as int,
-              reps: Value(row['reps'] as int),
-              weight: Value((row['weight'] as num).toDouble()),
-              achievedAt: _parseLocal(row['achieved_at'] as String),
-              remoteId: Value(row['id'] as String),
-              userId: Value(userId),
-              syncedAt: Value(DateTime.now()),
-            ),
-          );
+      final remoteId = row['id'] as String;
+      final metrics = personalBestMetricsFromRemoteRow(row);
+
+      final companion = PersonalBestsCompanion(
+        exerciseId: Value(row['exercise_id'] as int),
+        reps: Value(repsFromRemoteRow(row)),
+        weight: Value(weightFromRemoteRow(row)),
+        durationSeconds: Value(metrics.durationSeconds),
+        distanceMetres: Value(metrics.distanceMetres),
+        metricType: Value(metrics.metricType),
+        achievedAt: Value(_parseLocal(row['achieved_at'] as String)),
+        remoteId: Value(remoteId),
+        userId: Value(userId),
+        syncedAt: Value(DateTime.now()),
+      );
+
+      // As in _downloadSets — and here the v7 unique key means a repeat
+      // insert throws rather than merely duplicating.
+      await _upsertByRemoteId(
+        findLocalId: () async =>
+            (await (db.select(db.personalBests)
+                      ..where((pb) => pb.remoteId.equals(remoteId))
+                      ..limit(1))
+                    .getSingleOrNull())
+                ?.id,
+        insert: () => db.into(db.personalBests).insert(companion),
+        update: (localId) => (db.update(
+          db.personalBests,
+        )..where((pb) => pb.id.equals(localId))).write(companion),
+      );
     }
   }
 
@@ -735,6 +804,7 @@ class SyncService {
         name: Value(row['name'] as String),
         bodyPart: Value(bodyPartFromRemoteRow(row)),
         equipmentType: Value(row['equipment_type'] as String),
+        metricType: Value((row['metric_type'] as String?) ?? 'weightReps'),
         isCustom: const Value(true),
         notes: Value(row['notes'] as String?),
         remoteId: Value(remoteId),

@@ -57,10 +57,7 @@ void main() {
 
   group('a metric that does not apply yields no points', () {
     test('volume over bodyweight sets is empty, not a row of zeroes', () {
-      final samples = [
-        sample(day1, reps: 12),
-        sample(day2, reps: 15),
-      ];
+      final samples = [sample(day1, reps: 12), sample(day2, reps: 15)];
       // This is the regression: weight is 0, so every product is 0.
       expect(sessionTotals(samples, ProgressMetric.volume), isEmpty);
       // ...but the right metric for those sets does have something to say.
@@ -166,11 +163,8 @@ void main() {
     test('a long effort has no ceiling', () {
       // The previous code plotted 10000 - seconds, so anything past 2h46m
       // went negative and was clipped off the axis.
-      final marathonPace = 42195 / (4 * 3600); // 4 hours
-      expect(
-        formatSeriesValue(marathonPace, ProgressMetric.speed),
-        '5:41/km',
-      );
+      const marathonPace = 42195 / (4 * 3600); // 4 hours
+      expect(formatSeriesValue(marathonPace, ProgressMetric.speed), '5:41/km');
       expect(marathonPace, greaterThan(0));
     });
 
