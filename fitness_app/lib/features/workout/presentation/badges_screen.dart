@@ -1,24 +1,9 @@
 import 'package:flutter/material.dart';
+import 'widgets/session_chips.dart' show badgeIconData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../data/badge_service.dart';
-
-/// Maps a badge icon name string to a [IconData] instance.
-///
-/// Icon names are stored as strings in [BadgeDefinition] to keep the
-/// definition data pure and free of Flutter dependencies.
-IconData _badgeIconData(String name) => switch (name) {
-  'fitness_center' => Icons.fitness_center,
-  'local_fire_department' => Icons.local_fire_department,
-  'emoji_events' => Icons.emoji_events,
-  'military_tech' => Icons.military_tech,
-  'trending_up' => Icons.trending_up,
-  'bolt' => Icons.bolt,
-  'workspace_premium' => Icons.workspace_premium,
-  'add_circle' => Icons.add_circle,
-  _ => Icons.star,
-};
 
 class BadgesScreen extends ConsumerWidget {
   const BadgesScreen({super.key});
@@ -273,7 +258,7 @@ class _BadgeTile extends StatelessWidget {
                         : null,
                   ),
                   child: Icon(
-                    _badgeIconData(badge.icon),
+                    badgeIconData(badge.icon),
                     size: 26,
                     color: earned
                         ? OneRepColors.gold
@@ -380,7 +365,7 @@ class _BadgeDetailSheet extends StatelessWidget {
                   : null,
             ),
             child: Icon(
-              _badgeIconData(badge.icon),
+              badgeIconData(badge.icon),
               size: 36,
               color: earned ? OneRepColors.gold : OneRepColors.textDisabled,
             ),

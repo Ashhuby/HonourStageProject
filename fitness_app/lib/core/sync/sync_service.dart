@@ -60,6 +60,13 @@ class SyncService {
     }
 
     try {
+      // After the sets, never before — see the doc on the method.
+      await _purgeSyncedSessionTombstones();
+    } catch (e) {
+      errors.add('sessionTombstones: $e');
+    }
+
+    try {
       uploaded += await _syncPersonalBests(userId);
     } catch (e) {
       errors.add('personalBests: $e');
@@ -236,7 +243,19 @@ class SyncService {
     )..where((s) => s.syncedAt.isNull())).get();
 
     for (final session in dirty) {
-      if (session.endTime == null) continue;
+      if (session.endTime == null) {
+        // Discarded before it finished. Uploading requires an endTime, so
+        // this row was never sent and has nothing to tombstone — but the
+        // bare `continue` that used to be here skipped it on every run,
+        // leaving it dirty forever and stranding its sets too, because
+        // _syncSets bails on a set whose session has no remoteId.
+        if (session.deletedAt != null) {
+          await (db.delete(
+            db.workoutSessions,
+          )..where((s) => s.id.equals(session.id))).go();
+        }
+        continue;
+      }
 
       String? routineRemoteId;
       if (session.routineId != null) {
@@ -270,14 +289,39 @@ class SyncService {
         ),
       );
 
-      if (session.deletedAt != null) {
-        await (db.delete(
-          db.workoutSessions,
-        )..where((s) => s.id.equals(session.id))).go();
-      }
+      // The local row is NOT deleted here even once its tombstone is up —
+      // see _purgeSyncedSessionTombstones, which runs after the sets.
     }
 
     return dirty.length;
+  }
+
+  /// Removes session rows whose tombstone has reached the remote copy.
+  ///
+  /// Deliberately not part of [_syncSessions]. `workout_sets` cascades on
+  /// `session_id` and foreign keys are on, so deleting the session there wiped
+  /// its sets locally *before* [_syncSets] could upload their own tombstones —
+  /// leaving the remote sets with `deleted_at` null forever.
+  ///
+  /// The FK ordering documented on [uploadDirtyRecords] is an *insert*
+  /// ordering, parents first so a child can name its parent. Deletes have to
+  /// unwind the other way.
+  ///
+  /// The `NOT EXISTS` guard means a session whose sets failed to upload keeps
+  /// its children alive to be retried, rather than losing them. It is keyed on
+  /// state rather than on this run's work, so it also clears rows already
+  /// stranded by the previous behaviour.
+  Future<void> _purgeSyncedSessionTombstones() async {
+    await db.customStatement('''
+      DELETE FROM workout_sessions
+      WHERE deleted_at IS NOT NULL
+        AND synced_at IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM workout_sets
+          WHERE workout_sets.session_id = workout_sessions.id
+            AND workout_sets.synced_at IS NULL
+        )
+    ''');
   }
 
   // ---------------------------------------------------------------------------

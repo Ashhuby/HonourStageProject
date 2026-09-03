@@ -3,6 +3,7 @@ import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/database/database_provider.dart';
 import '../domain/progress_series.dart';
+import '../domain/session_highlights.dart';
 import '../../../core/database/local_database.dart';
 import 'personal_best_repository.dart';
 import 'badge_service.dart';
@@ -22,16 +23,6 @@ class WorkoutSetWithExercise {
     required this.exerciseName,
     this.metricType = 'weightReps',
   });
-}
-
-@riverpod
-Stream<List<WorkoutSession>> watchCompletedSessions(Ref ref) {
-  final db = ref.watch(databaseProvider);
-  return (db.select(db.workoutSessions)
-        ..where((s) => s.endTime.isNotNull())
-        ..where((s) => s.deletedAt.isNull())
-        ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
-      .watch();
 }
 
 @riverpod
@@ -148,6 +139,150 @@ Future<int> getWeeklyStreak(Ref ref) async {
   }
 
   return streak;
+}
+
+/// A finished session, with the routine and split it belonged to.
+///
+/// The history list showed a bare date because its provider returned bare
+/// rows — even though every session carries a `routineId` and
+/// the app therefore knows perfectly well it was Push Day from PPL.
+class CompletedSession {
+  const CompletedSession({
+    required this.session,
+    this.routineName,
+    this.splitName,
+  });
+
+  final WorkoutSession session;
+
+  /// Null for a freestyle session, and also for one whose routine has since
+  /// been deleted — `routineId` carries no `onDelete` clause, so a session can
+  /// outlive the routine it names. Both render as freestyle rather than as an
+  /// error.
+  final String? routineName;
+  final String? splitName;
+
+  int get id => session.id;
+  DateTime get startTime => session.startTime;
+  Duration? get duration => session.endTime?.difference(session.startTime);
+
+  String get title => routineName ?? freestyleSessionTitle;
+
+  /// The split, when the routine belongs to one — "PPL" beneath "Push Day".
+  String? get subtitle => routineName == null ? null : splitName;
+}
+
+/// Completed sessions, newest first, each named by its routine and split.
+///
+/// Left outer joins throughout: a freestyle session has no routine, and a
+/// routine-backed one may point at a routine that no longer exists. Follows
+/// the shape of [watchActiveSession], which does the same join one level
+/// shallower.
+@riverpod
+Stream<List<CompletedSession>> watchCompletedSessionDetails(Ref ref) {
+  final db = ref.watch(databaseProvider);
+
+  final query =
+      db.select(db.workoutSessions).join([
+          leftOuterJoin(
+            db.workoutRoutines,
+            db.workoutRoutines.id.equalsExp(db.workoutSessions.routineId),
+          ),
+          leftOuterJoin(
+            db.workoutSplits,
+            db.workoutSplits.id.equalsExp(db.workoutRoutines.splitId),
+          ),
+        ])
+        ..where(db.workoutSessions.endTime.isNotNull())
+        ..where(db.workoutSessions.deletedAt.isNull())
+        ..orderBy([OrderingTerm.desc(db.workoutSessions.startTime)]);
+
+  return query.watch().map(
+    (rows) => [
+      for (final row in rows)
+        CompletedSession(
+          session: row.readTable(db.workoutSessions),
+          routineName: row.readTableOrNull(db.workoutRoutines)?.name,
+          splitName: row.readTableOrNull(db.workoutSplits)?.name,
+        ),
+    ],
+  );
+}
+
+/// What each session achieved — records set, exercises tried for the first
+/// time, badges earned.
+///
+/// One pass over the whole history rather than a query per session. That is
+/// not only cheaper: a personal-best verdict for one session depends on every
+/// set logged before it, so a per-session query would rescan all of history
+/// anyway — and the history list is a `shrinkWrap` list with no viewport
+/// culling, so every row builds on every frame.
+///
+/// The population deliberately matches `recalculateForExercise`: non-deleted
+/// sets in non-deleted sessions, **including sessions still in progress**,
+/// because `logSet` awards records immediately. Filtering to completed
+/// sessions happens when rendering; doing it here would let these verdicts
+/// disagree with the records table.
+@riverpod
+Stream<Map<int, SessionHighlights>> watchSessionHighlights(Ref ref) {
+  final db = ref.watch(databaseProvider);
+
+  final setsQuery =
+      db.select(db.workoutSets).join([
+          innerJoin(
+            db.exercises,
+            db.exercises.id.equalsExp(db.workoutSets.exerciseId),
+          ),
+          innerJoin(
+            db.workoutSessions,
+            db.workoutSessions.id.equalsExp(db.workoutSets.sessionId),
+          ),
+        ])
+        ..where(db.workoutSets.deletedAt.isNull())
+        ..where(db.workoutSessions.deletedAt.isNull())
+        ..orderBy([OrderingTerm.asc(db.workoutSets.timestamp)]);
+
+  final sessionsQuery = db.select(db.workoutSessions)
+    ..where((s) => s.deletedAt.isNull())
+    ..orderBy([(s) => OrderingTerm.asc(s.startTime)]);
+
+  final badgesQuery = db.select(db.badges)
+    ..where((b) => b.earnedAt.isNotNull());
+
+  return setsQuery.watch().asyncMap((rows) async {
+    final sessions = await sessionsQuery.get();
+    final badges = await badgesQuery.get();
+
+    return replaySessionHighlights(
+      setsOldestFirst: [
+        for (final row in rows)
+          (
+            sessionId: row.readTable(db.workoutSets).sessionId,
+            exerciseId: row.readTable(db.exercises).id,
+            exerciseName: row.readTable(db.exercises).name,
+            metricType: row.readTable(db.exercises).metricType,
+            timestamp: row.readTable(db.workoutSets).timestamp,
+            weight: row.readTable(db.workoutSets).weight,
+            reps: row.readTable(db.workoutSets).reps,
+            durationSeconds: row.readTable(db.workoutSets).durationSeconds,
+            distanceMetres: row.readTable(db.workoutSets).distanceMetres,
+          ),
+      ],
+      sessionsByStartTime: [
+        for (final session in sessions)
+          (
+            sessionId: session.id,
+            startTime: session.startTime,
+            endTime: session.endTime,
+          ),
+      ],
+      earnedBadges: [
+        for (final badge in badges)
+          if (badge.earnedAt != null)
+            (badgeKey: badge.badgeKey, earnedAt: badge.earnedAt!),
+      ],
+    );
+  });
 }
 
 @riverpod
@@ -469,10 +604,30 @@ class SessionRepository extends _$SessionRepository {
         );
   }
 
-  /// Soft-deletes a session and all its sets.
+  /// Soft-deletes a session and all its sets, then rebuilds the records those
+  /// sets were holding.
+  ///
+  /// A personal best is evidence of a set that was logged, so removing the
+  /// session containing it has to withdraw it — the contract [deleteSet] and
+  /// [updateSet] already honour. Without this, discarding a workout in which
+  /// you mistyped 800kg left the 800kg record standing.
   Future<void> deleteSession(int sessionId) async {
     final db = ref.read(databaseProvider);
     final now = DateTime.now();
+
+    // Gathered before the delete: afterwards these sets are hidden from the
+    // very query that says which exercises need rebuilding.
+    final affected = await (db.select(db.workoutSets).join([
+      innerJoin(
+        db.exercises,
+        db.exercises.id.equalsExp(db.workoutSets.exerciseId),
+      ),
+    ])..where(db.workoutSets.sessionId.equals(sessionId))).get();
+
+    final touched = {
+      for (final row in affected)
+        row.readTable(db.exercises).id: row.readTable(db.exercises).metricType,
+    };
 
     await db.transaction(() async {
       await (db.update(
@@ -493,6 +648,18 @@ class SessionRepository extends _$SessionRepository {
         ),
       );
     });
+
+    // Outside the transaction. Drift would show the rebuild the uncommitted
+    // delete — its executor is zone-scoped — so this is not a correctness
+    // requirement; it keeps the write lock short and many round trips out of
+    // it, matching how deleteSet already writes and then rebuilds.
+    final records = ref.read(personalBestRepositoryProvider.notifier);
+    for (final entry in touched.entries) {
+      await records.recalculateForExercise(
+        exerciseId: entry.key,
+        metricType: entry.value,
+      );
+    }
   }
 }
 

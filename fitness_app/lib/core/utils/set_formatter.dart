@@ -68,6 +68,37 @@ String formatPersonalBest(PersonalBest pb) => formatSetSummary(
   distanceMetres: pb.distanceMetres,
 );
 
+/// A session's date, as `3 Sep 2026  18:45`.
+///
+/// Shared because the history row and the detail sheet each had their own
+/// copy, and they disagreed — one showed the time and the other did not.
+String formatSessionDate(DateTime date) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final hour = date.hour.toString().padLeft(2, '0');
+  final minute = date.minute.toString().padLeft(2, '0');
+  return '${date.day} ${months[date.month - 1]} ${date.year}  $hour:$minute';
+}
+
+/// A session's length, as `2h 15m` or `45m`.
+String formatSessionDuration(Duration duration) {
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes % 60;
+  return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
+}
+
 /// Progress against a routine's plan for one exercise.
 ///
 /// The target clause follows the exercise's [metricType], because a rep target

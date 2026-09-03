@@ -6,7 +6,10 @@ import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/features/workout/domain/progress_series.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/session_repository.dart';
+import '../../../core/utils/set_formatter.dart';
+import '../domain/session_highlights.dart';
 import 'widgets/exercise_field.dart';
+import 'widgets/session_chips.dart';
 import 'widgets/exercise_picker_sheet.dart';
 import '../../../core/database/database_provider.dart';
 
@@ -22,7 +25,8 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final sessionsAsync = ref.watch(watchCompletedSessionsProvider);
+    final sessionsAsync = ref.watch(watchCompletedSessionDetailsProvider);
+    final highlightsAsync = ref.watch(watchSessionHighlightsProvider);
     final attendanceAsync = ref.watch(getAttendanceDataProvider);
     final streakAsync = ref.watch(getWeeklyStreakProvider);
 
@@ -92,7 +96,15 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
         attendanceAsync.when(
           data: (attendance) => _AttendanceHeatmap(attendance: attendance),
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
+          error: (_, _) => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Could not load this.',
+                style: TextStyle(color: OneRepColors.textSecondary),
+              ),
+            ),
+          ),
         ),
 
         // ----------------------------------------------------------------
@@ -141,27 +153,75 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   itemCount: sessions.length,
                   itemBuilder: (context, index) {
                     final session = sessions[index];
-                    final duration = session.endTime?.difference(
-                      session.startTime,
-                    );
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _SessionRow(
                         session: session,
-                        duration: duration,
+                        highlights: highlightsAsync.valueOrNull?[session.id],
                         onTap: () => _showSessionDetail(context, session),
+                        onDelete: () => _confirmDelete(context, ref, session),
                       ),
                     );
                   },
                 ),
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
+          error: (_, _) => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Could not load this.',
+                style: TextStyle(color: OneRepColors.textSecondary),
+              ),
+            ),
+          ),
         ),
       ],
     );
   }
 
-  void _showSessionDetail(BuildContext context, WorkoutSession session) {
+  /// Confirms before deleting, and says what will be lost.
+  ///
+  /// A workout is worth more than an exercise, so it does not go on one
+  /// gesture. Copy follows the discard-in-progress dialog, with the extra
+  /// clause that matters here: records the session alone was holding are
+  /// withdrawn with it.
+  Future<bool> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    CompletedSession session,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete this session?'),
+        content: const Text(
+          'The session and every set in it will be removed. Any personal best '
+          'it was holding falls back to your next best.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Keep It'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: OneRepColors.error),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed ?? false) {
+      await ref
+          .read(sessionRepositoryProvider.notifier)
+          .deleteSession(session.id);
+      return true;
+    }
+    return false;
+  }
+
+  void _showSessionDetail(BuildContext context, CompletedSession session) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -276,18 +336,49 @@ class _SectionLabel extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _SessionRow extends StatelessWidget {
-  final WorkoutSession session;
-  final Duration? duration;
+  final CompletedSession session;
+  final SessionHighlights? highlights;
   final VoidCallback onTap;
+
+  /// Resolves true when the session was actually deleted, so the row only
+  /// dismisses if the user confirmed.
+  final Future<bool> Function() onDelete;
 
   const _SessionRow({
     required this.session,
-    required this.duration,
+    required this.highlights,
     required this.onTap,
+    required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
+    return Dismissible(
+      key: ValueKey(session.id),
+      direction: DismissDirection.endToStart,
+      // Always false, even when the delete succeeds: the list is driven by a
+      // stream, so the row disappears when the data does. Letting Dismissible
+      // remove it as well risks it being dismissed while still in the tree.
+      confirmDismiss: (_) async {
+        await onDelete();
+        return false;
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: OneRepColors.error.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(Icons.delete_outline, color: OneRepColors.error),
+      ),
+      child: _buildRow(),
+    );
+  }
+
+  Widget _buildRow() {
+    final duration = session.duration;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -306,22 +397,28 @@ class _SessionRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _formatDate(session.startTime),
+                    session.title,
                     style: const TextStyle(
                       color: OneRepColors.textPrimary,
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (duration != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      _formatDuration(duration!),
-                      style: const TextStyle(
-                        color: OneRepColors.textSecondary,
-                        fontSize: 12,
-                      ),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (session.subtitle != null) session.subtitle!,
+                      formatSessionDate(session.startTime),
+                      if (duration != null) formatSessionDuration(duration),
+                    ].join(' \u00b7 '),
+                    style: const TextStyle(
+                      color: OneRepColors.textSecondary,
+                      fontSize: 12,
                     ),
+                  ),
+                  if (highlights != null && !highlights!.isEmpty) ...[
+                    const SizedBox(height: 8),
+                    SessionChips(highlights: highlights, compact: true),
                   ],
                 ],
               ),
@@ -335,31 +432,6 @@ class _SessionRow extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}  '
-        '${date.hour.toString().padLeft(2, '0')}:'
-        '${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _formatDuration(Duration d) {
-    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
-    return '${d.inMinutes}m';
   }
 }
 
@@ -538,6 +610,20 @@ class _PrChart extends ConsumerWidget {
           return const SizedBox(
             height: 200,
             child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          // Unchecked, a failed query fell through to `?? []` and rendered
+          // "no PRs recorded yet" — telling the user something false about
+          // their training rather than that something went wrong.
+          return const SizedBox(
+            height: 80,
+            child: Center(
+              child: Text(
+                'Could not load this history.',
+                style: TextStyle(color: OneRepColors.textSecondary),
+              ),
+            ),
           );
         }
         final points = snapshot.data ?? [];
@@ -755,14 +841,17 @@ class _PrPoint {
 // ---------------------------------------------------------------------------
 
 class SessionDetailSheet extends ConsumerWidget {
-  final WorkoutSession session;
+  final CompletedSession session;
 
   const SessionDetailSheet({super.key, required this.session});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final setsAsync = ref.watch(watchSetsForSessionProvider(session.id));
-    final duration = session.endTime?.difference(session.startTime);
+    final duration = session.duration;
+    final highlights = ref
+        .watch(watchSessionHighlightsProvider)
+        .valueOrNull?[session.id];
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
@@ -793,46 +882,36 @@ class SessionDetailSheet extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _formatDate(session.startTime),
+                        session.title,
                         style: const TextStyle(
                           color: OneRepColors.textPrimary,
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      if (duration != null)
-                        Text(
-                          _formatDuration(duration),
-                          style: const TextStyle(
-                            color: OneRepColors.textSecondary,
-                            fontSize: 13,
-                          ),
+                      Text(
+                        [
+                          if (session.subtitle != null) session.subtitle!,
+                          formatSessionDate(session.startTime),
+                          if (duration != null) formatSessionDuration(duration),
+                        ].join(' · '),
+                        style: const TextStyle(
+                          color: OneRepColors.textSecondary,
+                          fontSize: 13,
                         ),
+                      ),
+                      if (highlights != null && !highlights.isEmpty) ...[
+                        const SizedBox(height: 10),
+                        SessionChips(highlights: highlights),
+                      ],
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: OneRepColors.gold.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: OneRepColors.gold.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: const Text(
-                    'COMPLETED',
-                    style: TextStyle(
-                      color: OneRepColors.gold,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
+                // A "COMPLETED" badge used to sit here. It had no condition
+                // at all, and could not have had a useful one: this sheet is
+                // only reachable from a list filtered on `endTime IS NOT NULL`.
+                // What a session achieved is worth a badge; that it happened
+                // is not.
               ],
             ),
           ),
@@ -849,7 +928,7 @@ class SessionDetailSheet extends ConsumerWidget {
                     ),
                   );
                 }
-                final grouped = <String, List<dynamic>>{};
+                final grouped = <String, List<WorkoutSetWithExercise>>{};
                 for (final s in sets) {
                   grouped.putIfAbsent(s.exerciseName, () => []).add(s);
                 }
@@ -898,7 +977,7 @@ class SessionDetailSheet extends ConsumerWidget {
                                   ),
                                   const SizedBox(width: 10),
                                   Text(
-                                    _formatSet(set.set),
+                                    formatWorkoutSet(set.set),
                                     style: const TextStyle(
                                       color: OneRepColors.textPrimary,
                                       fontSize: 14,
@@ -916,55 +995,19 @@ class SessionDetailSheet extends ConsumerWidget {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(child: Text('Error: $err')),
+              error: (_, _) => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'Could not load this.',
+                    style: TextStyle(color: OneRepColors.textSecondary),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
-  }
-
-  String _formatSet(WorkoutSet set) {
-    if (set.durationSeconds != null) {
-      final secs = set.durationSeconds!;
-      final m = secs ~/ 60;
-      final s = secs % 60;
-      final timeStr = m > 0
-          ? '${m}m ${s.toString().padLeft(2, '0')}s'
-          : '${s}s';
-      if (set.distanceMetres != null && set.distanceMetres! > 0) {
-        final dist = set.distanceMetres!;
-        final distStr = dist >= 1000
-            ? '${(dist / 1000).toStringAsFixed(1)}km'
-            : '${dist.toStringAsFixed(0)}m';
-        return '$distStr in $timeStr';
-      }
-      return timeStr;
-    }
-    if (set.weight == 0.0) return '${set.reps} reps';
-    return '${set.weight}kg × ${set.reps} reps';
-  }
-
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
-
-  String _formatDuration(Duration d) {
-    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
-    return '${d.inMinutes}m';
   }
 }

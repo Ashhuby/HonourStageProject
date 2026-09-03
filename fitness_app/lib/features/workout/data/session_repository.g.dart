@@ -6,26 +6,6 @@ part of 'session_repository.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$watchCompletedSessionsHash() =>
-    r'e85dea4179a91953b5e845a0347d006283739282';
-
-/// See also [watchCompletedSessions].
-@ProviderFor(watchCompletedSessions)
-final watchCompletedSessionsProvider =
-    AutoDisposeStreamProvider<List<WorkoutSession>>.internal(
-      watchCompletedSessions,
-      name: r'watchCompletedSessionsProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$watchCompletedSessionsHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef WatchCompletedSessionsRef =
-    AutoDisposeStreamProviderRef<List<WorkoutSession>>;
 String _$getProgressSeriesForExerciseHash() =>
     r'36a4492adf800d801a39b9b807cb71fe128f7dd0';
 
@@ -215,6 +195,68 @@ final getWeeklyStreakProvider = AutoDisposeFutureProvider<int>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef GetWeeklyStreakRef = AutoDisposeFutureProviderRef<int>;
+String _$watchCompletedSessionDetailsHash() =>
+    r'95ca80ee815ad3c3bf8155b29b1f6096cb89a0a8';
+
+/// Completed sessions, newest first, each named by its routine and split.
+///
+/// Left outer joins throughout: a freestyle session has no routine, and a
+/// routine-backed one may point at a routine that no longer exists. Follows
+/// the shape of [watchActiveSession], which does the same join one level
+/// shallower.
+///
+/// Copied from [watchCompletedSessionDetails].
+@ProviderFor(watchCompletedSessionDetails)
+final watchCompletedSessionDetailsProvider =
+    AutoDisposeStreamProvider<List<CompletedSession>>.internal(
+      watchCompletedSessionDetails,
+      name: r'watchCompletedSessionDetailsProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$watchCompletedSessionDetailsHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef WatchCompletedSessionDetailsRef =
+    AutoDisposeStreamProviderRef<List<CompletedSession>>;
+String _$watchSessionHighlightsHash() =>
+    r'af0867e5d672941d3ea5e7b4963635c1c40b2af6';
+
+/// What each session achieved — records set, exercises tried for the first
+/// time, badges earned.
+///
+/// One pass over the whole history rather than a query per session. That is
+/// not only cheaper: a personal-best verdict for one session depends on every
+/// set logged before it, so a per-session query would rescan all of history
+/// anyway — and the history list is a `shrinkWrap` list with no viewport
+/// culling, so every row builds on every frame.
+///
+/// The population deliberately matches `recalculateForExercise`: non-deleted
+/// sets in non-deleted sessions, **including sessions still in progress**,
+/// because `logSet` awards records immediately. Filtering to completed
+/// sessions happens when rendering; doing it here would let these verdicts
+/// disagree with the records table.
+///
+/// Copied from [watchSessionHighlights].
+@ProviderFor(watchSessionHighlights)
+final watchSessionHighlightsProvider =
+    AutoDisposeStreamProvider<Map<int, SessionHighlights>>.internal(
+      watchSessionHighlights,
+      name: r'watchSessionHighlightsProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$watchSessionHighlightsHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef WatchSessionHighlightsRef =
+    AutoDisposeStreamProviderRef<Map<int, SessionHighlights>>;
 String _$watchSetsForSessionHash() =>
     r'f73dbdc7180a58080618a3d25695b3985063fb74';
 
@@ -844,7 +886,7 @@ class _WatchRecentExerciseIdsProviderElement
   int get limit => (origin as WatchRecentExerciseIdsProvider).limit;
 }
 
-String _$sessionRepositoryHash() => r'2bf3940592ea6f355b294c725f26e4f153910c3b';
+String _$sessionRepositoryHash() => r'19cd74c7d6d48f1879095d648e627c7d3fb6db80';
 
 /// See also [SessionRepository].
 @ProviderFor(SessionRepository)

@@ -434,7 +434,7 @@ class _WatchExercisesForRoutineProviderElement
   int get routineId => (origin as WatchExercisesForRoutineProvider).routineId;
 }
 
-String _$splitRepositoryHash() => r'96c078d37c3201e19fe0ae493ffcd2905cb0520d';
+String _$splitRepositoryHash() => r'5e01039eb55a0bbdddfb72d1e4e87dadc11878c0';
 
 /// See also [SplitRepository].
 @ProviderFor(SplitRepository)

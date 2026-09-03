@@ -146,7 +146,7 @@ List<PbRecord> computeRecords(
       achievedAt: set.timestamp,
     );
 
-    if (current == null || _setBeats(candidate, current, metricType)) {
+    if (current == null || setBeats(candidate, current, metricType)) {
       byDistance[key] = candidate;
     }
   }
@@ -155,7 +155,11 @@ List<PbRecord> computeRecords(
 }
 
 /// Whether [candidate] beats [current] under the rules for [metricType].
-bool _setBeats(PbRecord candidate, PbRecord current, String metricType) {
+///
+/// Public because the session-history replay needs the *same* judgement live
+/// logging made — restating these rules anywhere else would let the history
+/// disagree with the PR banner the user actually saw.
+bool setBeats(PbRecord candidate, PbRecord current, String metricType) {
   switch (MetricType.fromString(metricType)) {
     case MetricType.timeOnly:
       return (candidate.durationSeconds ?? 0) > (current.durationSeconds ?? 0);
