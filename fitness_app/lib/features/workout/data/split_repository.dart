@@ -6,20 +6,24 @@ import '../../../core/database/local_database.dart';
 
 part 'split_repository.g.dart';
 
+/// A routine's planned exercise paired with the exercise row it points at.
+///
+/// The whole [Exercise] is carried rather than a handful of copied columns, so
+/// callers that need a real exercise — the session screen's picker, for one —
+/// do not have to synthesise one and guess at the fields they lack.
 class RoutineExerciseWithName {
   final RoutineExercise routineExercise;
-  final String exerciseName;
-  final String bodyPart;
-  final String equipmentType;
-  final String metricType;
+  final Exercise exercise;
 
   const RoutineExerciseWithName({
     required this.routineExercise,
-    required this.exerciseName,
-    required this.bodyPart,
-    required this.equipmentType,
-    this.metricType = 'weightReps',
+    required this.exercise,
   });
+
+  String get exerciseName => exercise.name;
+  String get bodyPart => exercise.bodyPart;
+  String get equipmentType => exercise.equipmentType;
+  String get metricType => exercise.metricType;
 }
 
 // --- STREAMS ---
@@ -46,10 +50,7 @@ Stream<List<RoutineExerciseWithName>> watchExercisesForRoutineWithNames(
         .map(
           (row) => RoutineExerciseWithName(
             routineExercise: row.readTable(db.routineExercises),
-            exerciseName: row.readTable(db.exercises).name,
-            bodyPart: row.readTable(db.exercises).bodyPart,
-            equipmentType: row.readTable(db.exercises).equipmentType,
-            metricType: row.readTable(db.exercises).metricType,
+            exercise: row.readTable(db.exercises),
           ),
         )
         .toList(),

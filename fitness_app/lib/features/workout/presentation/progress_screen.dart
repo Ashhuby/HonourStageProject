@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/session_repository.dart';
-import '../data/exercise_repository.dart';
+import 'widgets/exercise_field.dart';
+import 'widgets/exercise_picker_sheet.dart';
 import '../../../core/database/database_provider.dart';
 
 class ProgressScreen extends ConsumerStatefulWidget {
@@ -21,7 +22,6 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
   @override
   Widget build(BuildContext context) {
     final sessionsAsync = ref.watch(watchCompletedSessionsProvider);
-    final exercisesAsync = ref.watch(watchExercisesProvider);
     final attendanceAsync = ref.watch(getAttendanceDataProvider);
     final streakAsync = ref.watch(getWeeklyStreakProvider);
 
@@ -100,23 +100,18 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
         const _SectionLabel(title: 'PR PROGRESSION'),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: exercisesAsync.when(
-            data: (exercises) => DropdownButtonFormField<Exercise>(
-              initialValue: _selectedExercise,
-              decoration: const InputDecoration(
-                labelText: 'Select Exercise',
-                prefixIcon: Icon(Icons.fitness_center, size: 18),
-              ),
-              dropdownColor: OneRepColors.surfaceElevated,
-              style: const TextStyle(color: OneRepColors.textPrimary),
-              items: exercises
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e.name)))
-                  .toList(),
-              onChanged: (exercise) =>
-                  setState(() => _selectedExercise = exercise),
-            ),
-            loading: () => const LinearProgressIndicator(),
-            error: (err, _) => Text('Error: $err'),
+          child: ExerciseField(
+            exercise: _selectedExercise,
+            label: 'Select Exercise',
+            hint: 'Tap to choose',
+            onTap: () async {
+              final picked = await showExercisePicker(
+                context,
+                title: 'Choose exercise',
+              );
+              if (picked == null || !mounted) return;
+              setState(() => _selectedExercise = picked);
+            },
           ),
         ),
         const SizedBox(height: 12),

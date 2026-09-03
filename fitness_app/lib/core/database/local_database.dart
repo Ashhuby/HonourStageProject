@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   final bool _isTesting;
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -110,12 +110,18 @@ class AppDatabase extends _$AppDatabase {
             "ALTER TABLE personal_bests ADD COLUMN metric_type TEXT NOT NULL DEFAULT 'weightReps'",
           );
           // Seed the expanded exercise library.
-          // insertOnConflictUpdate on name means existing exercises are
-          // updated with the new metricType but not duplicated.
+          // NOTE: `name` carries no unique constraint, so insertOnConflictUpdate
+          // conflicts on `id` — which this companion never sets. Re-running the
+          // seed therefore inserts rather than updates. Left as-is because
+          // changing it now would alter an upgrade path already shipped; new
+          // corrections must not re-run the seed (see _refileChinUps).
           await _seedExercises();
         }
         if (from < 7) {
           await _rebuildPersonalBests();
+        }
+        if (from < 8) {
+          await _refileChinUps();
         }
       },
       beforeOpen: (details) async {
@@ -209,6 +215,27 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// Re-files Chin Ups from Biceps to Back (v8).
+  ///
+  /// The original seed filed a lat-dominant pull under its secondary mover,
+  /// which was invisible while the library was a flat list but is not now that
+  /// tapping the Back region on the body map is how the exercise is found.
+  ///
+  /// A targeted UPDATE rather than a re-run of [_seedExercises]: `exercises`
+  /// has no unique constraint on `name`, so insertOnConflictUpdate conflicts on
+  /// `id` and would insert a second Chin Ups rather than correct the first.
+  /// Raw SQL, like the other migration helpers, so it stays valid against the
+  /// v8 schema regardless of how the table is later shaped.
+  ///
+  /// Guarded on the old value so a user who has already re-filed it — or who
+  /// added their own Chin Ups row — is left alone.
+  Future<void> _refileChinUps() async {
+    await customStatement(
+      "UPDATE exercises SET body_part = 'Back' "
+      "WHERE name = 'Chin Ups' AND body_part = 'Biceps' AND is_custom = 0",
+    );
+  }
+
   Future<void> _seedExercises() async {
     // Helper — insert or update by name
     Future<void> seed(
@@ -238,10 +265,11 @@ class AppDatabase extends _$AppDatabase {
     await seed('Deadlift', 'Back', 'Barbell', 'weightReps');
     await seed('Barbell Row', 'Back', 'Barbell', 'weightReps');
     await seed('Pull Ups', 'Back', 'Body Weight', 'bodyweightReps');
-    await seed('Chin Ups', 'Biceps', 'Body Weight', 'bodyweightReps');
+    await seed('Chin Ups', 'Back', 'Body Weight', 'bodyweightReps');
     await seed('Lat Pulldown', 'Back', 'Cable', 'weightReps');
     await seed('Seated Cable Row', 'Back', 'Cable', 'weightReps');
     await seed('T-Bar Row', 'Back', 'Machine', 'weightReps');
+    await seed('Dead Hang', 'Back', 'Body Weight', 'timeOnly');
 
     // Legs
     await seed('Squat', 'Legs', 'Barbell', 'weightReps');
@@ -280,7 +308,6 @@ class AppDatabase extends _$AppDatabase {
     await seed('Running', 'Whole Body', 'Body Weight', 'distanceTime');
     await seed('Cycling', 'Whole Body', 'Machine', 'distanceTime');
     await seed('Rowing Machine', 'Whole Body', 'Machine', 'distanceTime');
-    await seed('Dead Hang', 'Back', 'Body Weight', 'timeOnly');
   }
 
   Future<void> _seedBadges() async {

@@ -3,9 +3,9 @@ import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/local_database.dart';
 import '../data/split_repository.dart';
-import '../data/exercise_repository.dart';
 import '../data/session_repository.dart';
 import 'active_session_screen.dart';
+import 'widgets/exercise_picker_sheet.dart';
 
 class SplitDetailScreen extends ConsumerWidget {
   final WorkoutSplit split;
@@ -220,11 +220,27 @@ class RoutineExercisesSheet extends ConsumerWidget {
     );
   }
 
-  void _showExercisePicker(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => ExercisePickerDialog(routineId: routine.id),
+  Future<void> _showExercisePicker(BuildContext context, WidgetRef ref) async {
+    // Exercises already planned for this day are hidden, so the same one
+    // cannot be added twice — the dialog this replaced allowed duplicates.
+    final planned = await ref.read(
+      watchExercisesForRoutineWithNamesProvider(routine.id).future,
     );
+    final alreadyAdded = {
+      for (final entry in planned) entry.routineExercise.exerciseId,
+    };
+
+    if (!context.mounted) return;
+    final picked = await showExercisePicker(
+      context,
+      excludeIds: alreadyAdded,
+      title: 'Add to ${routine.name}',
+    );
+    if (picked == null) return;
+
+    await ref
+        .read(splitRepositoryProvider.notifier)
+        .addExerciseToRoutine(routineId: routine.id, exerciseId: picked.id);
   }
 
   /// Starts this routine, first offering a way out of a session that was
@@ -307,55 +323,3 @@ class RoutineExercisesSheet extends ConsumerWidget {
 
 /// What to do about a session that is already in progress.
 enum _InProgressChoice { resume, discard }
-
-// --- Exercise picker dialog ---
-
-class ExercisePickerDialog extends ConsumerWidget {
-  final int routineId;
-
-  const ExercisePickerDialog({super.key, required this.routineId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final exercisesAsync = ref.watch(watchExercisesProvider);
-
-    return AlertDialog(
-      title: const Text('Add Exercise'),
-      content: SizedBox(
-        width: double.maxFinite,
-        height: 400,
-        child: exercisesAsync.when(
-          data: (exercises) => ListView.builder(
-            itemCount: exercises.length,
-            itemBuilder: (context, index) {
-              final exercise = exercises[index];
-              return ListTile(
-                title: Text(exercise.name),
-                subtitle: Text(
-                  '${exercise.bodyPart} • ${exercise.equipmentType}',
-                ),
-                onTap: () {
-                  ref
-                      .read(splitRepositoryProvider.notifier)
-                      .addExerciseToRoutine(
-                        routineId: routineId,
-                        exerciseId: exercise.id,
-                      );
-                  Navigator.pop(context);
-                },
-              );
-            },
-          ),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Center(child: Text('Error: $err')),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-      ],
-    );
-  }
-}

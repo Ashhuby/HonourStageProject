@@ -1,95 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/database/local_database.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/badge_service.dart';
 import '../data/exercise_repository.dart';
 import '../data/personal_best_repository.dart';
 import 'exercise_detail_screen.dart';
+import 'widgets/body_map.dart';
+import 'widgets/body_part.dart';
+import 'widgets/exercise_filter.dart';
+import 'widgets/exercise_list_tile.dart';
 
-class ExerciseLibraryScreen extends ConsumerWidget {
+/// The Exercises tab: a tappable body diagram over the exercise list.
+///
+/// This screen is an `IndexedStack` child of `HomeScreen` and so has no AppBar
+/// of its own — the diagram and search box live in the body, scrolling away
+/// with the list rather than pinned above it.
+class ExerciseLibraryScreen extends ConsumerStatefulWidget {
   const ExerciseLibraryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ExerciseLibraryScreen> createState() =>
+      _ExerciseLibraryScreenState();
+}
+
+class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+  BodyPart? _selected;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final exercisesAsync = ref.watch(watchExercisesProvider);
 
     return Scaffold(
       body: exercisesAsync.when(
-        data: (exercises) {
-          if (exercises.isEmpty) return _EmptyState();
-
-          // Define display order for body part sections.
-          const sectionOrder = [
-            'Chest',
-            'Back',
-            'Legs',
-            'Shoulders',
-            'Biceps',
-            'Triceps',
-            'Core',
-            'Whole Body',
-          ];
-
-          // Sort exercises: first by sectionOrder, then alphabetically within.
-          final sorted = [...exercises];
-          sorted.sort((a, b) {
-            final ai = sectionOrder.indexOf(a.bodyPart);
-            final bi = sectionOrder.indexOf(b.bodyPart);
-            final aIdx = ai == -1 ? sectionOrder.length : ai;
-            final bIdx = bi == -1 ? sectionOrder.length : bi;
-            if (aIdx != bIdx) return aIdx.compareTo(bIdx);
-            return a.name.compareTo(b.name);
-          });
-
-          // Build flat list of section headers + exercise cards.
-          final items = <_LibraryItem>[];
-          String? lastBodyPart;
-          for (final exercise in sorted) {
-            if (exercise.bodyPart != lastBodyPart) {
-              items.add(_LibraryItem.header(exercise.bodyPart));
-              lastBodyPart = exercise.bodyPart;
-            }
-            items.add(_LibraryItem.exercise(exercise));
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              if (item.isHeader) {
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-                  child: Text(
-                    item.header!.toUpperCase(),
-                    style: const TextStyle(
-                      color: OneRepColors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                );
-              }
-              final exercise = item.exercise!;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _ExerciseCard(
-                  exercise: exercise,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ExerciseDetailScreen(exercise: exercise),
-                    ),
-                  ),
-                  onDelete: () => ref
-                      .read(exerciseRepositoryProvider.notifier)
-                      .deleteExercise(exercise.id),
-                ),
-              );
-            },
-          );
-        },
+        data: _buildLibrary,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
       ),
@@ -105,16 +57,119 @@ class ExerciseLibraryScreen extends ConsumerWidget {
     );
   }
 
-  static const _bodyParts = [
-    'Chest',
-    'Back',
-    'Legs',
-    'Shoulders',
-    'Biceps',
-    'Triceps',
-    'Core',
-    'Whole Body',
-  ];
+  Widget _buildLibrary(List<Exercise> exercises) {
+    if (exercises.isEmpty) return const _EmptyState();
+
+    final matches = filterExercises(
+      exercises,
+      query: _query,
+      bodyPart: _selected,
+    );
+    final sections = groupExercisesByBodyPart(matches);
+
+    // Flatten sections into header/exercise rows so one sliver renders them.
+    final items = <Object>[];
+    for (final section in sections) {
+      items.add(section.title);
+      items.addAll(section.exercises);
+    }
+
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Column(
+              children: [
+                BodyMap(
+                  counts: countByBodyPart(exercises),
+                  selected: _selected,
+                  onSelected: (part) => setState(() => _selected = part),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _searchController,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: 'Search exercises',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: _query.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _query = '');
+                            },
+                          ),
+                  ),
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (items.isEmpty)
+          const SliverToBoxAdapter(child: _NoMatches())
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+            sliver: SliverList.builder(
+              itemCount: items.length,
+              itemBuilder: (context, index) => _buildItem(items[index]),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildItem(Object item) {
+    if (item is String) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+        child: Text(
+          item.toUpperCase(),
+          style: const TextStyle(
+            color: OneRepColors.textSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.5,
+          ),
+        ),
+      );
+    }
+
+    final exercise = item as Exercise;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Dismissible(
+        key: ValueKey(exercise.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: OneRepColors.error.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.delete_outline, color: OneRepColors.error),
+        ),
+        onDismissed: (_) => ref
+            .read(exerciseRepositoryProvider.notifier)
+            .deleteExercise(exercise.id),
+        child: ExerciseListTile(
+          exercise: exercise,
+          showPrCount: true,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ExerciseDetailScreen(exercise: exercise),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   static const _equipment = [
     'Barbell',
@@ -136,7 +191,7 @@ class ExerciseLibraryScreen extends ConsumerWidget {
 
   void _showAddExerciseDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
-    String? selectedBodyPart;
+    BodyPart? selectedBodyPart;
     String? selectedEquipment;
     String selectedMetricType = 'weightReps';
 
@@ -155,12 +210,15 @@ class ExerciseLibraryScreen extends ConsumerWidget {
                   decoration: const InputDecoration(labelText: 'Exercise Name'),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
+                DropdownButtonFormField<BodyPart>(
                   initialValue: selectedBodyPart,
                   decoration: const InputDecoration(labelText: 'Body Part'),
                   dropdownColor: OneRepColors.surfaceElevated,
-                  items: _bodyParts
-                      .map((bp) => DropdownMenuItem(value: bp, child: Text(bp)))
+                  items: BodyPart.values
+                      .map(
+                        (bp) =>
+                            DropdownMenuItem(value: bp, child: Text(bp.label)),
+                      )
                       .toList(),
                   onChanged: (v) => setDialogState(() => selectedBodyPart = v),
                 ),
@@ -206,7 +264,7 @@ class ExerciseLibraryScreen extends ConsumerWidget {
                       .read(exerciseRepositoryProvider.notifier)
                       .addExercise(
                         nameController.text,
-                        selectedBodyPart!,
+                        selectedBodyPart!.label,
                         selectedEquipment!,
                         metricType: selectedMetricType,
                       );
@@ -232,201 +290,33 @@ class ExerciseLibraryScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Library list item — either a section header or an exercise card
+// Empty states
 // ---------------------------------------------------------------------------
 
-class _LibraryItem {
-  final bool isHeader;
-  final String? header;
-  final dynamic exercise;
-
-  const _LibraryItem._({required this.isHeader, this.header, this.exercise});
-
-  factory _LibraryItem.header(String title) =>
-      _LibraryItem._(isHeader: true, header: title);
-
-  factory _LibraryItem.exercise(dynamic ex) =>
-      _LibraryItem._(isHeader: false, exercise: ex);
-}
-
-// ---------------------------------------------------------------------------
-// Exercise card — body part colour dot, no avatar
-// ---------------------------------------------------------------------------
-
-class _ExerciseCard extends ConsumerWidget {
-  final dynamic exercise;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-
-  const _ExerciseCard({
-    required this.exercise,
-    required this.onTap,
-    required this.onDelete,
-  });
+class _NoMatches extends StatelessWidget {
+  const _NoMatches();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bodyPartColor = _bodyPartColor(exercise.bodyPart as String);
-    final prsAsync = ref.watch(watchPrsForExerciseProvider(exercise.id as int));
-
-    return Dismissible(
-      key: ValueKey(exercise.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        decoration: BoxDecoration(
-          color: OneRepColors.error.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Icon(Icons.delete_outline, color: OneRepColors.error),
-      ),
-      onDismissed: (_) => onDelete(),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: OneRepColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border(left: BorderSide(color: bodyPartColor, width: 3)),
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(40, 48, 40, 40),
+      child: Column(
+        children: [
+          Icon(Icons.search_off, color: OneRepColors.textDisabled, size: 40),
+          SizedBox(height: 12),
+          Text(
+            'No exercises match.',
+            style: TextStyle(color: OneRepColors.textSecondary, fontSize: 14),
           ),
-          child: Row(
-            children: [
-              // Body part colour dot
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: bodyPartColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Exercise info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          exercise.name as String,
-                          style: const TextStyle(
-                            color: OneRepColors.textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (exercise.isCustom == true) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: OneRepColors.gold.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'CUSTOM',
-                              style: TextStyle(
-                                color: OneRepColors.gold,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${exercise.bodyPart} • ${exercise.equipmentType}',
-                      style: const TextStyle(
-                        color: OneRepColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // PR count badge
-              prsAsync.when(
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-                data: (prs) {
-                  if (prs.isEmpty) {
-                    return const Icon(
-                      Icons.chevron_right,
-                      color: OneRepColors.textDisabled,
-                      size: 18,
-                    );
-                  }
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: OneRepColors.gold.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: OneRepColors.gold.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Text(
-                          '${prs.length} PR${prs.length == 1 ? '' : 's'}',
-                          style: const TextStyle(
-                            color: OneRepColors.gold,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.chevron_right,
-                        color: OneRepColors.textDisabled,
-                        size: 18,
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
-
-  /// Maps body part string to a colour from OneRepColors.
-  Color _bodyPartColor(String bodyPart) {
-    return switch (bodyPart.toLowerCase()) {
-      'chest' => OneRepColors.chest,
-      'back' => OneRepColors.back,
-      'legs' => OneRepColors.legs,
-      'shoulders' => OneRepColors.shoulders,
-      'biceps' => OneRepColors.biceps,
-      'triceps' => OneRepColors.triceps,
-      'core' => OneRepColors.core,
-      'whole body' => OneRepColors.wholeBody,
-      _ => OneRepColors.textSecondary,
-    };
-  }
 }
 
-// ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
-
 class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
   @override
   Widget build(BuildContext context) {
     return const Center(

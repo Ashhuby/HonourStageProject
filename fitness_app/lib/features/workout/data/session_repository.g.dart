@@ -683,6 +683,161 @@ class _WatchLastPerformanceForExerciseProviderElement
       (origin as WatchLastPerformanceForExerciseProvider).currentSessionId;
 }
 
+String _$watchRecentExerciseIdsHash() =>
+    r'27a07aeefd54b5feb6d6a6a56b6bbc5b4d3396a8';
+
+/// Exercise ids the user logged most recently, newest first and de-duplicated.
+///
+/// Derived from sets already logged, so it needs no schema support — there is
+/// no `lastUsedAt` column and this deliberately avoids adding one.
+///
+/// Copied from [watchRecentExerciseIds].
+@ProviderFor(watchRecentExerciseIds)
+const watchRecentExerciseIdsProvider = WatchRecentExerciseIdsFamily();
+
+/// Exercise ids the user logged most recently, newest first and de-duplicated.
+///
+/// Derived from sets already logged, so it needs no schema support — there is
+/// no `lastUsedAt` column and this deliberately avoids adding one.
+///
+/// Copied from [watchRecentExerciseIds].
+class WatchRecentExerciseIdsFamily extends Family<AsyncValue<List<int>>> {
+  /// Exercise ids the user logged most recently, newest first and de-duplicated.
+  ///
+  /// Derived from sets already logged, so it needs no schema support — there is
+  /// no `lastUsedAt` column and this deliberately avoids adding one.
+  ///
+  /// Copied from [watchRecentExerciseIds].
+  const WatchRecentExerciseIdsFamily();
+
+  /// Exercise ids the user logged most recently, newest first and de-duplicated.
+  ///
+  /// Derived from sets already logged, so it needs no schema support — there is
+  /// no `lastUsedAt` column and this deliberately avoids adding one.
+  ///
+  /// Copied from [watchRecentExerciseIds].
+  WatchRecentExerciseIdsProvider call({int limit = 6}) {
+    return WatchRecentExerciseIdsProvider(limit: limit);
+  }
+
+  @override
+  WatchRecentExerciseIdsProvider getProviderOverride(
+    covariant WatchRecentExerciseIdsProvider provider,
+  ) {
+    return call(limit: provider.limit);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'watchRecentExerciseIdsProvider';
+}
+
+/// Exercise ids the user logged most recently, newest first and de-duplicated.
+///
+/// Derived from sets already logged, so it needs no schema support — there is
+/// no `lastUsedAt` column and this deliberately avoids adding one.
+///
+/// Copied from [watchRecentExerciseIds].
+class WatchRecentExerciseIdsProvider
+    extends AutoDisposeStreamProvider<List<int>> {
+  /// Exercise ids the user logged most recently, newest first and de-duplicated.
+  ///
+  /// Derived from sets already logged, so it needs no schema support — there is
+  /// no `lastUsedAt` column and this deliberately avoids adding one.
+  ///
+  /// Copied from [watchRecentExerciseIds].
+  WatchRecentExerciseIdsProvider({int limit = 6})
+    : this._internal(
+        (ref) => watchRecentExerciseIds(
+          ref as WatchRecentExerciseIdsRef,
+          limit: limit,
+        ),
+        from: watchRecentExerciseIdsProvider,
+        name: r'watchRecentExerciseIdsProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$watchRecentExerciseIdsHash,
+        dependencies: WatchRecentExerciseIdsFamily._dependencies,
+        allTransitiveDependencies:
+            WatchRecentExerciseIdsFamily._allTransitiveDependencies,
+        limit: limit,
+      );
+
+  WatchRecentExerciseIdsProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.limit,
+  }) : super.internal();
+
+  final int limit;
+
+  @override
+  Override overrideWith(
+    Stream<List<int>> Function(WatchRecentExerciseIdsRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: WatchRecentExerciseIdsProvider._internal(
+        (ref) => create(ref as WatchRecentExerciseIdsRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        limit: limit,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeStreamProviderElement<List<int>> createElement() {
+    return _WatchRecentExerciseIdsProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is WatchRecentExerciseIdsProvider && other.limit == limit;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, limit.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin WatchRecentExerciseIdsRef on AutoDisposeStreamProviderRef<List<int>> {
+  /// The parameter `limit` of this provider.
+  int get limit;
+}
+
+class _WatchRecentExerciseIdsProviderElement
+    extends AutoDisposeStreamProviderElement<List<int>>
+    with WatchRecentExerciseIdsRef {
+  _WatchRecentExerciseIdsProviderElement(super.provider);
+
+  @override
+  int get limit => (origin as WatchRecentExerciseIdsProvider).limit;
+}
+
 String _$sessionRepositoryHash() => r'2bf3940592ea6f355b294c725f26e4f153910c3b';
 
 /// See also [SessionRepository].

@@ -9,9 +9,10 @@ import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/rest_timer.dart';
 import '../../../core/utils/set_formatter.dart';
 import '../data/session_repository.dart';
-import '../data/exercise_repository.dart';
 import '../data/personal_best_repository.dart';
 import '../data/split_repository.dart';
+import 'widgets/exercise_field.dart';
+import 'widgets/exercise_picker_sheet.dart';
 
 class ActiveSessionScreen extends ConsumerStatefulWidget {
   final int sessionId;
@@ -290,96 +291,55 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
   // ---------------------------------------------------------------------------
 
   Widget _buildExerciseSelector() {
-    if (widget.routineId != null) {
-      final routineExAsync = ref.watch(
-        watchExercisesForRoutineWithNamesProvider(widget.routineId!),
-      );
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-        child: routineExAsync.when(
-          data: (routineExercises) => DropdownButtonFormField<Exercise>(
-            initialValue: _selectedExercise,
-            decoration: const InputDecoration(
-              labelText: 'Exercise',
-              prefixIcon: Icon(Icons.fitness_center, size: 18),
-            ),
-            dropdownColor: OneRepColors.surfaceElevated,
-            style: const TextStyle(color: OneRepColors.textPrimary),
-            items: routineExercises.map((re) {
-              return DropdownMenuItem<Exercise>(
-                value: Exercise(
-                  id: re.routineExercise.exerciseId,
-                  name: re.exerciseName,
-                  bodyPart: re.bodyPart,
-                  equipmentType: re.equipmentType,
-                  isCustom: false,
-                  metricType: re.metricType,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        re.exerciseName,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${re.routineExercise.targetSets} × '
-                      '${re.routineExercise.targetReps}',
-                      style: const TextStyle(
-                        color: OneRepColors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-            onChanged: (exercise) => setState(() {
-              _selectedExercise = exercise;
-              _weightController.clear();
-              _repsController.clear();
-              _minutesController.clear();
-              _secondsController.clear();
-              _distanceController.clear();
-            }),
-          ),
-          loading: () => const LinearProgressIndicator(),
-          error: (err, _) => Text('Error: $err'),
-        ),
-      );
-    }
-
-    final exercisesAsync = ref.watch(watchExercisesProvider);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: exercisesAsync.when(
-        data: (exercises) => DropdownButtonFormField<Exercise>(
-          initialValue: _selectedExercise,
-          decoration: const InputDecoration(
-            labelText: 'Exercise',
-            prefixIcon: Icon(Icons.fitness_center, size: 18),
-          ),
-          dropdownColor: OneRepColors.surfaceElevated,
-          style: const TextStyle(color: OneRepColors.textPrimary),
-          items: exercises
-              .map((e) => DropdownMenuItem(value: e, child: Text(e.name)))
-              .toList(),
-          onChanged: (exercise) => setState(() {
-            _selectedExercise = exercise;
-            _weightController.clear();
-            _repsController.clear();
-            _minutesController.clear();
-            _secondsController.clear();
-            _distanceController.clear();
-          }),
-        ),
-        loading: () => const LinearProgressIndicator(),
-        error: (err, _) => Text('Error: $err'),
+      child: ExerciseField(
+        exercise: _selectedExercise,
+        onTap: _openExercisePicker,
       ),
     );
+  }
+
+  /// Opens the shared picker and adopts the choice.
+  ///
+  /// A routine-backed session stays restricted to the exercises planned for
+  /// that day — the picker just presents them far better than the dropdown it
+  /// replaces, showing each one's target alongside it.
+  Future<void> _openExercisePicker() async {
+    List<Exercise>? restrictTo;
+    var trailingLabels = const <int, String>{};
+
+    final routineId = widget.routineId;
+    if (routineId != null) {
+      final planned = await ref.read(
+        watchExercisesForRoutineWithNamesProvider(routineId).future,
+      );
+      restrictTo = [for (final entry in planned) entry.exercise];
+      trailingLabels = {
+        for (final entry in planned)
+          entry.exercise.id:
+              '${entry.routineExercise.targetSets} × '
+              '${entry.routineExercise.targetReps}',
+      };
+    }
+
+    if (!mounted) return;
+    final picked = await showExercisePicker(
+      context,
+      restrictTo: restrictTo,
+      trailingLabels: trailingLabels,
+      title: 'Choose exercise',
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      _selectedExercise = picked;
+      _weightController.clear();
+      _repsController.clear();
+      _minutesController.clear();
+      _secondsController.clear();
+      _distanceController.clear();
+    });
   }
 
   // ---------------------------------------------------------------------------

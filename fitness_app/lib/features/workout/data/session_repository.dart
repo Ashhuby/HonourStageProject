@@ -493,3 +493,34 @@ class SessionRepository extends _$SessionRepository {
     });
   }
 }
+
+/// Rows scanned when working out which exercises were used most recently.
+///
+/// Bounded for the same reason as [_lastPerformanceRowLimit]: the picker only
+/// ever shows a handful of names, and 200 sets is far more history than is
+/// needed to find them.
+const int _recentExerciseRowLimit = 200;
+
+/// Exercise ids the user logged most recently, newest first and de-duplicated.
+///
+/// Derived from sets already logged, so it needs no schema support — there is
+/// no `lastUsedAt` column and this deliberately avoids adding one.
+@riverpod
+Stream<List<int>> watchRecentExerciseIds(Ref ref, {int limit = 6}) {
+  final db = ref.watch(databaseProvider);
+
+  final query = db.select(db.workoutSets)
+    ..where((s) => s.deletedAt.isNull())
+    ..orderBy([(s) => OrderingTerm.desc(s.timestamp)])
+    ..limit(_recentExerciseRowLimit);
+
+  return query.watch().map((rows) {
+    final recent = <int>[];
+    for (final row in rows) {
+      if (recent.contains(row.exerciseId)) continue;
+      recent.add(row.exerciseId);
+      if (recent.length == limit) break;
+    }
+    return recent;
+  });
+}
