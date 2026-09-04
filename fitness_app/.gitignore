@@ -49,3 +49,5 @@ android/key.properties
 # was not, so a `git add -A` would have committed live credentials.
 dart_defines.env
 *.jks
+
+.secrets.env
