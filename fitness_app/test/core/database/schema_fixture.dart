@@ -27,6 +27,21 @@ Future<void> makeLookLikeVersion(AppDatabase db, int version) async {
     ],
   };
 
+  /// Columns removed in a version, put back when pretending to predate it.
+  const removedIn = <int, List<String>>{
+    14: ['workout_sets.is_completed BOOLEAN NOT NULL DEFAULT 0'],
+  };
+
+  for (final entry in removedIn.entries) {
+    if (version >= entry.key) continue;
+    for (final column in entry.value) {
+      final table = column.split('.')[0];
+      await db.customStatement(
+        'ALTER TABLE $table ADD COLUMN ${column.split('.')[1]}',
+      );
+    }
+  }
+
   for (final entry in addedIn.entries) {
     if (version >= entry.key) continue;
     for (final column in entry.value) {

@@ -77,8 +77,7 @@ void main() {
       // measured in fractions, not a one-step badge.
       final counted = kAllBadges.where(
         (b) =>
-            b.showsProgress &&
-            b.stat != BadgeStat.bestBigLiftBodyweightRatio,
+            b.showsProgress && b.stat != BadgeStat.bestBigLiftBodyweightRatio,
       );
 
       for (final badge in counted) {

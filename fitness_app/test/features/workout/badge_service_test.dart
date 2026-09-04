@@ -119,9 +119,9 @@ void main() {
 
       await _seedBadges(db); // simulates the upgrade path
 
-      final row = await (db.select(db.badges)
-            ..where((b) => b.badgeKey.equals('first_workout')))
-          .getSingle();
+      final row = await (db.select(
+        db.badges,
+      )..where((b) => b.badgeKey.equals('first_workout'))).getSingle();
       expect(row.earnedAt, DateTime(2026, 2, 1));
     });
   });

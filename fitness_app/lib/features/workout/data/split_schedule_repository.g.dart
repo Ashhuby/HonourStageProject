@@ -32,7 +32,7 @@ final watchDefaultSplitProvider =
 // ignore: unused_element
 typedef WatchDefaultSplitRef = AutoDisposeStreamProviderRef<WorkoutSplit?>;
 String _$watchSplitScheduleHash() =>
-    r'3b65e2f28bca948802a9bc7ea90d7d641a7035da';
+    r'08759bd03e1ade3c25cac85776ab601f77c0298f';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -246,7 +246,7 @@ class _WatchSplitScheduleProviderElement
   int get splitId => (origin as WatchSplitScheduleProvider).splitId;
 }
 
-String _$watchSplitPlanHash() => r'e63592e39ccb47d3e00e429d73bcbb95fe9aa8ea';
+String _$watchSplitPlanHash() => r'dfd17d7c3614102f021fec941f501862111386e9';
 
 /// The full picture for one split: its rotation, what is due, and when it was
 /// last trained.
@@ -409,7 +409,7 @@ class _WatchSplitPlanProviderElement
 }
 
 String _$splitScheduleRepositoryHash() =>
-    r'afc8a1a6c4b2de1c512a9dd6751b172161aff7b7';
+    r'a7eb537a82e99eec0e0e500e8251f705904d9293';
 
 /// See also [SplitScheduleRepository].
 @ProviderFor(SplitScheduleRepository)

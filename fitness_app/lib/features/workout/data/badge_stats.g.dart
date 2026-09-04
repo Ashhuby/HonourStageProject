@@ -6,7 +6,7 @@ part of 'badge_stats.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$badgeProgressHash() => r'be051bcc8a741dd4e9af6968eb868a39e40f76b0';
+String _$badgeProgressHash() => r'aeccd4d4e4082d72ddf3ba3e9b7fc7a272bf6002';
 
 /// The full stats snapshot, for the badges screen.
 ///

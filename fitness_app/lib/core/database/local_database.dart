@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   final bool _isTesting;
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration {
@@ -164,6 +164,19 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(workoutSplits, workoutSplits.cycleLength);
           await m.addColumn(workoutSplits, workoutSplits.isDefault);
           await m.addColumn(workoutRoutines, workoutRoutines.scheduleSlots);
+        }
+        if (from < 14) {
+          // v13 to v14: workout_sets.is_completed goes.
+          //
+          // Dead since it was introduced. Nothing ever set it — a set row is
+          // written when the set is done, so the row's existence is the
+          // completion — and no query filtered on it. Every row read `false`,
+          // including sets that had obviously been completed, so the column
+          // contradicted the data beside it and invited a future query that
+          // would have returned nothing.
+          await customStatement(
+            'ALTER TABLE workout_sets DROP COLUMN is_completed',
+          );
         }
       },
       beforeOpen: (details) async {

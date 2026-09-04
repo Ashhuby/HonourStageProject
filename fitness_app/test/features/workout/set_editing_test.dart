@@ -97,7 +97,6 @@ void main() {
         reps: reps,
         durationSeconds: durationSeconds,
         distanceMetres: distanceMetres,
-        isCompleted: false,
         timestamp: at ?? DateTime(2026, 1, 15),
       );
     }

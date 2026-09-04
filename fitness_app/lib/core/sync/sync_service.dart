@@ -147,6 +147,12 @@ class SyncService {
         'local_id': split.id,
         'name': split.name,
         'created_at': split.createdAt.toIso8601String(),
+        // The rotation. Without these a split arrived on a second device as
+        // an unscheduled list of routines, and the Today card had nothing to
+        // say on the device that had not built it.
+        'schedule_mode': split.scheduleMode,
+        'cycle_length': split.cycleLength,
+        'is_default': split.isDefault,
         'deleted_at': split.deletedAt?.toIso8601String(),
         'synced_at': DateTime.now().toIso8601String(),
       });
@@ -193,6 +199,7 @@ class SyncService {
         'split_id': split.remoteId,
         'name': routine.name,
         'order_index': routine.orderIndex,
+        'schedule_slots': routine.scheduleSlots,
         'deleted_at': routine.deletedAt?.toIso8601String(),
         'synced_at': DateTime.now().toIso8601String(),
       });
@@ -240,6 +247,11 @@ class SyncService {
         'order_index': re.orderIndex,
         'target_sets': re.targetSets,
         'target_reps': re.targetReps,
+        // A routine has been able to plan a run or a plank since the metric
+        // types arrived, but the payload had nowhere to put the numbers — so
+        // a planned 5 km came back as "3 sets of 10 reps".
+        'target_distance_metres': re.targetDistanceMetres,
+        'target_duration_seconds': re.targetDurationSeconds,
         'deleted_at': re.deletedAt?.toIso8601String(),
         'synced_at': DateTime.now().toIso8601String(),
       });
@@ -425,7 +437,6 @@ class SyncService {
         'exercise_id': set.exerciseId,
         'weight': set.weight,
         'reps': set.reps,
-        'is_completed': set.isCompleted,
         'timestamp': set.timestamp.toIso8601String(),
         'deleted_at': set.deletedAt?.toIso8601String(),
         'synced_at': DateTime.now().toIso8601String(),
@@ -679,6 +690,14 @@ class SyncService {
             WorkoutSplitsCompanion.insert(
               name: row['name'] as String,
               createdAt: Value(_parseLocal(row['created_at'] as String)),
+              scheduleMode: Value(
+                (row['schedule_mode'] as String?) ?? 'none',
+              ),
+              cycleLength: Value((row['cycle_length'] as int?) ?? 7),
+              // Deliberately not carried across. Which split a device opens
+              // on is a preference of that device, and the unique index on
+              // the remote table would reject a second one anyway.
+              isDefault: const Value(false),
               remoteId: Value(row['id'] as String),
               userId: Value(userId),
               syncedAt: Value(DateTime.now()),
@@ -708,6 +727,7 @@ class SyncService {
               name: row['name'] as String,
               splitId: split.id,
               orderIndex: row['order_index'] as int,
+              scheduleSlots: Value(row['schedule_slots'] as String?),
               remoteId: Value(row['id'] as String),
               userId: Value(userId),
               syncedAt: Value(DateTime.now()),
@@ -809,7 +829,6 @@ class SyncService {
         reps: Value(repsFromRemoteRow(row)),
         durationSeconds: Value(metrics.durationSeconds),
         distanceMetres: Value(metrics.distanceMetres),
-        isCompleted: Value(row['is_completed'] as bool? ?? false),
         timestamp: Value(
           row['timestamp'] != null
               ? _parseLocal(row['timestamp'] as String)

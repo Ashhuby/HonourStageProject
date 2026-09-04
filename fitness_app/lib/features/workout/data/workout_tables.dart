@@ -199,7 +199,6 @@ class WorkoutSets extends Table {
   IntColumn get reps => integer().withDefault(const Constant(0))();
   IntColumn get durationSeconds => integer().nullable()();
   RealColumn get distanceMetres => real().nullable()();
-  BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
   TextColumn get remoteId => text().nullable()();
   TextColumn get userId => text().nullable()();
