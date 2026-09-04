@@ -183,12 +183,16 @@ class _Editor extends ConsumerWidget {
                 const SizedBox(height: 10),
                 for (var slot = 0; slot < schedule.length; slot++)
                   _SlotRow(
+                    key: ValueKey(slot),
                     label: slotLabel(schedule, slot),
                     assigned: schedule.at(slot),
                     onAccept: (drag) => _drop(ref, drag, slot),
-                    onAdd: () => _pick(context, ref, slot),
-                    onRemove: (routineId) =>
-                        _repo(ref).clearSlot(routineId, slot),
+                    onAdd: () {
+                      _pick(context, ref, slot);
+                    },
+                    onRemove: (routineId) {
+                      _repo(ref).clearSlot(routineId, slot);
+                    },
                     slot: slot,
                   ),
               ],
@@ -343,6 +347,7 @@ class _LengthStepper extends StatelessWidget {
 
 class _SlotRow extends StatelessWidget {
   const _SlotRow({
+    super.key,
     required this.label,
     required this.assigned,
     required this.slot,
@@ -410,6 +415,7 @@ class _SlotRow extends StatelessWidget {
                         children: [
                           for (final routine in assigned)
                             _AssignedChip(
+                              key: ValueKey(routine.routineId),
                               routine: routine,
                               slot: slot,
                               onRemove: () => onRemove(routine.routineId),
@@ -435,6 +441,7 @@ class _SlotRow extends StatelessWidget {
 /// A routine sitting on a day: draggable to another day, tappable to remove.
 class _AssignedChip extends StatelessWidget {
   const _AssignedChip({
+    super.key,
     required this.routine,
     required this.slot,
     required this.onRemove,
@@ -474,8 +481,7 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(10, 6, onRemove == null ? 10 : 4, 6),
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: OneRepColors.gold.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(8),
@@ -484,21 +490,34 @@ class _Chip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            name,
-            style: const TextStyle(
-              color: OneRepColors.gold,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+          Padding(
+            padding: EdgeInsets.fromLTRB(10, 8, onRemove == null ? 10 : 2, 8),
+            child: Text(
+              name,
+              style: const TextStyle(
+                color: OneRepColors.gold,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           if (onRemove != null)
             GestureDetector(
               onTap: onRemove,
               behavior: HitTestBehavior.opaque,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(Icons.close, size: 13, color: OneRepColors.gold),
+              // The target used to be the icon and four pixels either side
+              // — twenty-one by thirteen, about three millimetres square on a
+              // phone, against the forty-eight Android asks for. Taps landed
+              // on the chip instead, which is a drag handle and ignores them.
+              //
+              // Forty by thirty-six keeps the chip looking like a chip while
+              // being something a thumb can actually hit.
+              child: const SizedBox(
+                width: 40,
+                height: 36,
+                child: Center(
+                  child: Icon(Icons.close, size: 15, color: OneRepColors.gold),
+                ),
               ),
             ),
         ],

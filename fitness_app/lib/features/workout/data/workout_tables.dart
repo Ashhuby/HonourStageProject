@@ -96,8 +96,7 @@ class WorkoutSplits extends Table {
   /// `ScheduleMode.byNameOrNone` rather than read directly, so a value written
   /// by a newer version of the app degrades to an unscheduled split instead of
   /// crashing the list.
-  TextColumn get scheduleMode =>
-      text().withDefault(const Constant('none'))();
+  TextColumn get scheduleMode => text().withDefault(const Constant('none'))();
 
   /// How many slots the rotation has. Seven for `weekly`, where slot 0 is
   /// Monday; anything from two upwards for `cycle`.
@@ -106,8 +105,7 @@ class WorkoutSplits extends Table {
   /// The split the Splits tab opens on. At most one row is ever true — see
   /// `SplitRepository.setDefaultSplit`, which clears the others in the same
   /// transaction.
-  BoolColumn get isDefault =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
   TextColumn get remoteId => text().nullable()();
   TextColumn get userId => text().nullable()();
   DateTimeColumn get syncedAt => dateTime().nullable()();

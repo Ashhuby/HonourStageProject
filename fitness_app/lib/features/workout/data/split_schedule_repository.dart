@@ -88,7 +88,15 @@ Stream<SplitSchedule> watchSplitSchedule(Ref ref, int splitId) {
 
   return db
       .customSelect(
-        'SELECT 1 AS v',
+        // The literal is a name, not decoration. Drift caches query streams
+        // on the SQL text and its variables, so two watchers sharing a query
+        // string share one stream — and one `readsFrom`, whichever registered
+        // first. Four providers here all used 'SELECT 1 AS v', so they
+        // collapsed into a single stream that only woke for the tables the
+        // winner happened to declare. Writes to the others were never
+        // announced; the screen refreshed roughly every thirty seconds,
+        // whenever the background sync touched a table that was on the list.
+        "SELECT 'split_schedule' AS watcher",
         readsFrom: {db.workoutSplits, db.workoutRoutines},
       )
       .watch()
@@ -105,7 +113,8 @@ Stream<SplitSchedule> watchSplitSchedule(Ref ref, int splitId) {
                   ..orderBy([(r) => OrderingTerm.asc(r.orderIndex)]))
                 .get();
 
-        return _scheduleOf(split, routines);
+        final built = _scheduleOf(split, routines);
+        return built;
       });
 }
 
@@ -140,7 +149,15 @@ Stream<SplitPlan?> watchSplitPlan(Ref ref, int splitId) {
   // query exists only for its `readsFrom` set.
   return db
       .customSelect(
-        'SELECT 1 AS v',
+        // The literal is a name, not decoration. Drift caches query streams
+        // on the SQL text and its variables, so two watchers sharing a query
+        // string share one stream — and one `readsFrom`, whichever registered
+        // first. Four providers here all used 'SELECT 1 AS v', so they
+        // collapsed into a single stream that only woke for the tables the
+        // winner happened to declare. Writes to the others were never
+        // announced; the screen refreshed roughly every thirty seconds,
+        // whenever the background sync touched a table that was on the list.
+        "SELECT 'split_plan' AS watcher",
         readsFrom: {
           db.workoutSplits,
           db.workoutRoutines,
@@ -328,14 +345,18 @@ class SplitScheduleRepository extends _$SplitScheduleRepository {
   /// Puts [routineId] on [slot], leaving its other days alone.
   Future<void> assignSlot(int routineId, int slot) async {
     final current = await _slotsOf(routineId);
-    if (current.contains(slot)) return;
+    if (current.contains(slot)) {
+      return;
+    }
     await setRoutineSlots(routineId, [...current, slot]);
   }
 
   /// Takes [routineId] off [slot].
   Future<void> clearSlot(int routineId, int slot) async {
     final current = await _slotsOf(routineId);
-    if (!current.contains(slot)) return;
+    if (!current.contains(slot)) {
+      return;
+    }
     await setRoutineSlots(routineId, current.where((s) => s != slot));
   }
 

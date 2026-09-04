@@ -312,7 +312,15 @@ Stream<Map<int, SessionHighlights>> watchSessionHighlights(Ref ref) {
   // unrelated write happened to refresh the stream.
   return db
       .customSelect(
-        'SELECT 1 AS v',
+        // The literal is a name, not decoration. Drift caches query streams
+        // on the SQL text and its variables, so two watchers sharing a query
+        // string share one stream — and one `readsFrom`, whichever registered
+        // first. Four providers here all used 'SELECT 1 AS v', so they
+        // collapsed into a single stream that only woke for the tables the
+        // winner happened to declare. Writes to the others were never
+        // announced; the screen refreshed roughly every thirty seconds,
+        // whenever the background sync touched a table that was on the list.
+        "SELECT 'session_highlights' AS watcher",
         readsFrom: {
           db.workoutSets,
           db.workoutSessions,
