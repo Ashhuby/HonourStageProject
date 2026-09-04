@@ -22,12 +22,12 @@ import '../../domain/rank.dart';
 /// of this.
 extension RankVisuals on Rank {
   Color get color => switch (this) {
-    Rank.iron => OneRepColors.iron,
-    Rank.copper => OneRepColors.copper,
-    Rank.steel => OneRepColors.steel,
-    Rank.obsidian => OneRepColors.obsidian,
-    Rank.titanium => OneRepColors.titanium,
-    Rank.mithril => OneRepColors.mithril,
+    Rank.sand => OneRepColors.sand,
+    Rank.pebble => OneRepColors.pebble,
+    Rank.stone => OneRepColors.stone,
+    Rank.boulder => OneRepColors.boulder,
+    Rank.cliff => OneRepColors.cliff,
+    Rank.mountain => OneRepColors.mountain,
   };
 }
 

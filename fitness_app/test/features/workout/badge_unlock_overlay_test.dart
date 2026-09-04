@@ -286,11 +286,11 @@ void main() {
   group('rank up', () {
     testWidgets('is celebrated on its own', (tester) async {
       await pumpHost(tester);
-      announce(Rank.steel);
+      announce(Rank.stone);
       await settleReveal(tester);
 
       expect(find.text('RANK UP'), findsOneWidget);
-      expect(find.text('Steel'), findsOneWidget);
+      expect(find.text('Stone'), findsOneWidget);
 
       await waitOutHold(tester);
       expect(container.read(rankUpQueueProvider), isNull);
@@ -303,7 +303,7 @@ void main() {
       // would give away the ending.
       await pumpHost(tester);
       enqueue(['first_workout']);
-      announce(Rank.copper);
+      announce(Rank.pebble);
       await settleReveal(tester);
 
       expect(find.text('BADGE UNLOCKED'), findsOneWidget);
@@ -314,7 +314,7 @@ void main() {
       await tapNice(tester);
 
       expect(find.text('RANK UP'), findsOneWidget);
-      expect(find.text('Copper'), findsOneWidget);
+      expect(find.text('Pebble'), findsOneWidget);
 
       await waitOutHold(tester);
       expect(container.read(badgeUnlockQueueProvider), isEmpty);
@@ -334,9 +334,9 @@ void main() {
 
       await waitOutHold(tester);
 
-      announce(Rank.iron);
+      announce(Rank.sand);
       await settleReveal(tester);
-      expect(find.textContaining(Rank.iron.next!.label), findsOneWidget);
+      expect(find.textContaining(Rank.sand.next!.label), findsOneWidget);
 
       await waitOutHold(tester);
     });

@@ -8,7 +8,10 @@
 ///
 /// Deliberately named apart from [BadgeTier]. Bronze, silver, gold and platinum
 /// already mean "how good is this badge"; reusing them here would leave the
-/// header saying "Gold — 3 gold badges" and meaning two different things.
+/// header saying "Gold — 3 gold badges" and meaning two different things. The
+/// ladder is geological instead, which shares no vocabulary with metals at all
+/// and reads as scale rather than as worth — the point is how far you have
+/// come, not how valuable you are.
 library;
 
 import 'badge_catalogue.dart';
@@ -36,14 +39,14 @@ int rankPointsOf(Iterable<BadgeTier> earnedTiers) =>
 /// the top rank out of reach.
 final int kMaxRankPoints = rankPointsOf(kAllBadges.map((b) => b.tier));
 
-/// The ladder, lowest first.
+/// The ladder, lowest first — grains to summits.
 enum Rank {
-  iron('Iron', 0),
-  copper('Copper', 12),
-  steel('Steel', 30),
-  obsidian('Obsidian', 55),
-  titanium('Titanium', 85),
-  mithril('Mithril', 118);
+  sand('Sand', 0),
+  pebble('Pebble', 12),
+  stone('Stone', 30),
+  boulder('Boulder', 55),
+  cliff('Cliff', 85),
+  mountain('Mountain', 118);
 
   const Rank(this.label, this.threshold);
 

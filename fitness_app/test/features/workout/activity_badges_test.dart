@@ -325,9 +325,9 @@ void main() {
               badge.key != 'first_cardio' &&
               badge.key != 'first_workout')
             badge.key,
-      ].take(Rank.copper.threshold - 1).toList();
+      ].take(Rank.pebble.threshold - 1).toList();
 
-      expect(filler, hasLength(Rank.copper.threshold - 1));
+      expect(filler, hasLength(Rank.pebble.threshold - 1));
       await (db.update(db.badges)..where((b) => b.badgeKey.isIn(filler))).write(
         BadgesCompanion(earnedAt: Value(DateTime(2026, 6, 1))),
       );
@@ -343,12 +343,12 @@ void main() {
       await evaluate();
 
       expect(queuedKeys(), contains('first_cardio'));
-      expect(container.read(rankUpQueueProvider), Rank.copper);
+      expect(container.read(rankUpQueueProvider), Rank.pebble);
     });
 
     test('the announcement is cleared once, and stays cleared', () async {
-      container.read(rankUpQueueProvider.notifier).announce(Rank.steel);
-      expect(container.read(rankUpQueueProvider), Rank.steel);
+      container.read(rankUpQueueProvider.notifier).announce(Rank.stone);
+      expect(container.read(rankUpQueueProvider), Rank.stone);
 
       container.read(rankUpQueueProvider.notifier).clear();
       expect(container.read(rankUpQueueProvider), isNull);

@@ -48,7 +48,7 @@ void main() {
   group('the ladder', () {
     test('starts at zero, so a new user holds a rank rather than none', () {
       expect(Rank.values.first.threshold, 0);
-      expect(rankForPoints(0), Rank.iron);
+      expect(rankForPoints(0), Rank.sand);
     });
 
     test('thresholds ascend', () {
@@ -92,22 +92,22 @@ void main() {
 
   group('standing', () {
     test('reports what is left to the next rank', () {
-      final standing = standingFor(Rank.copper.threshold);
+      final standing = standingFor(Rank.pebble.threshold);
 
-      expect(standing.rank, Rank.copper);
-      expect(standing.next, Rank.steel);
+      expect(standing.rank, Rank.pebble);
+      expect(standing.next, Rank.pebble.next);
       expect(
         standing.pointsToNext,
-        Rank.steel.threshold - Rank.copper.threshold,
+        Rank.stone.threshold - Rank.pebble.threshold,
       );
       expect(standing.fraction, 0);
     });
 
     test('fills as the rank is crossed', () {
-      final span = Rank.steel.threshold - Rank.copper.threshold;
-      final standing = standingFor(Rank.copper.threshold + span ~/ 2);
+      final span = Rank.stone.threshold - Rank.pebble.threshold;
+      final standing = standingFor(Rank.pebble.threshold + span ~/ 2);
 
-      expect(standing.rank, Rank.copper);
+      expect(standing.rank, Rank.pebble);
       expect(standing.fraction, closeTo(0.5, 0.05));
     });
 

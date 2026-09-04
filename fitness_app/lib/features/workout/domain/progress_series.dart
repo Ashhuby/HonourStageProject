@@ -161,6 +161,81 @@ List<SeriesPoint> _collect(
   return points;
 }
 
+/// What a record series says at a glance.
+///
+/// The chart alone answers "has it moved" but not "where am I now" or "is
+/// this my best" — questions that need a number, not a shape. Kept here as
+/// pure data so the reading is testable and the widget only lays it out.
+typedef SeriesSummary = ({
+  SeriesPoint first,
+  SeriesPoint latest,
+  SeriesPoint best,
+
+  /// Where [best] sits in the series, so the chart can single that point out.
+  int bestIndex,
+
+  /// How many sessions are plotted.
+  int sessions,
+
+  /// The latest effort against the first, as a fraction: 0.18 is eighteen per
+  /// cent better. Positive always means improvement — every [ProgressMetric]
+  /// is oriented so that up is better, which is why cardio is measured in
+  /// speed rather than in time.
+  ///
+  /// Zero when the first effort was zero, since there is no meaningful
+  /// multiple of nothing.
+  double changeFraction,
+});
+
+/// Reads [points] as a summary, or null when there is nothing to summarise.
+///
+/// A single point is summarised rather than rejected: one record is still a
+/// best, and reporting it beats an empty panel next to a chart with a dot on
+/// it.
+SeriesSummary? summariseSeries(List<SeriesPoint> points) {
+  if (points.isEmpty) return null;
+
+  var bestIndex = 0;
+  for (var i = 1; i < points.length; i++) {
+    if (points[i].value > points[bestIndex].value) bestIndex = i;
+  }
+
+  final first = points.first;
+  final latest = points.last;
+
+  return (
+    first: first,
+    latest: latest,
+    best: points[bestIndex],
+    bestIndex: bestIndex,
+    sessions: points.length,
+    changeFraction: first.value <= 0
+        ? 0
+        : (latest.value - first.value) / first.value,
+  );
+}
+
+/// The vertical span a series should be drawn across.
+///
+/// A flat series — every session the same, or a single record — has no span of
+/// its own, and handing a chart `minY == maxY` draws a line along an edge or
+/// nothing at all. Falls back to a window around the value instead.
+({double min, double max}) chartRangeFor(List<SeriesPoint> points) {
+  if (points.isEmpty) return (min: 0, max: 1);
+
+  var low = points.first.value;
+  var high = points.first.value;
+  for (final point in points) {
+    if (point.value < low) low = point.value;
+    if (point.value > high) high = point.value;
+  }
+
+  final span = high - low;
+  final padding = span > 0 ? span * 0.15 : math.max(1, high.abs() * 0.1);
+
+  return (min: math.max(0, low - padding), max: high + padding);
+}
+
 /// Renders a plotted value for an axis label or tooltip.
 ///
 /// Speed is stored as metres per second so the chart's ordering is honest —

@@ -153,6 +153,100 @@ void main() {
   // Rendering
   // ---------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+  // Reading a series
+  // ---------------------------------------------------------------------------
+
+  group('summariseSeries', () {
+    SeriesPoint at(int day, double value) =>
+        SeriesPoint(date: DateTime(2026, 3, day), value: value);
+
+    test('an empty series has nothing to say', () {
+      expect(summariseSeries(const []), isNull);
+    });
+
+    test('a single session is still a best', () {
+      // One record summarises fine, and reporting it beats an empty panel
+      // beside a chart with a dot on it.
+      final summary = summariseSeries([at(1, 60)])!;
+
+      expect(summary.sessions, 1);
+      expect(summary.best.value, 60);
+      expect(summary.first.value, 60);
+      expect(summary.latest.value, 60);
+      expect(summary.bestIndex, 0);
+      expect(summary.changeFraction, 0);
+    });
+
+    test('the best is the highest, not the most recent', () {
+      final summary = summariseSeries([at(1, 60), at(3, 90), at(5, 70)])!;
+
+      expect(summary.best.value, 90);
+      expect(summary.best.date, DateTime(2026, 3, 3));
+      expect(summary.bestIndex, 1);
+      expect(summary.latest.value, 70);
+    });
+
+    test('the first best wins a tie, so the peak stays where it was set', () {
+      final summary = summariseSeries([at(1, 90), at(3, 90)])!;
+      expect(summary.bestIndex, 0);
+    });
+
+    test('the trend runs from the first effort to the latest', () {
+      final summary = summariseSeries([at(1, 50), at(3, 80), at(5, 60)])!;
+
+      // Not first-to-best: a chart that only ever reported the peak would
+      // read as improvement while the user was going backwards.
+      expect(summary.changeFraction, closeTo(0.2, 0.0001));
+    });
+
+    test('going backwards reads as negative', () {
+      final summary = summariseSeries([at(1, 100), at(3, 75)])!;
+      expect(summary.changeFraction, closeTo(-0.25, 0.0001));
+    });
+
+    test('a first effort of zero has no multiple, rather than infinity', () {
+      final summary = summariseSeries([at(1, 0), at(3, 40)])!;
+      expect(summary.changeFraction, 0);
+    });
+  });
+
+  group('chartRangeFor', () {
+    SeriesPoint at(int day, double value) =>
+        SeriesPoint(date: DateTime(2026, 3, day), value: value);
+
+    test('an empty series still has a drawable range', () {
+      final range = chartRangeFor(const []);
+      expect(range.max, greaterThan(range.min));
+    });
+
+    test('a flat series is given a window rather than a single line', () {
+      // minY == maxY draws the series along an edge, or not at all. A single
+      // record is the common case, and it is the one worth seeing.
+      final flat = chartRangeFor([at(1, 80), at(3, 80)]);
+      expect(flat.max, greaterThan(flat.min));
+      expect(flat.min, lessThan(80));
+      expect(flat.max, greaterThan(80));
+
+      final single = chartRangeFor([at(1, 80)]);
+      expect(single.max, greaterThan(single.min));
+    });
+
+    test('a varying series is padded either side of its span', () {
+      final range = chartRangeFor([at(1, 60), at(3, 100)]);
+
+      expect(range.min, lessThan(60));
+      expect(range.max, greaterThan(100));
+    });
+
+    test('never runs below zero, because no metric here can', () {
+      // Volume, reps, duration, distance and speed are all non-negative, and
+      // an axis starting below zero wastes half the plot.
+      final range = chartRangeFor([at(1, 2), at(3, 4)]);
+      expect(range.min, greaterThanOrEqualTo(0));
+    });
+  });
+
   group('formatSeriesValue', () {
     test('speed is stored as m/s but read as pace', () {
       // Ordering is by speed so that up means faster; the label is the unit a

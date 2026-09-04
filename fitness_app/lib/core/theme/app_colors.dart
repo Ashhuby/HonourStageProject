@@ -54,16 +54,21 @@ class OneRepColors {
   // A separate ladder from the badge tiers above, and separated by hue rather
   // than by shade on purpose: the two appear together in the badges header, so
   // a rank has to be told apart from a tier at a glance and not only by
-  // reading the label. Each step moves round the wheel — dull grey, warm
-  // copper, cold steel, violet, teal, and finally a near-white that is meant
-  // to be the brightest thing on the screen.
+  // reading the label — and at the sixteen pixels the nav bar gives the crest,
+  // the colour is all there is.
+  //
+  // Hue rather than a literal rock palette for that reason. Six greys and
+  // browns would be the honest colours and would be indistinguishable, so the
+  // ladder climbs instead: warm sand, cool wet pebble, blue-grey stone, the
+  // violet cast of shadowed rock, lichen on a cliff face, and finally the
+  // white-blue of a snow-capped peak.
 
-  static const Color iron = Color(0xFF77808C);
-  static const Color copper = Color(0xFFD1603A);
-  static const Color steel = Color(0xFF6E93B8);
-  static const Color obsidian = Color(0xFF9B7EDE);
-  static const Color titanium = Color(0xFF52E0C4);
-  static const Color mithril = Color(0xFFDCE9FF);
+  static const Color sand = Color(0xFFE0C48F);
+  static const Color pebble = Color(0xFF97A6AB);
+  static const Color stone = Color(0xFF6E93B8);
+  static const Color boulder = Color(0xFF8B7BC4);
+  static const Color cliff = Color(0xFF5FBF9B);
+  static const Color mountain = Color(0xFFDCE9FF);
 
   /// Coral — rest timer warning state.
   static const Color coral = Color(0xFFFF6B6B);

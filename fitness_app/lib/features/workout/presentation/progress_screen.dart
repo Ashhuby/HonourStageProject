@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/features/workout/domain/progress_series.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../data/session_repository.dart';
 import '../../../core/utils/set_formatter.dart';
 import '../domain/session_highlights.dart';
@@ -134,7 +135,16 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
             ),
             const SizedBox(height: 12),
             if (_selectedExercise != null)
-              _PrChart(exercise: _selectedExercise!),
+              _PrChart(exercise: _selectedExercise!)
+            else
+              // Without this the section is a heading, a picker and then
+              // nothing, which reads as a screen that failed to load rather
+              // than as one waiting on a choice.
+              const _PrPlaceholder(
+                icon: Icons.show_chart,
+                message: 'Pick an exercise above.',
+                detail: 'Its best effort in every session is plotted here.',
+              ),
 
             // ----------------------------------------------------------------
             // Session history
@@ -634,11 +644,18 @@ class _AttendanceHeatmap extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// PR Progression chart — plots best performance over time for an exercise.
-// For weightReps: shows heaviest weight across all rep counts per session.
-// For timeOnly: shows longest duration per session.
-// For distanceTime: shows fastest time for any distance per session.
-// For bodyweightReps: shows most reps in a single set per session.
+// PR progression — the best effort per session for one exercise.
+//
+// What counts as "best" depends on how the exercise is measured:
+//   weightReps      heaviest weight across all rep counts
+//   bodyweightReps  most reps in a single set
+//   timeOnly        longest hold
+//   distanceTime    fastest pace, not furthest distance — a longer run is not
+//                   a better one, and this chart answers "am I improving"
+//
+// Every series is oriented so that up is better, which is what lets the
+// summary above the plot state a direction of travel without asking the
+// metric which way is good.
 // ---------------------------------------------------------------------------
 
 class _PrChart extends ConsumerWidget {
@@ -657,52 +674,232 @@ class _PrChart extends ConsumerWidget {
 
     return seriesAsync.when(
       loading: () => const SizedBox(
-        height: 200,
+        height: 240,
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (_, _) => const SizedBox(
-        height: 80,
-        child: Center(
-          child: Text(
-            'Could not load this history.',
-            style: TextStyle(color: OneRepColors.textSecondary),
-          ),
-        ),
+      error: (_, _) => const _PrPlaceholder(
+        icon: Icons.error_outline,
+        message: 'Could not load this history.',
       ),
       data: (series) {
-        final points = series.points;
-        if (points.isEmpty) {
-          return const SizedBox(
-            height: 80,
-            child: Center(
-              child: Text(
-                'No PRs recorded yet for this exercise.',
-                style: TextStyle(color: OneRepColors.textSecondary),
-              ),
-            ),
+        final summary = summariseSeries(series.points);
+        if (summary == null) {
+          return const _PrPlaceholder(
+            icon: Icons.timeline,
+            message: 'No records yet for this exercise.',
+            detail: 'Log a set and the first one lands here.',
           );
         }
 
-        final metric = series.metric;
-        final yLabel = metric.axisLabel;
-
-        final spots = points
-            .asMap()
-            .entries
-            .map((e) => FlSpot(e.key.toDouble(), e.value.value))
-            .toList();
-
-        final minY = spots.map((s) => s.y).reduce((a, b) => a < b ? a : b);
-        final maxY = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
-        final padding = (maxY - minY) * 0.15;
-
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-              child: Text(
-                yLabel,
+            _PrSummary(summary: summary, metric: series.metric),
+            const SizedBox(height: 4),
+            _PrGraph(points: series.points, summary: summary, series: series),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// The numbers the chart cannot say on its own.
+///
+/// A line shows movement but not where you have got to, and reading a value
+/// off a plot is guesswork. Three cells: the best effort and when it was set,
+/// the most recent one, and the direction of travel between the first and the
+/// latest.
+class _PrSummary extends StatelessWidget {
+  const _PrSummary({required this.summary, required this.metric});
+
+  final SeriesSummary summary;
+  final ProgressMetric metric;
+
+  @override
+  Widget build(BuildContext context) {
+    final change = summary.changeFraction;
+    // A single session has nothing to compare against, and one point is not a
+    // trend — saying "0%" there would be a claim rather than a blank.
+    final hasTrend = summary.sessions > 1 && change != 0;
+
+    final rising = change > 0;
+    final trendColour = !hasTrend
+        ? OneRepColors.textSecondary
+        : rising
+        ? OneRepColors.success
+        : OneRepColors.coral;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: OneRepColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _PrStat(
+              label: 'BEST',
+              value: formatSeriesValue(summary.best.value, metric),
+              caption: formatShortDate(summary.best.date),
+              emphasis: OneRepColors.gold,
+            ),
+          ),
+          const _PrDivider(),
+          Expanded(
+            child: _PrStat(
+              label: 'LATEST',
+              value: formatSeriesValue(summary.latest.value, metric),
+              caption: formatShortDate(summary.latest.date),
+            ),
+          ),
+          const _PrDivider(),
+          Expanded(
+            child: _PrStat(
+              label: 'TREND',
+              value: hasTrend
+                  ? '${rising ? '+' : ''}${(change * 100).round()}%'
+                  : '—',
+              caption: hasTrend
+                  ? 'over ${summary.sessions} sessions'
+                  : '${summary.sessions} '
+                        '${summary.sessions == 1 ? 'session' : 'sessions'}',
+              emphasis: hasTrend ? trendColour : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrStat extends StatelessWidget {
+  const _PrStat({
+    required this.label,
+    required this.value,
+    required this.caption,
+    this.emphasis,
+  });
+
+  final String label;
+  final String value;
+  final String caption;
+
+  /// Colour for the value. Null leaves it in the ordinary text colour, which
+  /// is what a figure with no verdict attached to it should look like.
+  final Color? emphasis;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: OneRepColors.textSecondary,
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 5),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            maxLines: 1,
+            style: TextStyle(
+              color: emphasis ?? OneRepColors.textPrimary,
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              height: 1.1,
+            ),
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          caption,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: OneRepColors.textSecondary,
+            fontSize: 10,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PrDivider extends StatelessWidget {
+  const _PrDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 40,
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      color: OneRepColors.surfaceElevated,
+    );
+  }
+}
+
+/// The plot itself.
+class _PrGraph extends StatelessWidget {
+  const _PrGraph({
+    required this.points,
+    required this.summary,
+    required this.series,
+  });
+
+  final List<SeriesPoint> points;
+  final SeriesSummary summary;
+  final ExerciseProgress series;
+
+  /// Roughly how many labels each axis should carry.
+  ///
+  /// Four is what fits without the dates colliding on a narrow phone; more
+  /// labels than that stop being read and start being texture.
+  static const int _targetLabels = 4;
+
+  @override
+  Widget build(BuildContext context) {
+    final metric = series.metric;
+    final range = chartRangeFor(points);
+
+    final spots = [
+      for (var i = 0; i < points.length; i++)
+        FlSpot(i.toDouble(), points[i].value),
+    ];
+
+    final dateInterval = (points.length / _targetLabels).ceilToDouble().clamp(
+      1.0,
+      double.infinity,
+    );
+
+    // Derived from the span rather than fixed, so a chart of five kilos and a
+    // chart of five hundred both end up with about the same number of lines.
+    final valueInterval = ((range.max - range.min) / _targetLabels).clamp(
+      0.0001,
+      double.infinity,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Row(
+            children: [
+              Text(
+                metric.axisLabel,
                 style: const TextStyle(
                   color: OneRepColors.textSecondary,
                   fontSize: 11,
@@ -710,115 +907,244 @@ class _PrChart extends ConsumerWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-            ),
-            SizedBox(
-              height: 200,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
-                child: LineChart(
-                  LineChartData(
-                    minY: (minY - padding).clamp(0, double.infinity),
-                    maxY: maxY + padding,
-                    gridData: FlGridData(
-                      show: true,
-                      getDrawingHorizontalLine: (_) => const FlLine(
-                        color: OneRepColors.surfaceElevated,
-                        strokeWidth: 1,
-                      ),
-                      getDrawingVerticalLine: (_) => const FlLine(
-                        color: Colors.transparent,
-                        strokeWidth: 0,
-                      ),
-                    ),
-                    titlesData: FlTitlesData(
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          interval: (points.length / 5).ceilToDouble().clamp(
-                            1,
-                            double.infinity,
-                          ),
-                          getTitlesWidget: (value, meta) {
-                            final index = value.toInt();
-                            if (index < 0 || index >= points.length) {
-                              return const SizedBox();
-                            }
-                            final date = points[index].date;
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                '${date.day}/${date.month}',
-                                style: const TextStyle(
-                                  color: OneRepColors.textSecondary,
-                                  fontSize: 9,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 44,
-                          getTitlesWidget: (value, meta) => Text(
-                            formatSeriesValue(value, metric),
+              const Spacer(),
+              // Says what the gold point is without a legend key, which at
+              // this size would take more room than the thing it explains.
+              const Icon(Icons.circle, size: 7, color: OneRepColors.gold),
+              const SizedBox(width: 5),
+              const Text(
+                'best',
+                style: TextStyle(
+                  color: OneRepColors.textSecondary,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 210,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
+            child: LineChart(
+              LineChartData(
+                minY: range.min,
+                maxY: range.max,
+                gridData: FlGridData(
+                  show: true,
+                  horizontalInterval: valueInterval,
+                  getDrawingHorizontalLine: (_) => const FlLine(
+                    color: OneRepColors.surfaceElevated,
+                    strokeWidth: 1,
+                  ),
+                  drawVerticalLine: false,
+                ),
+                titlesData: FlTitlesData(
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: dateInterval,
+                      reservedSize: 24,
+                      getTitlesWidget: (value, meta) {
+                        final index = value.round();
+                        if (index < 0 || index >= points.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final date = points[index].date;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            '${date.day}/${date.month}',
                             style: const TextStyle(
                               color: OneRepColors.textSecondary,
                               fontSize: 9,
                             ),
                           ),
-                        ),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
+                        );
+                      },
                     ),
-                    borderData: FlBorderData(
-                      show: true,
-                      border: const Border(
-                        bottom: BorderSide(color: OneRepColors.surfaceElevated),
-                        left: BorderSide(color: OneRepColors.surfaceElevated),
-                      ),
-                    ),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: spots,
-                        isCurved: false,
-                        color: OneRepColors.gold,
-                        barWidth: 2,
-                        dotData: FlDotData(
-                          getDotPainter: (spot, percent, bar, index) =>
-                              FlDotCirclePainter(
-                                radius: 4,
-                                color: OneRepColors.gold,
-                                strokeColor: OneRepColors.background,
-                                strokeWidth: 1.5,
-                              ),
-                        ),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              OneRepColors.gold.withValues(alpha: 0.2),
-                              OneRepColors.gold.withValues(alpha: 0.0),
-                            ],
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 46,
+                      interval: valueInterval,
+                      getTitlesWidget: (value, meta) => Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Text(
+                          formatSeriesValue(value, metric),
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            color: OneRepColors.textSecondary,
+                            fontSize: 9,
                           ),
                         ),
                       ),
-                    ],
+                    ),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
                   ),
                 ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: const Border(
+                    bottom: BorderSide(color: OneRepColors.surfaceElevated),
+                    left: BorderSide(color: OneRepColors.surfaceElevated),
+                  ),
+                ),
+                // Reading a value off a plot is guesswork, and this one is
+                // small. Touching a point says exactly what it was and when.
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    tooltipBgColor: OneRepColors.surfaceHighest,
+                    tooltipRoundedRadius: 8,
+                    tooltipPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
+                    getTooltipItems: (touched) => [
+                      for (final spot in touched)
+                        LineTooltipItem(
+                          formatSeriesValue(spot.y, metric),
+                          const TextStyle(
+                            color: OneRepColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                          children: [
+                            TextSpan(
+                              text:
+                                  '\n${formatShortDate(points[spot.x.round()].date)}',
+                              style: const TextStyle(
+                                color: OneRepColors.textSecondary,
+                                fontWeight: FontWeight.w400,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  getTouchedSpotIndicator: (bar, indices) => [
+                    for (final _ in indices)
+                      TouchedSpotIndicatorData(
+                        const FlLine(
+                          color: OneRepColors.gold,
+                          strokeWidth: 1,
+                          dashArray: [3, 3],
+                        ),
+                        FlDotData(
+                          getDotPainter: (spot, percent, data, index) =>
+                              FlDotCirclePainter(
+                                radius: 5,
+                                color: OneRepColors.gold,
+                                strokeColor: OneRepColors.background,
+                                strokeWidth: 2,
+                              ),
+                        ),
+                      ),
+                  ],
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: false,
+                    color: OneRepColors.gold,
+                    barWidth: 2,
+                    dotData: FlDotData(
+                      // The best is drawn as a filled gold point and the rest
+                      // hollow, so the peak is findable without reading the
+                      // axis. A series of identical dots hides the one figure
+                      // the chart exists to show.
+                      getDotPainter: (spot, percent, bar, index) {
+                        final isBest = index == summary.bestIndex;
+                        return FlDotCirclePainter(
+                          radius: isBest ? 5 : 3,
+                          color: isBest
+                              ? OneRepColors.gold
+                              : OneRepColors.background,
+                          strokeColor: OneRepColors.gold,
+                          strokeWidth: isBest ? 2 : 1.5,
+                        );
+                      },
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          OneRepColors.gold.withValues(alpha: 0.2),
+                          OneRepColors.gold.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Stands in for the chart when there is nothing to draw.
+///
+/// A panel rather than a bare line of text: the section is a heading, a picker
+/// and then a two-hundred-pixel hole, and an empty state that occupies the
+/// space explains the hole instead of leaving the screen looking broken.
+class _PrPlaceholder extends StatelessWidget {
+  const _PrPlaceholder({
+    required this.icon,
+    required this.message,
+    this.detail,
+  });
+
+  final IconData icon;
+  final String message;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      decoration: BoxDecoration(
+        color: OneRepColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 26, color: OneRepColors.textDisabled),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: OneRepColors.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (detail != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              detail!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: OneRepColors.textDisabled,
+                fontSize: 12,
               ),
             ),
           ],
-        );
-      },
+        ],
+      ),
     );
   }
 }
