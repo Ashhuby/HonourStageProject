@@ -22,6 +22,35 @@ class SyncService {
   /// FK-ordered: splits → routines → routineExercises → sessions → sets
   /// PersonalBests and Badges have no parent FK dependencies so they
   /// run last but could run in any order.
+  /// Marks every syncable row dirty so the next sync re-uploads all of it.
+  ///
+  /// Sync only pushes rows whose `synced_at` is null, which assumes the server
+  /// still holds everything it has ever acknowledged. When that stops being
+  /// true — the remote was wiped, a project restored from an older backup, a
+  /// row deleted by hand — the client has no way to notice: the parents are
+  /// never re-sent, and every child that references one fails its foreign key
+  /// for good. Sync then reports failure on every attempt and never recovers.
+  ///
+  /// This is the way out. The upserts are keyed on `remote_id`, so a full
+  /// re-upload recreates what is missing and leaves what is not alone, and
+  /// `uploadDirtyRecords` already sends parents before children.
+  Future<void> markEverythingForReupload() async {
+    await db.transaction(() async {
+      for (final statement in const [
+        'UPDATE workout_splits SET synced_at = NULL',
+        'UPDATE workout_routines SET synced_at = NULL',
+        'UPDATE routine_exercises SET synced_at = NULL',
+        'UPDATE workout_sessions SET synced_at = NULL',
+        'UPDATE workout_sets SET synced_at = NULL',
+        'UPDATE personal_bests SET synced_at = NULL',
+        'UPDATE badges SET synced_at = NULL WHERE earned_at IS NOT NULL',
+        'UPDATE exercises SET synced_at = NULL WHERE is_custom = 1',
+      ]) {
+        await db.customStatement(statement);
+      }
+    });
+  }
+
   Future<SyncResult> uploadDirtyRecords() async {
     final userId = _userId;
     if (userId == null) return SyncResult.unauthenticated();

@@ -28,4 +28,17 @@ class SyncNotifier extends _$SyncNotifier {
       () => ref.read(syncServiceProvider).uploadDirtyRecords(),
     );
   }
+
+  /// Re-sends everything, whether the client thinks the server has it or not.
+  ///
+  /// The way back from a server that has lost rows the client already
+  /// acknowledged — see [SyncService.markEverythingForReupload].
+  Future<void> resync() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final service = ref.read(syncServiceProvider);
+      await service.markEverythingForReupload();
+      return service.uploadDirtyRecords();
+    });
+  }
 }

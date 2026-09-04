@@ -1,0 +1,1 @@
+flutter run -d windows --dart-define-from-file=dart_defines.env.

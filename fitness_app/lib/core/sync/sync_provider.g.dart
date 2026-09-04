@@ -23,7 +23,7 @@ final syncServiceProvider = AutoDisposeProvider<SyncService>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef SyncServiceRef = AutoDisposeProviderRef<SyncService>;
-String _$syncNotifierHash() => r'0497da26f21124d7360b87bcd1f80f37c6eda86d';
+String _$syncNotifierHash() => r'd099ced2d3fb017c97dbbe2dc1f8dce2e75e6f39';
 
 /// Manual sync trigger — call ref.read(syncNotifierProvider.notifier).sync()
 /// from UI. Exposes AsyncValue<SyncResult> for the UI to react to.

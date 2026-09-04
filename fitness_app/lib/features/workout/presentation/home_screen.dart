@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../../core/sync/sync_provider.dart';
+import '../../../core/sync/sync_service.dart' show SyncResult;
 import '../data/badge_service.dart';
 import '../data/badge_unlock_queue.dart';
 import '../data/rank_up_queue.dart';
@@ -16,6 +17,69 @@ import 'active_session_screen.dart';
 import 'progress_screen.dart';
 import 'badges_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
+
+/// Reports what a sync actually did, including what went wrong.
+///
+/// It used to say "Sync failed" and nothing else, while `SyncResult.errors`
+/// carried the reason the whole time — which made a foreign key violation
+/// against a server missing its parent rows indistinguishable from being
+/// offline.
+void _showSyncResult(BuildContext context, WidgetRef ref, SyncResult result) {
+  final messenger = ScaffoldMessenger.of(context);
+
+  if (result.success) {
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.cloud_done, color: OneRepColors.success, size: 18),
+            const SizedBox(width: 10),
+            Text('Synced ${result.uploaded} records'),
+          ],
+        ),
+      ),
+    );
+    return;
+  }
+
+  messenger.showSnackBar(
+    SnackBar(
+      backgroundColor: OneRepColors.surfaceElevated,
+      duration: const Duration(seconds: 8),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.cloud_off, color: OneRepColors.error, size: 18),
+              SizedBox(width: 10),
+              Text('Sync failed'),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            result.errors.join('\n'),
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: OneRepColors.textSecondary,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+      // The common cause is a server that no longer holds rows this device
+      // already uploaded, which nothing recovers from on its own — the parents
+      // are never re-sent and every child keeps failing its foreign key.
+      action: SnackBarAction(
+        label: 'RE-UPLOAD ALL',
+        textColor: OneRepColors.gold,
+        onPressed: () => ref.read(syncNotifierProvider.notifier).resync(),
+      ),
+    ),
+  );
+}
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -49,28 +113,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       next.whenOrNull(
         data: (result) {
           if (result.unauthenticated) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(
-                    result.success ? Icons.cloud_done : Icons.cloud_off,
-                    color: result.success
-                        ? OneRepColors.success
-                        : OneRepColors.error,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    result.success
-                        ? 'Synced ${result.uploaded} records'
-                        : 'Sync failed',
-                  ),
-                ],
-              ),
-            ),
-          );
+          _showSyncResult(context, ref, result);
         },
+        // A thrown error never reached the user at all: the listener only
+        // handled `data`, so a sync that blew up left the spinner stopping and
+        // nothing else happening.
+        error: (error, _) => ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: OneRepColors.error,
+            content: Text('Sync failed: $error'),
+          ),
+        ),
       );
     });
 
