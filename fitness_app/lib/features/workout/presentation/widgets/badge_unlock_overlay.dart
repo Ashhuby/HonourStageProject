@@ -78,8 +78,7 @@ class _BadgeUnlockHostState extends ConsumerState<BadgeUnlockHost>
 
   bool _visible = false;
 
-  /// How long the current celebration holds for. Handed to the view so it can
-  /// show the hold running down rather than closing without warning.
+  /// How long the current celebration holds before taking itself down.
   Duration _holdFor = _kSingleHold;
 
   /// Brings the celebration down without the user having to.
@@ -171,18 +170,12 @@ class _BadgeUnlockHostState extends ConsumerState<BadgeUnlockHost>
     final batch = _batch;
 
     final Widget? view = rank != null
-        ? _RankUpView(
-            rank: rank,
-            reveal: _reveal,
-            onDismiss: _dismiss,
-            holdFor: _holdFor,
-          )
+        ? _RankUpView(rank: rank, reveal: _reveal, onDismiss: _dismiss)
         : batch.isNotEmpty
         ? _BadgeUnlockView(
             batch: batch,
             reveal: _reveal,
             onDismiss: _dismiss,
-            holdFor: _holdFor,
             remaining: queue.length - batch.length + (climbed != null ? 1 : 0),
           )
         : null;
@@ -223,7 +216,6 @@ class _Celebration extends StatelessWidget {
     required this.reveal,
     required this.tint,
     required this.onDismiss,
-    required this.holdFor,
     required this.emblem,
     required this.eyebrow,
     required this.title,
@@ -235,7 +227,6 @@ class _Celebration extends StatelessWidget {
   final Animation<double> reveal;
   final Color tint;
   final VoidCallback onDismiss;
-  final Duration holdFor;
 
   /// The thing that scales into view. Laid out at the centre of the burst.
   final Widget emblem;
@@ -379,11 +370,7 @@ class _Celebration extends StatelessWidget {
                         t: action,
                         child: Column(
                           children: [
-                            _DismissButton(
-                              tint: tint,
-                              holdFor: holdFor,
-                              onPressed: onDismiss,
-                            ),
+                            _DismissButton(tint: tint, onPressed: onDismiss),
                             if (footnote != null) ...[
                               const SizedBox(height: 12),
                               Text(
@@ -410,67 +397,36 @@ class _Celebration extends StatelessWidget {
   }
 }
 
-/// The dismiss button, with the hold running out underneath it.
+/// The button that closes a celebration.
 ///
-/// The hairline exists so the celebration does not appear to close itself for
-/// no reason: a full-screen overlay that vanishes unprompted reads as a
-/// glitch unless the user can see it was going to.
+/// No countdown bar under it. It was there to explain why the overlay closes
+/// itself, but a coloured hairline sitting beneath a pill button reads as an
+/// underline that does not belong to anything — and the celebration is short
+/// enough, and dismissible enough, that nothing needed explaining.
 class _DismissButton extends StatelessWidget {
-  const _DismissButton({
-    required this.tint,
-    required this.holdFor,
-    required this.onPressed,
-  });
+  const _DismissButton({required this.tint, required this.onPressed});
 
   final Color tint;
-  final Duration holdFor;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TextButton(
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-            foregroundColor: OneRepColors.background,
-            backgroundColor: tint,
-            padding: const EdgeInsets.symmetric(horizontal: 44, vertical: 13),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-          ),
-          child: const Text(
-            'NICE',
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
-              fontSize: 13,
-            ),
-          ),
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: OneRepColors.background,
+        backgroundColor: tint,
+        padding: const EdgeInsets.symmetric(horizontal: 44, vertical: 13),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      child: const Text(
+        'NICE',
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.5,
+          fontSize: 13,
         ),
-        const SizedBox(height: 10),
-        TweenAnimationBuilder<double>(
-          tween: Tween(begin: 1, end: 0),
-          duration: holdFor,
-          curve: Curves.linear,
-          builder: (context, remaining, _) => SizedBox(
-            width: 120,
-            height: 2,
-            child: FractionallySizedBox(
-              alignment: Alignment.center,
-              widthFactor: remaining,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: tint.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -484,7 +440,6 @@ class _BadgeUnlockView extends StatelessWidget {
     required this.batch,
     required this.reveal,
     required this.onDismiss,
-    required this.holdFor,
     required this.remaining,
   });
 
@@ -494,7 +449,6 @@ class _BadgeUnlockView extends StatelessWidget {
 
   final Animation<double> reveal;
   final VoidCallback onDismiss;
-  final Duration holdFor;
 
   /// How many more celebrations are waiting behind this one.
   final int remaining;
@@ -513,7 +467,6 @@ class _BadgeUnlockView extends StatelessWidget {
       reveal: reveal,
       tint: badge.tier.color,
       onDismiss: onDismiss,
-      holdFor: holdFor,
       emblem: BadgeMedallion(
         badge: badge,
         earned: true,
@@ -582,14 +535,11 @@ class _RankUpView extends StatelessWidget {
     required this.rank,
     required this.reveal,
     required this.onDismiss,
-    required this.holdFor,
   });
 
   final Rank rank;
   final Animation<double> reveal;
   final VoidCallback onDismiss;
-  final Duration holdFor;
-
   @override
   Widget build(BuildContext context) {
     final next = rank.next;
@@ -598,7 +548,6 @@ class _RankUpView extends StatelessWidget {
       reveal: reveal,
       tint: rank.color,
       onDismiss: onDismiss,
-      holdFor: holdFor,
       emblem: RankCrest(rank: rank, size: 120, glow: true),
       eyebrow: 'RANK UP',
       title: rank.label,
