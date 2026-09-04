@@ -113,6 +113,15 @@ class SyncService {
       errors.add('customExercises: $e');
     }
 
+    try {
+      // Last, and in this order: a routine can only go once no session needs
+      // it, and a split only once its routines have gone.
+      await _purgeSyncedRoutineTombstones();
+      await _purgeSyncedSplitTombstones();
+    } catch (e) {
+      errors.add('tombstones: $e');
+    }
+
     return SyncResult(
       uploaded: uploaded,
       errors: errors,
@@ -152,11 +161,8 @@ class SyncService {
         ),
       );
 
-      if (split.deletedAt != null) {
-        await (db.delete(
-          db.workoutSplits,
-        )..where((s) => s.id.equals(split.id))).go();
-      }
+      // Deliberately not deleted here — see _purgeSyncedSplitTombstones,
+      // which runs once the routines below it are gone.
     }
 
     return dirty.length;
@@ -201,11 +207,7 @@ class SyncService {
         ),
       );
 
-      if (routine.deletedAt != null) {
-        await (db.delete(
-          db.workoutRoutines,
-        )..where((r) => r.id.equals(routine.id))).go();
-      }
+      // Deliberately not deleted here — see _purgeSyncedRoutineTombstones.
     }
 
     return dirty.length;
@@ -340,6 +342,50 @@ class SyncService {
   /// its children alive to be retried, rather than losing them. It is keyed on
   /// state rather than on this run's work, so it also clears rows already
   /// stranded by the previous behaviour.
+  /// Removes routine rows whose tombstone has reached the remote copy, and
+  /// which nothing local still points at.
+  ///
+  /// Sync used to delete these the moment it had pushed the tombstone, which
+  /// failed outright: `workout_sessions.routine_id` references this table with
+  /// no delete action, so removing a routine any session was logged against
+  /// raises FOREIGN KEY constraint failed (787) and takes the whole sync step
+  /// down with it. Deleting a split was worse — routines cascade from it, so
+  /// the cascade hit the same wall one level down.
+  ///
+  /// A session has to keep the routine it was performed against; that is what
+  /// gives the history its name. So the tombstone stays until the history
+  /// does, which costs one hidden row and no correctness: every query already
+  /// filters on `deleted_at IS NULL`.
+  Future<void> _purgeSyncedRoutineTombstones() async {
+    await db.customStatement('''
+      DELETE FROM workout_routines
+      WHERE deleted_at IS NOT NULL
+        AND synced_at IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM workout_sessions
+          WHERE workout_sessions.routine_id = workout_routines.id
+        )
+    ''');
+  }
+
+  /// Removes split rows whose tombstone has reached the remote copy, once the
+  /// routines that cascade from them are gone.
+  ///
+  /// Runs after [_purgeSyncedRoutineTombstones], never before: deleting a
+  /// split cascades into its routines, and a cascade cannot stop to check
+  /// whether a session still needs one.
+  Future<void> _purgeSyncedSplitTombstones() async {
+    await db.customStatement('''
+      DELETE FROM workout_splits
+      WHERE deleted_at IS NOT NULL
+        AND synced_at IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM workout_routines
+          WHERE workout_routines.split_id = workout_splits.id
+        )
+    ''');
+  }
+
   Future<void> _purgeSyncedSessionTombstones() async {
     await db.customStatement('''
       DELETE FROM workout_sessions
