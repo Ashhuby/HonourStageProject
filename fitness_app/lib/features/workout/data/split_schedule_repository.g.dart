@@ -32,7 +32,7 @@ final watchDefaultSplitProvider =
 // ignore: unused_element
 typedef WatchDefaultSplitRef = AutoDisposeStreamProviderRef<WorkoutSplit?>;
 String _$watchSplitScheduleHash() =>
-    r'36b0da68cc3f82b3acf226bfe5f9b0b554b8298a';
+    r'3b65e2f28bca948802a9bc7ea90d7d641a7035da';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -57,20 +57,60 @@ class _SystemHash {
 
 /// The rotation for one split.
 ///
+/// Watches both tables the answer is built from. It used to be driven by the
+/// split row alone, which is not where a rotation actually lives: putting a
+/// routine on a day writes `schedule_slots` on **workout_routines**, so the
+/// stream never fired. The write landed and the screen kept drawing the old
+/// schedule — adding a day appeared to do nothing, and removing one appeared
+/// to do nothing either.
+///
+/// The trivial query is here for its `readsFrom` set; drift re-emits when any
+/// of those tables is written, which is exactly when this answer can change.
+///
 /// Copied from [watchSplitSchedule].
 @ProviderFor(watchSplitSchedule)
 const watchSplitScheduleProvider = WatchSplitScheduleFamily();
 
 /// The rotation for one split.
 ///
+/// Watches both tables the answer is built from. It used to be driven by the
+/// split row alone, which is not where a rotation actually lives: putting a
+/// routine on a day writes `schedule_slots` on **workout_routines**, so the
+/// stream never fired. The write landed and the screen kept drawing the old
+/// schedule — adding a day appeared to do nothing, and removing one appeared
+/// to do nothing either.
+///
+/// The trivial query is here for its `readsFrom` set; drift re-emits when any
+/// of those tables is written, which is exactly when this answer can change.
+///
 /// Copied from [watchSplitSchedule].
 class WatchSplitScheduleFamily extends Family<AsyncValue<SplitSchedule>> {
   /// The rotation for one split.
+  ///
+  /// Watches both tables the answer is built from. It used to be driven by the
+  /// split row alone, which is not where a rotation actually lives: putting a
+  /// routine on a day writes `schedule_slots` on **workout_routines**, so the
+  /// stream never fired. The write landed and the screen kept drawing the old
+  /// schedule — adding a day appeared to do nothing, and removing one appeared
+  /// to do nothing either.
+  ///
+  /// The trivial query is here for its `readsFrom` set; drift re-emits when any
+  /// of those tables is written, which is exactly when this answer can change.
   ///
   /// Copied from [watchSplitSchedule].
   const WatchSplitScheduleFamily();
 
   /// The rotation for one split.
+  ///
+  /// Watches both tables the answer is built from. It used to be driven by the
+  /// split row alone, which is not where a rotation actually lives: putting a
+  /// routine on a day writes `schedule_slots` on **workout_routines**, so the
+  /// stream never fired. The write landed and the screen kept drawing the old
+  /// schedule — adding a day appeared to do nothing, and removing one appeared
+  /// to do nothing either.
+  ///
+  /// The trivial query is here for its `readsFrom` set; drift re-emits when any
+  /// of those tables is written, which is exactly when this answer can change.
   ///
   /// Copied from [watchSplitSchedule].
   WatchSplitScheduleProvider call(int splitId) {
@@ -101,10 +141,30 @@ class WatchSplitScheduleFamily extends Family<AsyncValue<SplitSchedule>> {
 
 /// The rotation for one split.
 ///
+/// Watches both tables the answer is built from. It used to be driven by the
+/// split row alone, which is not where a rotation actually lives: putting a
+/// routine on a day writes `schedule_slots` on **workout_routines**, so the
+/// stream never fired. The write landed and the screen kept drawing the old
+/// schedule — adding a day appeared to do nothing, and removing one appeared
+/// to do nothing either.
+///
+/// The trivial query is here for its `readsFrom` set; drift re-emits when any
+/// of those tables is written, which is exactly when this answer can change.
+///
 /// Copied from [watchSplitSchedule].
 class WatchSplitScheduleProvider
     extends AutoDisposeStreamProvider<SplitSchedule> {
   /// The rotation for one split.
+  ///
+  /// Watches both tables the answer is built from. It used to be driven by the
+  /// split row alone, which is not where a rotation actually lives: putting a
+  /// routine on a day writes `schedule_slots` on **workout_routines**, so the
+  /// stream never fired. The write landed and the screen kept drawing the old
+  /// schedule — adding a day appeared to do nothing, and removing one appeared
+  /// to do nothing either.
+  ///
+  /// The trivial query is here for its `readsFrom` set; drift re-emits when any
+  /// of those tables is written, which is exactly when this answer can change.
   ///
   /// Copied from [watchSplitSchedule].
   WatchSplitScheduleProvider(int splitId)

@@ -413,7 +413,7 @@ final watchCompletedSessionDetailsProvider =
 typedef WatchCompletedSessionDetailsRef =
     AutoDisposeStreamProviderRef<List<CompletedSession>>;
 String _$watchSessionHighlightsHash() =>
-    r'af0867e5d672941d3ea5e7b4963635c1c40b2af6';
+    r'859a503f4623e53bb4020e544b29768aa09c25f3';
 
 /// What each session achieved — records set, exercises tried for the first
 /// time, badges earned.
