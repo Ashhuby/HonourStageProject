@@ -203,6 +203,84 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // Staying up to date
+  // ---------------------------------------------------------------------------
+  //
+  // The screen reads these streams; if a stream does not fire, the write still
+  // lands and the UI keeps drawing the old answer. That failure is invisible
+  // from everywhere else — the repository tests above all passed while putting
+  // a routine on a day did nothing visible and taking it off did nothing
+  // either, because the schedule stream watched only the split row and a slot
+  // is written on the routine.
+
+  group('the schedule stream', () {
+    /// Collects what the stream emits while [action] runs.
+    Future<List<SplitSchedule>> emissionsDuring(
+      int splitId,
+      Future<void> Function() action,
+    ) async {
+      final seen = <SplitSchedule>[];
+      final sub = container.listen(watchSplitScheduleProvider(splitId), (
+        _,
+        next,
+      ) {
+        if (next.hasValue) seen.add(next.value!);
+      });
+
+      // Let the first value land before changing anything.
+      await container.read(watchSplitScheduleProvider(splitId).future);
+      await action();
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      sub.close();
+      return seen;
+    }
+
+    test('fires when a routine is put on a day', () async {
+      final split = await addSplit('PPL');
+      final push = await addRoutine(split, 'Push');
+      await repo().setScheduleMode(split, ScheduleMode.weekly);
+
+      final seen = await emissionsDuring(
+        split,
+        () => repo().assignSlot(push, 0),
+      );
+
+      expect(seen, isNotEmpty, reason: 'the stream never re-emitted');
+      expect(seen.last.at(0).map((r) => r.name), ['Push']);
+    });
+
+    test('fires when a routine is taken off a day', () async {
+      final split = await addSplit('PPL');
+      final push = await addRoutine(split, 'Push');
+      await repo().setScheduleMode(split, ScheduleMode.weekly);
+      await repo().assignSlot(push, 0);
+
+      final seen = await emissionsDuring(
+        split,
+        () => repo().clearSlot(push, 0),
+      );
+
+      expect(seen, isNotEmpty, reason: 'the stream never re-emitted');
+      expect(seen.last.at(0), isEmpty);
+    });
+
+    test('fires when the rotation itself changes', () async {
+      final split = await addSplit('PPL');
+      await addRoutine(split, 'Push');
+
+      final seen = await emissionsDuring(
+        split,
+        () => repo().setScheduleMode(split, ScheduleMode.cycle, cycleLength: 4),
+      );
+
+      expect(seen, isNotEmpty);
+      expect(seen.last.mode, ScheduleMode.cycle);
+      expect(seen.last.length, 4);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // The plan
   // ---------------------------------------------------------------------------
 

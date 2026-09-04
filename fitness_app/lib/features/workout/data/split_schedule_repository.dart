@@ -72,25 +72,41 @@ Stream<WorkoutSplit?> watchDefaultSplit(Ref ref) {
 }
 
 /// The rotation for one split.
+///
+/// Watches both tables the answer is built from. It used to be driven by the
+/// split row alone, which is not where a rotation actually lives: putting a
+/// routine on a day writes `schedule_slots` on **workout_routines**, so the
+/// stream never fired. The write landed and the screen kept drawing the old
+/// schedule — adding a day appeared to do nothing, and removing one appeared
+/// to do nothing either.
+///
+/// The trivial query is here for its `readsFrom` set; drift re-emits when any
+/// of those tables is written, which is exactly when this answer can change.
 @riverpod
 Stream<SplitSchedule> watchSplitSchedule(Ref ref, int splitId) {
   final db = ref.watch(databaseProvider);
 
-  final splits = (db.select(
-    db.workoutSplits,
-  )..where((s) => s.id.equals(splitId))).watchSingleOrNull();
+  return db
+      .customSelect(
+        'SELECT 1 AS v',
+        readsFrom: {db.workoutSplits, db.workoutRoutines},
+      )
+      .watch()
+      .asyncMap((_) async {
+        final split = await (db.select(
+          db.workoutSplits,
+        )..where((s) => s.id.equals(splitId))).getSingleOrNull();
+        if (split == null) return SplitSchedule.none;
 
-  final routines =
-      (db.select(db.workoutRoutines)
-            ..where((r) => r.splitId.equals(splitId))
-            ..where((r) => r.deletedAt.isNull())
-            ..orderBy([(r) => OrderingTerm.asc(r.orderIndex)]))
-          .watch();
+        final routines =
+            await (db.select(db.workoutRoutines)
+                  ..where((r) => r.splitId.equals(splitId))
+                  ..where((r) => r.deletedAt.isNull())
+                  ..orderBy([(r) => OrderingTerm.asc(r.orderIndex)]))
+                .get();
 
-  return splits.asyncMap((split) async {
-    if (split == null) return SplitSchedule.none;
-    return _scheduleOf(split, await routines.first);
-  });
+        return _scheduleOf(split, routines);
+      });
 }
 
 SplitSchedule _scheduleOf(WorkoutSplit split, List<WorkoutRoutine> routines) {
@@ -170,11 +186,7 @@ Future<SplitPlan?> _buildPlan(AppDatabase db, int splitId) async {
 
   final trainedToday =
       lastTrainedOn != null &&
-      DateTime(
-            lastTrainedOn.year,
-            lastTrainedOn.month,
-            lastTrainedOn.day,
-          ) ==
+      DateTime(lastTrainedOn.year, lastTrainedOn.month, lastTrainedOn.day) ==
           DateTime(now.year, now.month, now.day);
 
   // Which slot that session sat in. A routine can hold several, so the one
@@ -247,11 +259,8 @@ class SplitScheduleRepository extends _$SplitScheduleRepository {
           .write(const WorkoutSplitsCompanion(isDefault: Value(false)));
 
       if (splitId == null) return;
-      await (db.update(
-        db.workoutSplits,
-      )..where((s) => s.id.equals(splitId))).write(
-        const WorkoutSplitsCompanion(isDefault: Value(true)),
-      );
+      await (db.update(db.workoutSplits)..where((s) => s.id.equals(splitId)))
+          .write(const WorkoutSplitsCompanion(isDefault: Value(true)));
     });
   }
 
@@ -272,14 +281,15 @@ class SplitScheduleRepository extends _$SplitScheduleRepository {
         : (cycleLength ?? kWeekLength).clamp(2, kMaxCycleLength);
 
     await db.transaction(() async {
-      await (db.update(db.workoutSplits)..where((s) => s.id.equals(splitId)))
-          .write(
-            WorkoutSplitsCompanion(
-              scheduleMode: Value(mode.name),
-              cycleLength: Value(length),
-              syncedAt: const Value(null),
-            ),
-          );
+      await (db.update(
+        db.workoutSplits,
+      )..where((s) => s.id.equals(splitId))).write(
+        WorkoutSplitsCompanion(
+          scheduleMode: Value(mode.name),
+          cycleLength: Value(length),
+          syncedAt: const Value(null),
+        ),
+      );
 
       final routines = await (db.select(
         db.workoutRoutines,
@@ -305,13 +315,14 @@ class SplitScheduleRepository extends _$SplitScheduleRepository {
   Future<void> setRoutineSlots(int routineId, Iterable<int> slots) async {
     final db = ref.read(databaseProvider);
 
-    await (db.update(db.workoutRoutines)..where((r) => r.id.equals(routineId)))
-        .write(
-          WorkoutRoutinesCompanion(
-            scheduleSlots: Value(formatSlots(slots)),
-            syncedAt: const Value(null),
-          ),
-        );
+    await (db.update(
+      db.workoutRoutines,
+    )..where((r) => r.id.equals(routineId))).write(
+      WorkoutRoutinesCompanion(
+        scheduleSlots: Value(formatSlots(slots)),
+        syncedAt: const Value(null),
+      ),
+    );
   }
 
   /// Puts [routineId] on [slot], leaving its other days alone.

@@ -305,40 +305,57 @@ Stream<Map<int, SessionHighlights>> watchSessionHighlights(Ref ref) {
   final badgesQuery = db.select(db.badges)
     ..where((b) => b.earnedAt.isNotNull());
 
-  return setsQuery.watch().asyncMap((rows) async {
-    final sessions = await sessionsQuery.get();
-    final badges = await badgesQuery.get();
+  // Driven by a query over every table the verdicts read, rather than by the
+  // sets alone. The joined sets query already covers sets, exercises and
+  // sessions, but badges were fetched inside the mapper without being watched
+  // — so a badge earned mid-session did not appear as a chip until some
+  // unrelated write happened to refresh the stream.
+  return db
+      .customSelect(
+        'SELECT 1 AS v',
+        readsFrom: {
+          db.workoutSets,
+          db.workoutSessions,
+          db.exercises,
+          db.badges,
+        },
+      )
+      .watch()
+      .asyncMap((_) async {
+        final rows = await setsQuery.get();
+        final sessions = await sessionsQuery.get();
+        final badges = await badgesQuery.get();
 
-    return replaySessionHighlights(
-      setsOldestFirst: [
-        for (final row in rows)
-          (
-            sessionId: row.readTable(db.workoutSets).sessionId,
-            exerciseId: row.readTable(db.exercises).id,
-            exerciseName: row.readTable(db.exercises).name,
-            metricType: row.readTable(db.exercises).metricType,
-            timestamp: row.readTable(db.workoutSets).timestamp,
-            weight: row.readTable(db.workoutSets).weight,
-            reps: row.readTable(db.workoutSets).reps,
-            durationSeconds: row.readTable(db.workoutSets).durationSeconds,
-            distanceMetres: row.readTable(db.workoutSets).distanceMetres,
-          ),
-      ],
-      sessionsByStartTime: [
-        for (final session in sessions)
-          (
-            sessionId: session.id,
-            startTime: session.startTime,
-            endTime: session.endTime,
-          ),
-      ],
-      earnedBadges: [
-        for (final badge in badges)
-          if (badge.earnedAt != null)
-            (badgeKey: badge.badgeKey, earnedAt: badge.earnedAt!),
-      ],
-    );
-  });
+        return replaySessionHighlights(
+          setsOldestFirst: [
+            for (final row in rows)
+              (
+                sessionId: row.readTable(db.workoutSets).sessionId,
+                exerciseId: row.readTable(db.exercises).id,
+                exerciseName: row.readTable(db.exercises).name,
+                metricType: row.readTable(db.exercises).metricType,
+                timestamp: row.readTable(db.workoutSets).timestamp,
+                weight: row.readTable(db.workoutSets).weight,
+                reps: row.readTable(db.workoutSets).reps,
+                durationSeconds: row.readTable(db.workoutSets).durationSeconds,
+                distanceMetres: row.readTable(db.workoutSets).distanceMetres,
+              ),
+          ],
+          sessionsByStartTime: [
+            for (final session in sessions)
+              (
+                sessionId: session.id,
+                startTime: session.startTime,
+                endTime: session.endTime,
+              ),
+          ],
+          earnedBadges: [
+            for (final badge in badges)
+              if (badge.earnedAt != null)
+                (badgeKey: badge.badgeKey, earnedAt: badge.earnedAt!),
+          ],
+        );
+      });
 }
 
 @riverpod
