@@ -17,3 +17,6 @@ dart_defines.env
 ~$*.doc
 *.tmp
 
+
+# Database dumps. Real user data, including email addresses.
+backups/
