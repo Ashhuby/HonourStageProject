@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:riverpod/riverpod.dart';
 import '../../../core/database/database_provider.dart';
-import '../../../core/database/local_database.dart';
 import '../../profile/data/profile_provider.dart';
 import '../domain/badge_catalogue.dart';
 import 'badge_stats.dart';
@@ -121,7 +120,7 @@ class BadgeService extends _$BadgeService {
     // Only unearned badges can be awarded, and only their stats need
     // computing. This runs after every logged set, so the work has to shrink
     // as the collection fills — once everything is earned it is one COUNT.
-    final unearned = await _unearnedBadges();
+    final unearned = await unearnedBadges(db);
     if (unearned.isEmpty) return const [];
 
     final wanted = {for (final def in unearned) def.stat};
@@ -135,12 +134,7 @@ class BadgeService extends _$BadgeService {
       only: wanted,
     );
 
-    final awarded = <String>[];
-    for (final def in unearned) {
-      if (!isEarnedBy(def, stats)) continue;
-      if (await _awardIfNotEarned(def.key)) awarded.add(def.key);
-    }
-
+    final awarded = await awardEarnedBadges(db, stats, candidates: unearned);
     if (awarded.isNotEmpty) {
       ref.read(badgeUnlockQueueProvider.notifier).enqueue(awarded);
     }
@@ -166,45 +160,5 @@ class BadgeService extends _$BadgeService {
     } catch (_) {
       return null;
     }
-  }
-
-  /// The definitions with no row yet, or a row that has never been earned.
-  ///
-  /// A definition with no row at all is included: it will fail to award (see
-  /// [_awardIfNotEarned]) but silently dropping it here would hide the real
-  /// fault, which is a missed seed after adding a badge.
-  Future<List<BadgeDefinition>> _unearnedBadges() async {
-    final db = ref.read(databaseProvider);
-    final rows = await (db.select(
-      db.badges,
-    )..where((b) => b.earnedAt.isNotNull())).get();
-
-    final earnedKeys = {for (final row in rows) row.badgeKey};
-    return [
-      for (final def in kAllBadges)
-        if (!earnedKeys.contains(def.key)) def,
-    ];
-  }
-
-  /// Stamps earnedAt = now() on the badge row if it hasn't been earned yet.
-  /// Returns true if a new award was written, false if already earned or
-  /// the row doesn't exist (should never happen after seeding, but defensive).
-  Future<bool> _awardIfNotEarned(String key) async {
-    final db = ref.read(databaseProvider);
-    final row = await (db.select(
-      db.badges,
-    )..where((b) => b.badgeKey.equals(key))).getSingleOrNull();
-
-    // Already earned — idempotent, do nothing.
-    if (row == null || row.earnedAt != null) return false;
-
-    await (db.update(db.badges)..where((b) => b.badgeKey.equals(key))).write(
-      BadgesCompanion(
-        earnedAt: Value(DateTime.now()),
-        // Mark dirty for sync — same pattern as every other syncable table.
-        syncedAt: const Value(null),
-      ),
-    );
-    return true;
   }
 }

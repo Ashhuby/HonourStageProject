@@ -22,6 +22,7 @@ import '../../profile/data/profile_provider.dart';
 import '../domain/activity.dart';
 import '../domain/badge_catalogue.dart';
 import '../domain/muscle.dart';
+import 'badge_unlock_queue.dart';
 import 'personal_best_repository.dart';
 import 'strength_standards_data.dart';
 
@@ -390,6 +391,70 @@ Future<num> _scalar(
 }
 
 // ---------------------------------------------------------------------------
+// Awarding
+// ---------------------------------------------------------------------------
+//
+// Awarding lives here, beside the criteria it reads, rather than in
+// `BadgeService`. Both callers need it: the service evaluates after a set is
+// logged, and the badges screen reconciles whatever it finds when it computes
+// progress. Sharing one implementation is what keeps them from disagreeing.
+
+/// The definitions with no row yet, or a row that has never been earned.
+///
+/// A definition with no row at all is included: it will fail to award, but
+/// silently dropping it here would hide the real fault, which is a missed seed
+/// after adding a badge.
+Future<List<BadgeDefinition>> unearnedBadges(AppDatabase db) async {
+  final rows = await (db.select(
+    db.badges,
+  )..where((b) => b.earnedAt.isNotNull())).get();
+
+  final earnedKeys = {for (final row in rows) row.badgeKey};
+  return [
+    for (final def in kAllBadges)
+      if (!earnedKeys.contains(def.key)) def,
+  ];
+}
+
+/// Stamps `earnedAt` on every unearned badge whose criterion [stats] already
+/// meets, and returns the keys awarded.
+///
+/// [candidates] is the unearned set when the caller has already computed it;
+/// omitting it costs one query.
+Future<List<String>> awardEarnedBadges(
+  AppDatabase db,
+  BadgeStats stats, {
+  List<BadgeDefinition>? candidates,
+}) async {
+  final awarded = <String>[];
+  for (final def in candidates ?? await unearnedBadges(db)) {
+    if (!isEarnedBy(def, stats)) continue;
+    if (await _awardIfNotEarned(db, def.key)) awarded.add(def.key);
+  }
+  return awarded;
+}
+
+/// Stamps `earnedAt` on a badge row unless it is already earned. Returns
+/// whether a new award was actually written, so a repeated evaluation cannot
+/// celebrate the same badge twice.
+Future<bool> _awardIfNotEarned(AppDatabase db, String key) async {
+  final row = await (db.select(
+    db.badges,
+  )..where((b) => b.badgeKey.equals(key))).getSingleOrNull();
+
+  if (row == null || row.earnedAt != null) return false;
+
+  await (db.update(db.badges)..where((b) => b.badgeKey.equals(key))).write(
+    BadgesCompanion(
+      earnedAt: Value(DateTime.now()),
+      // Mark dirty for sync — the same pattern as every other syncable table.
+      syncedAt: const Value(null),
+    ),
+  );
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Providers
 // ---------------------------------------------------------------------------
 
@@ -423,10 +488,24 @@ Stream<BadgeStats> badgeProgress(Ref ref) {
             .getTotalPrCount();
         final profile = await ref.read(profileNotifierProvider.future);
 
-        return computeBadgeStats(
+        final stats = await computeBadgeStats(
           db,
           prCount: prCount,
           bodyweightKg: profile.bodyweightKg,
         );
+
+        // Awarding is event-driven — it runs when a set is logged and when a
+        // session ends — but progress is derived from state, so the two drift
+        // apart. A criterion that came true any other way (the catalogue
+        // growing on an upgrade, a note written, a split built) left the badge
+        // locked while this very snapshot showed it at 100%, which is how the
+        // "Next up" list ended up recommending a badge that was already done.
+        // Reconciling here means reading progress also settles the awards.
+        final awarded = await awardEarnedBadges(db, stats);
+        if (awarded.isNotEmpty) {
+          ref.read(badgeUnlockQueueProvider.notifier).enqueue(awarded);
+        }
+
+        return stats;
       });
 }

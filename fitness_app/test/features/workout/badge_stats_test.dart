@@ -101,11 +101,7 @@ void main() {
   }
 
   Future<BadgeStats> stats({int prCount = 0, double? bodyweightKg}) {
-    return computeBadgeStats(
-      db,
-      prCount: prCount,
-      bodyweightKg: bodyweightKg,
-    );
+    return computeBadgeStats(db, prCount: prCount, bodyweightKg: bodyweightKg);
   }
 
   DateTime daysAgo(int n) {
@@ -420,10 +416,110 @@ void main() {
   // Formatting
   // ---------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+  // Awarding
+  // ---------------------------------------------------------------------------
+
+  group('awarding', () {
+    /// The badge rows, as production's `_seedBadges()` writes them.
+    Future<void> seedBadges() async {
+      await db.batch((b) {
+        for (final badge in kAllBadges) {
+          b.insert(
+            db.badges,
+            BadgesCompanion.insert(badgeKey: badge.key),
+            onConflict: DoUpdate(
+              (_) => BadgesCompanion.insert(badgeKey: badge.key),
+              target: [db.badges.badgeKey],
+            ),
+          );
+        }
+      });
+    }
+
+    Future<Set<String>> earnedKeys() async {
+      final rows = await (db.select(
+        db.badges,
+      )..where((b) => b.earnedAt.isNotNull())).get();
+      return {for (final row in rows) row.badgeKey};
+    }
+
+    /// Four sessions inside one Monday-aligned week, which is Full Week's
+    /// criterion exactly.
+    Future<void> trainFourTimesInAWeek() async {
+      for (var i = 0; i < 4; i++) {
+        await addSession(DateTime(2026, 3, 2 + i, 9));
+      }
+    }
+
+    test('a criterion already met is awarded', () async {
+      // The retroactive case: the history satisfies the badge, but no set has
+      // been logged since, so nothing has ever evaluated it. This is what an
+      // upgrade that adds badges looks like from the database's side.
+      await seedBadges();
+      await trainFourTimesInAWeek();
+
+      final stats = await computeBadgeStats(db, prCount: 0);
+      final awarded = await awardEarnedBadges(db, stats);
+
+      expect(awarded, contains('week_4_sessions'));
+      expect(await earnedKeys(), contains('week_4_sessions'));
+    });
+
+    test('no badge is left complete and locked', () async {
+      // The bug this guards: the badges screen computes progress from live
+      // state while awarding only ran on a logged set, so "Next up" could
+      // recommend a badge sitting at 100%. After reconciling, a locked badge
+      // must have somewhere left to go.
+      await seedBadges();
+      await trainFourTimesInAWeek();
+
+      final stats = await computeBadgeStats(db, prCount: 0);
+      await awardEarnedBadges(db, stats);
+
+      final earned = await earnedKeys();
+      for (final badge in kAllBadges) {
+        if (earned.contains(badge.key)) continue;
+        expect(
+          progressFractionFor(badge, stats),
+          lessThan(1),
+          reason: '${badge.key} is complete but still locked',
+        );
+      }
+    });
+
+    test('awarding twice awards nothing the second time', () async {
+      await seedBadges();
+      await trainFourTimesInAWeek();
+
+      final stats = await computeBadgeStats(db, prCount: 0);
+      final first = await awardEarnedBadges(db, stats);
+      final second = await awardEarnedBadges(db, stats);
+
+      expect(first, isNotEmpty);
+      expect(second, isEmpty);
+    });
+
+    test('an unseeded badge is a candidate but cannot be awarded', () async {
+      // No rows at all — the state an install would be in if a migration
+      // forgot to re-seed. Nothing should be awarded, and nothing should
+      // throw: the fault has to stay visible on the badges screen rather than
+      // crash the set that triggered it.
+      await trainFourTimesInAWeek();
+
+      final stats = await computeBadgeStats(db, prCount: 0);
+      expect(await unearnedBadges(db), hasLength(kAllBadges.length));
+      expect(await awardEarnedBadges(db, stats), isEmpty);
+    });
+  });
+
   group('formatPair', () {
     test('rescales volume to tonnes and distance to kilometres', () {
       expect(BadgeStat.totalVolumeKg.formatPair(3400, 10000), '3.4 / 10.0 t');
-      expect(BadgeStat.totalVolumeKg.formatPair(250000, 1000000), '250 / 1000 t');
+      expect(
+        BadgeStat.totalVolumeKg.formatPair(250000, 1000000),
+        '250 / 1000 t',
+      );
       expect(
         BadgeStat.totalDistanceMetres.formatPair(12000, 42195),
         '12.0 / 42.2 km',
