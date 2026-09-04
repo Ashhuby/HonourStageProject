@@ -131,6 +131,57 @@ class SyncService {
   // Splits
   // ---------------------------------------------------------------------------
 
+  /// Every exercise, by local id — loaded once per upload rather than queried
+  /// per row.
+  Future<Map<int, Exercise>> _exercisesById() async {
+    final rows = await db.select(db.exercises).get();
+    return {for (final row in rows) row.id: row};
+  }
+
+  /// How a synced row says which exercise it means.
+  ///
+  /// `exercise_id` is the writing device's rowid and means nothing anywhere
+  /// else; it is still written because older rows carry nothing but that, and
+  /// it stays the last resort when resolving. The other two are what two
+  /// devices can actually agree on — the uuid for a custom exercise, the name
+  /// for a seeded one, which `idx_exercises_seed_name` keeps unique and the
+  /// seed keeps identical everywhere.
+  Map<String, dynamic> _exerciseIdentity(Exercise? exercise, int localId) => {
+    'exercise_id': localId,
+    'exercise_remote_id': exercise?.remoteId,
+    'exercise_name': exercise?.name,
+  };
+
+  /// Turns a downloaded row's exercise identity back into a local id.
+  ///
+  /// Tried best first: the uuid is unambiguous, the name identifies a seeded
+  /// exercise on any install, and the bare integer is what rows written before
+  /// this existed have — right only by luck, and only for seeded exercises.
+  Future<int?> _resolveExerciseId(Map<String, dynamic> row) async {
+    final remoteId = row['exercise_remote_id'] as String?;
+    if (remoteId != null) {
+      final match = await (db.select(
+        db.exercises,
+      )..where((e) => e.remoteId.equals(remoteId))).getSingleOrNull();
+      if (match != null) return match.id;
+    }
+
+    final name = row['exercise_name'] as String?;
+    if (name != null) {
+      final match = await (db.select(
+        db.exercises,
+      )..where((e) => e.name.equals(name))).getSingleOrNull();
+      if (match != null) return match.id;
+    }
+
+    final legacy = row['exercise_id'] as int?;
+    if (legacy == null) return null;
+    final match = await (db.select(
+      db.exercises,
+    )..where((e) => e.id.equals(legacy))).getSingleOrNull();
+    return match?.id;
+  }
+
   Future<int> _syncSplits(String userId) async {
     final dirty = await (db.select(
       db.workoutSplits,
@@ -227,6 +278,7 @@ class SyncService {
   // ---------------------------------------------------------------------------
 
   Future<int> _syncRoutineExercises(String userId) async {
+    final exercises = await _exercisesById();
     final dirty = await (db.select(
       db.routineExercises,
     )..where((re) => re.syncedAt.isNull())).get();
@@ -244,7 +296,7 @@ class SyncService {
             'user_id': userId,
             'local_id': re.id,
             'routine_id': routine.remoteId,
-            'exercise_id': re.exerciseId,
+            ..._exerciseIdentity(exercises[re.exerciseId], re.exerciseId),
             'order_index': re.orderIndex,
             'target_sets': re.targetSets,
             'target_reps': re.targetReps,
@@ -422,6 +474,7 @@ class SyncService {
   // ---------------------------------------------------------------------------
 
   Future<int> _syncSets(String userId) async {
+    final exercises = await _exercisesById();
     final dirty = await (db.select(
       db.workoutSets,
     )..where((s) => s.syncedAt.isNull())).get();
@@ -439,7 +492,7 @@ class SyncService {
             'user_id': userId,
             'local_id': set.id,
             'session_id': session.remoteId,
-            'exercise_id': set.exerciseId,
+            ..._exerciseIdentity(exercises[set.exerciseId], set.exerciseId),
             'weight': set.weight,
             'reps': set.reps,
             'timestamp': set.timestamp.toIso8601String(),
@@ -487,6 +540,7 @@ class SyncService {
   // record from a 10 km one because both carry reps = 0.
 
   Future<int> _syncPersonalBests(String userId) async {
+    final exercises = await _exercisesById();
     final dirty = await (db.select(
       db.personalBests,
     )..where((pb) => pb.syncedAt.isNull())).get();
@@ -497,7 +551,7 @@ class SyncService {
           .upsert({
             'user_id': userId,
             'local_id': pr.id,
-            'exercise_id': pr.exerciseId,
+            ..._exerciseIdentity(exercises[pr.exerciseId], pr.exerciseId),
             'reps': pr.reps,
             'weight': pr.weight,
             'achieved_at': pr.achievedAt.toIso8601String(),
@@ -763,15 +817,26 @@ class SyncService {
               .getSingleOrNull();
       if (routine == null) continue;
 
+      final exerciseId = await _resolveExerciseId(row);
+      if (exerciseId == null) continue;
+
       await db
           .into(db.routineExercises)
           .insertOnConflictUpdate(
             RoutineExercisesCompanion.insert(
               routineId: routine.id,
-              exerciseId: row['exercise_id'] as int,
+              exerciseId: exerciseId,
               orderIndex: row['order_index'] as int,
               targetSets: Value(row['target_sets'] as int? ?? 3),
               targetReps: Value(row['target_reps'] as int? ?? 10),
+              // The targets that are not reps, which had nowhere to travel
+              // until 0002 gave them columns.
+              targetDistanceMetres: Value(
+                (row['target_distance_metres'] as num?)?.toDouble(),
+              ),
+              targetDurationSeconds: Value(
+                row['target_duration_seconds'] as int?,
+              ),
               remoteId: Value(row['id'] as String),
               userId: Value(userId),
               syncedAt: Value(DateTime.now()),
@@ -835,9 +900,15 @@ class SyncService {
       final remoteId = row['id'] as String;
       final metrics = setMetricsFromRemoteRow(row);
 
+      // A row naming an exercise this device does not have is skipped rather
+      // than pinned to whatever sits at that rowid locally, which is what the
+      // bare integer used to do.
+      final exerciseId = await _resolveExerciseId(row);
+      if (exerciseId == null) continue;
+
       final companion = WorkoutSetsCompanion(
         sessionId: Value(session.id),
-        exerciseId: Value(row['exercise_id'] as int),
+        exerciseId: Value(exerciseId),
         weight: Value(weightFromRemoteRow(row)),
         reps: Value(repsFromRemoteRow(row)),
         durationSeconds: Value(metrics.durationSeconds),
@@ -900,8 +971,11 @@ class SyncService {
       final remoteId = row['id'] as String;
       final metrics = personalBestMetricsFromRemoteRow(row);
 
+      final exerciseId = await _resolveExerciseId(row);
+      if (exerciseId == null) continue;
+
       final companion = PersonalBestsCompanion(
-        exerciseId: Value(row['exercise_id'] as int),
+        exerciseId: Value(exerciseId),
         reps: Value(repsFromRemoteRow(row)),
         weight: Value(weightFromRemoteRow(row)),
         durationSeconds: Value(metrics.durationSeconds),
