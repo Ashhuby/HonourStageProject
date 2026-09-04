@@ -5,6 +5,7 @@ import 'package:riverpod/riverpod.dart';
 import 'package:fitness_app/core/database/database_provider.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/features/workout/data/badge_service.dart';
+import 'package:fitness_app/features/workout/data/badge_unlock_queue.dart';
 import 'package:fitness_app/features/workout/data/exercise_repository.dart';
 import 'package:fitness_app/features/workout/domain/activity.dart';
 import 'package:fitness_app/features/workout/domain/muscle.dart';
@@ -189,5 +190,95 @@ void main() {
 
     final second = await evaluate();
     expect(second, isNot(contains('first_cardio')));
+  });
+
+  // ---------------------------------------------------------------------------
+  // The unlock queue
+  // ---------------------------------------------------------------------------
+  //
+  // evaluateAll pushes what it awarded onto the queue itself rather than
+  // returning it for the caller to forward. The three call sites that existed
+  // when the queue was added all discarded the return value, which is why
+  // badges were earned in silence; these tests hold that door shut.
+
+  List<String> queuedKeys() => [
+    for (final badge in container.read(badgeUnlockQueueProvider)) badge.key,
+  ];
+
+  group('unlock queue', () {
+    test('an award is queued for celebration', () async {
+      final id = await addExercise(
+        name: 'Canal Run',
+        category: ExerciseCategory.cardio,
+        modality: CardioModality.run,
+        metricType: 'distanceTime',
+      );
+      await logSet(id, distanceMetres: 3000);
+
+      expect(queuedKeys(), isEmpty);
+      await evaluate();
+      expect(queuedKeys(), contains('first_cardio'));
+    });
+
+    test('badges earned together are all queued', () async {
+      final id = await addExercise(
+        name: 'Canal Run',
+        category: ExerciseCategory.cardio,
+        modality: CardioModality.run,
+        metricType: 'distanceTime',
+      );
+      // One set of a cardio exercise inside a completed session trips both
+      // the first-cardio badge and the first-workout badge at once.
+      await logSet(id, distanceMetres: 3000);
+      await (db.update(db.workoutSessions)).write(
+        WorkoutSessionsCompanion(endTime: Value(DateTime(2026, 6, 1, 1))),
+      );
+
+      await evaluate();
+      expect(queuedKeys(), containsAll(['first_cardio', 'first_workout']));
+    });
+
+    test('re-evaluating does not queue the same badge twice', () async {
+      final id = await addExercise(
+        name: 'Canal Run',
+        category: ExerciseCategory.cardio,
+        modality: CardioModality.run,
+        metricType: 'distanceTime',
+      );
+      await logSet(id, distanceMetres: 3000);
+
+      await evaluate();
+      await evaluate();
+
+      expect(queuedKeys().where((k) => k == 'first_cardio').length, 1);
+    });
+
+    test('dismissing takes them one at a time, oldest first', () async {
+      container
+          .read(badgeUnlockQueueProvider.notifier)
+          .enqueue(['first_cardio', 'first_mobility']);
+
+      expect(queuedKeys(), ['first_cardio', 'first_mobility']);
+
+      container.read(badgeUnlockQueueProvider.notifier).dismissCurrent();
+      expect(queuedKeys(), ['first_mobility']);
+
+      container.read(badgeUnlockQueueProvider.notifier).dismissCurrent();
+      expect(queuedKeys(), isEmpty);
+
+      // Dismissing an empty queue is a no-op, not a range error.
+      container.read(badgeUnlockQueueProvider.notifier).dismissCurrent();
+      expect(queuedKeys(), isEmpty);
+    });
+
+    test('an unknown key is skipped rather than throwing', () {
+      // A badge row synced from a newer version of the app has no definition
+      // here, and that is not worth a crash.
+      container
+          .read(badgeUnlockQueueProvider.notifier)
+          .enqueue(['first_cardio', 'badge_from_the_future']);
+
+      expect(queuedKeys(), ['first_cardio']);
+    });
   });
 }

@@ -4,7 +4,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
-import '../../features/workout/data/badge_service.dart';
+import '../../features/workout/domain/badge_catalogue.dart';
 import '../../features/workout/data/workout_tables.dart';
 import '../../features/workout/domain/activity.dart';
 import '../../features/workout/domain/muscle.dart';
@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   final bool _isTesting;
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration {
@@ -141,6 +141,14 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 11) {
           await _migrateToActivityTargets();
+        }
+        if (from < 12) {
+          // v11 to v12: the tiered badge catalogue. No schema change at all —
+          // a badge is a row keyed on badge_key, and _seedBadges upserts on
+          // that key, so introducing twenty-five badges is a re-seed. Without
+          // the version bump an existing install would simply have no rows for
+          // them and could never earn them.
+          await _seedBadges();
         }
       },
       beforeOpen: (details) async {

@@ -3,19 +3,25 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/features/workout/data/badge_service.dart';
+import 'package:fitness_app/features/workout/data/badge_stats.dart';
 
-/// Tests for badge trigger logic.
-/// Each test seeds the minimum data needed to trigger the badge under test,
-/// then calls the evaluation logic directly against the in-memory DB.
-/// We do not use ProviderContainer here — badge evaluation is pure DB logic
-/// and can be tested without the Riverpod layer.
+/// Tests that each badge's criterion means what its name says.
+///
+/// [badge_stats_test.dart] proves the counters; this proves the wiring — that
+/// `sets_50` really is fifty sets and not fifty of something else, and that a
+/// threshold is crossed at the value on the tin.
+///
+/// These used to reimplement the award logic inline, because [BadgeService]
+/// needs a Riverpod `Ref` and could not be called directly. That made them
+/// tests of the test's own SQL. [computeBadgeStats] takes an [AppDatabase]
+/// instead, so the criteria can now be checked against the real thing.
 void main() {
   late AppDatabase db;
 
   setUp(() async {
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    // forTesting skips the seed data in onCreate, so we must seed badges
-    // manually to match what _seedBadges() does in production.
+    // forTesting skips the seed in onCreate, so the badge rows are written by
+    // hand to match what _seedBadges() does in production.
     await _seedBadges(db);
   });
 
@@ -24,44 +30,33 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // Helpers — inline reimplementation of the award logic for test isolation.
-  // We test the DB state changes, not the BadgeService class itself, because
-  // BadgeService requires a Ref. Testing DB state is more valuable anyway —
-  // it proves the write happened, not just that a method was called.
+  // Helpers
   // ---------------------------------------------------------------------------
 
-  Future<void> awardBadge(String key) async {
-    final existing = await (db.select(
-      db.badges,
-    )..where((b) => b.badgeKey.equals(key))).getSingleOrNull();
-    if (existing == null || existing.earnedAt != null) return;
-    await (db.update(db.badges)..where((b) => b.badgeKey.equals(key))).write(
-      BadgesCompanion(earnedAt: Value(DateTime.now())),
-    );
-  }
+  BadgeDefinition badge(String key) =>
+      kAllBadges.firstWhere((b) => b.key == key);
 
-  Future<bool> isBadgeEarned(String key) async {
-    final row = await (db.select(
-      db.badges,
-    )..where((b) => b.badgeKey.equals(key))).getSingleOrNull();
-    return row?.earnedAt != null;
+  /// Whether [key]'s criterion is met by the database as it now stands.
+  Future<bool> earns(String key, {int prCount = 0}) async {
+    final stats = await computeBadgeStats(db, prCount: prCount);
+    return isEarnedBy(badge(key), stats);
   }
 
   Future<int> insertCompletedSession(DateTime date) async {
-    // Normalise to midnight so dates match exactly in the streak set lookup.
-    final midnight = DateTime(date.year, date.month, date.day);
-    final id = await db
+    // Normalise to midday so a session cannot slide into the previous day
+    // under a timezone offset.
+    final day = DateTime(date.year, date.month, date.day, 12);
+    return db
         .into(db.workoutSessions)
         .insert(
           WorkoutSessionsCompanion.insert(
-            startTime: midnight,
-            endTime: Value(midnight.add(const Duration(hours: 1))),
+            startTime: day,
+            endTime: Value(day.add(const Duration(hours: 1))),
           ),
         );
-    return id;
   }
 
-  Future<int> insertExercise(String name) async {
+  Future<int> insertExercise(String name, {bool isCustom = false}) {
     return db
         .into(db.exercises)
         .insert(
@@ -69,8 +64,41 @@ void main() {
             name: name,
             bodyPart: 'Chest',
             equipmentType: 'Barbell',
+            isCustom: Value(isCustom),
           ),
         );
+  }
+
+  // `exercises.name` carries a unique index, so repeated batches need
+  // distinct names.
+  var batchNumber = 0;
+
+  Future<void> insertSets(int count) async {
+    final sessionId = await insertCompletedSession(DateTime.now());
+    final exerciseId = await insertExercise('Bench Press ${batchNumber++}');
+    await db.batch((b) {
+      for (var i = 0; i < count; i++) {
+        b.insert(
+          db.workoutSets,
+          WorkoutSetsCompanion.insert(
+            sessionId: sessionId,
+            exerciseId: exerciseId,
+            weight: const Value(60),
+            reps: const Value(10),
+          ),
+        );
+      }
+    });
+  }
+
+  /// Sessions on each of the last [days] calendar days, today included.
+  Future<void> insertStreak(int days) async {
+    final today = DateTime.now();
+    for (var i = 0; i < days; i++) {
+      await insertCompletedSession(
+        DateTime(today.year, today.month, today.day - i),
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -84,298 +112,166 @@ void main() {
       expect(rows.every((r) => r.earnedAt == null), isTrue);
     });
 
-    test('badge keys are unique', () {
-      final keys = kAllBadges.map((b) => b.key).toSet();
-      expect(keys, hasLength(kAllBadges.length));
-    });
-
     test('re-seeding does not overwrite earned badges', () async {
-      await awardBadge('first_workout');
-      await _seedBadges(db); // re-seed simulates upgrade path
-      expect(await isBadgeEarned('first_workout'), isTrue);
+      await (db.update(db.badges)
+            ..where((b) => b.badgeKey.equals('first_workout')))
+          .write(BadgesCompanion(earnedAt: Value(DateTime(2026, 2, 1))));
+
+      await _seedBadges(db); // simulates the upgrade path
+
+      final row = await (db.select(db.badges)
+            ..where((b) => b.badgeKey.equals('first_workout')))
+          .getSingle();
+      expect(row.earnedAt, DateTime(2026, 2, 1));
     });
   });
 
   // ---------------------------------------------------------------------------
-  // first_workout
+  // Sessions
   // ---------------------------------------------------------------------------
 
-  group('first_workout badge', () {
-    test('awarded after one completed session', () async {
+  group('first_workout', () {
+    test('needs one completed session', () async {
+      expect(await earns('first_workout'), isFalse);
       await insertCompletedSession(DateTime.now());
-      // Evaluate: count completed sessions >= 1
-      final count = await _countCompletedSessions(db);
-      if (count >= 1) await awardBadge('first_workout');
-      expect(await isBadgeEarned('first_workout'), isTrue);
+      expect(await earns('first_workout'), isTrue);
     });
 
-    test('not awarded when no sessions exist', () async {
-      final count = await _countCompletedSessions(db);
-      if (count >= 1) await awardBadge('first_workout');
-      expect(await isBadgeEarned('first_workout'), isFalse);
-    });
-
-    test('not awarded for an incomplete session (no endTime)', () async {
+    test('a session still in progress does not count', () async {
       await db
           .into(db.workoutSessions)
           .insert(WorkoutSessionsCompanion.insert(startTime: DateTime.now()));
-      final count = await _countCompletedSessions(db);
-      if (count >= 1) await awardBadge('first_workout');
-      expect(await isBadgeEarned('first_workout'), isFalse);
+      expect(await earns('first_workout'), isFalse);
+    });
+  });
+
+  group('session milestones', () {
+    test('sessions_10 lands on the tenth', () async {
+      for (var i = 0; i < 9; i++) {
+        await insertCompletedSession(DateTime(2026, 1, 1 + i));
+      }
+      expect(await earns('sessions_10'), isFalse);
+
+      await insertCompletedSession(DateTime(2026, 1, 10));
+      expect(await earns('sessions_10'), isTrue);
+      expect(await earns('sessions_50'), isFalse);
     });
   });
 
   // ---------------------------------------------------------------------------
-  // streak badges
+  // Streaks
   // ---------------------------------------------------------------------------
 
-  group('streak_7_day badge', () {
-    test(
-      'awarded when 7 consecutive calendar days each have a session',
-      () async {
-        final today = DateTime.now();
-        for (int i = 0; i < 7; i++) {
-          final day = DateTime(today.year, today.month, today.day - i);
-          await insertCompletedSession(day);
-        }
+  group('streaks', () {
+    test('7 consecutive days earns the 7-day badge and not the 30', () async {
+      await insertStreak(7);
+      expect(await earns('streak_3_day'), isTrue);
+      expect(await earns('streak_7_day'), isTrue);
+      expect(await earns('streak_30_day'), isFalse);
+    });
 
-        final streak = await _calculateStreak(db, 7);
-        if (streak >= 7) await awardBadge('streak_7_day');
-        final earned = await isBadgeEarned('streak_7_day');
-
-        expect(earned, isTrue);
-      },
-    );
-
-    test('not awarded when streak is broken at day 5', () async {
+    test('a break stops the streak short', () async {
       final today = DateTime.now();
-      // Days 0-4: sessions exist. Day 5: gap. Day 6: session.
-      for (int i in [0, 1, 2, 3, 4, 6]) {
-        final day = today.subtract(Duration(days: i));
+      // Days 0-4, then a gap at day 5, then more history behind it.
+      for (var i = 0; i < 5; i++) {
         await insertCompletedSession(
-          DateTime(day.year, day.month, day.day, 10),
+          DateTime(today.year, today.month, today.day - i),
         );
       }
-      final streak = await _calculateStreak(db, 7);
-      if (streak >= 7) await awardBadge('streak_7_day');
-      expect(await isBadgeEarned('streak_7_day'), isFalse);
-    });
-
-    test('multiple sessions on same day count as one streak day', () async {
-      final today = DateTime.now();
-      for (int i = 0; i < 7; i++) {
-        final day = DateTime(today.year, today.month, today.day - i);
-        await insertCompletedSession(DateTime(day.year, day.month, day.day, 9));
+      for (var i = 6; i < 12; i++) {
         await insertCompletedSession(
-          DateTime(day.year, day.month, day.day, 18),
+          DateTime(today.year, today.month, today.day - i),
         );
       }
-      final streak = await _calculateStreak(db, 7);
-      if (streak >= 7) await awardBadge('streak_7_day');
-      expect(await isBadgeEarned('streak_7_day'), isTrue);
+      expect(await earns('streak_3_day'), isTrue);
+      expect(await earns('streak_7_day'), isFalse);
     });
-  });
 
-  group('streak_30_day badge', () {
-    test('awarded when 30 consecutive days each have a session', () async {
+    test('30 consecutive days is 30, and 29 is not', () async {
+      await insertStreak(29);
+      expect(await earns('streak_30_day'), isFalse);
+
       final today = DateTime.now();
-      for (int i = 0; i < 30; i++) {
-        final day = DateTime(today.year, today.month, today.day - i);
-        await insertCompletedSession(
-          DateTime(day.year, day.month, day.day, 10),
-        );
-      }
-      final streak = await _calculateStreak(db, 30);
-      if (streak >= 30) await awardBadge('streak_30_day');
-      expect(await isBadgeEarned('streak_30_day'), isTrue);
-    });
-
-    test('not awarded for 29 consecutive days', () async {
-      final today = DateTime.now();
-      for (int i = 0; i < 29; i++) {
-        final day = today.subtract(Duration(days: i));
-        await insertCompletedSession(
-          DateTime(day.year, day.month, day.day, 10),
-        );
-      }
-      final streak = await _calculateStreak(db, 30);
-      if (streak >= 30) await awardBadge('streak_30_day');
-      expect(await isBadgeEarned('streak_30_day'), isFalse);
+      await insertCompletedSession(
+        DateTime(today.year, today.month, today.day - 29),
+      );
+      expect(await earns('streak_30_day'), isTrue);
+      expect(await earns('streak_100_day'), isFalse);
     });
   });
 
   // ---------------------------------------------------------------------------
-  // set count badges
+  // Sets and volume
   // ---------------------------------------------------------------------------
 
-  group('sets_50 badge', () {
-    test('awarded exactly at 50 sets', () async {
-      final exId = await insertExercise('Squat');
-      final sessionId = await insertCompletedSession(DateTime.now());
-      for (int i = 0; i < 50; i++) {
-        await db
-            .into(db.workoutSets)
-            .insert(
-              WorkoutSetsCompanion.insert(
-                sessionId: sessionId,
-                exerciseId: exId,
-                weight: const Value(100.0),
-                reps: const Value(5),
-              ),
-            );
-      }
-      final count = await _countSets(db);
-      if (count >= 50) await awardBadge('sets_50');
-      expect(await isBadgeEarned('sets_50'), isTrue);
+  group('set milestones', () {
+    test('sets_50 lands on the fiftieth set', () async {
+      await insertSets(49);
+      expect(await earns('sets_50'), isFalse);
+
+      await insertSets(1);
+      expect(await earns('sets_50'), isTrue);
+      expect(await earns('sets_500'), isFalse);
     });
 
-    test('not awarded at 49 sets', () async {
-      final exId = await insertExercise('Squat');
-      final sessionId = await insertCompletedSession(DateTime.now());
-      for (int i = 0; i < 49; i++) {
-        await db
-            .into(db.workoutSets)
-            .insert(
-              WorkoutSetsCompanion.insert(
-                sessionId: sessionId,
-                exerciseId: exId,
-                weight: const Value(100.0),
-                reps: const Value(5),
-              ),
-            );
-      }
-      final count = await _countSets(db);
-      if (count >= 50) await awardBadge('sets_50');
-      expect(await isBadgeEarned('sets_50'), isFalse);
+    test('sets_500 needs five hundred', () async {
+      await insertSets(500);
+      expect(await earns('sets_500'), isTrue);
     });
   });
 
-  group('sets_500 badge', () {
-    test('awarded exactly at 500 sets', () async {
-      final exId = await insertExercise('Deadlift');
-      final sessionId = await insertCompletedSession(DateTime.now());
-      for (int i = 0; i < 500; i++) {
-        await db
-            .into(db.workoutSets)
-            .insert(
-              WorkoutSetsCompanion.insert(
-                sessionId: sessionId,
-                exerciseId: exId,
-                weight: const Value(100.0),
-                reps: const Value(5),
-              ),
-            );
-      }
-      final count = await _countSets(db);
-      if (count >= 500) await awardBadge('sets_500');
-      expect(await isBadgeEarned('sets_500'), isTrue);
+  group('volume milestones', () {
+    test('ten tonnes is ten thousand kilograms moved', () async {
+      // 16 sets of 60 kg x 10 is 9,600 kg.
+      await insertSets(16);
+      expect(await earns('volume_10t'), isFalse);
+
+      await insertSets(1); // 10,200 kg
+      expect(await earns('volume_10t'), isTrue);
+      expect(await earns('volume_100t'), isFalse);
     });
   });
 
   // ---------------------------------------------------------------------------
-  // PR badges
+  // Personal bests
   // ---------------------------------------------------------------------------
 
-  group('first_pr badge', () {
-    test('awarded when totalPrCount >= 1', () async {
-      const totalPrCount = 1;
-      if (totalPrCount >= 1) await awardBadge('first_pr');
-      expect(await isBadgeEarned('first_pr'), isTrue);
-    });
+  group('personal best milestones', () {
+    test('first_pr needs one, pr_10 needs ten', () async {
+      expect(await earns('first_pr'), isFalse);
+      expect(await earns('first_pr', prCount: 1), isTrue);
 
-    test('not awarded when totalPrCount is 0', () async {
-      const totalPrCount = 0;
-      if (totalPrCount >= 1) await awardBadge('first_pr');
-      expect(await isBadgeEarned('first_pr'), isFalse);
-    });
-  });
-
-  group('pr_10 badge', () {
-    test('awarded when totalPrCount >= 10', () async {
-      const totalPrCount = 10;
-      if (totalPrCount >= 10) await awardBadge('pr_10');
-      expect(await isBadgeEarned('pr_10'), isTrue);
-    });
-
-    test('not awarded at 9 PRs', () async {
-      const totalPrCount = 9;
-      if (totalPrCount >= 10) await awardBadge('pr_10');
-      expect(await isBadgeEarned('pr_10'), isFalse);
+      expect(await earns('pr_10', prCount: 9), isFalse);
+      expect(await earns('pr_10', prCount: 10), isTrue);
+      expect(await earns('pr_50', prCount: 10), isFalse);
     });
   });
 
   // ---------------------------------------------------------------------------
-  // first_custom_exercise badge
+  // Curation
   // ---------------------------------------------------------------------------
 
-  group('first_custom_exercise badge', () {
-    test('awarded when a custom exercise exists', () async {
+  group('curation', () {
+    test('first_custom_exercise ignores the seeded library', () async {
+      await insertExercise('Bench Press');
+      expect(await earns('first_custom_exercise'), isFalse);
+
+      await insertExercise('My Own Lift', isCustom: true);
+      expect(await earns('first_custom_exercise'), isTrue);
+    });
+
+    test('first_split needs a split', () async {
+      expect(await earns('first_split'), isFalse);
       await db
-          .into(db.exercises)
-          .insert(
-            ExercisesCompanion.insert(
-              name: 'Cable Fly',
-              bodyPart: 'Chest',
-              equipmentType: 'Cable',
-              isCustom: const Value(true),
-            ),
-          );
-      final count = await _countCustomExercises(db);
-      if (count >= 1) await awardBadge('first_custom_exercise');
-      expect(await isBadgeEarned('first_custom_exercise'), isTrue);
+          .into(db.workoutSplits)
+          .insert(WorkoutSplitsCompanion.insert(name: 'Push Pull Legs'));
+      expect(await earns('first_split'), isTrue);
     });
-
-    test('not awarded for seeded (non-custom) exercises', () async {
-      // forTesting skips onCreate seeding, but insert a non-custom exercise
-      await db
-          .into(db.exercises)
-          .insert(
-            ExercisesCompanion.insert(
-              name: 'Bench Press',
-              bodyPart: 'Chest',
-              equipmentType: 'Barbell',
-            ),
-          );
-      final count = await _countCustomExercises(db);
-      if (count >= 1) await awardBadge('first_custom_exercise');
-      expect(await isBadgeEarned('first_custom_exercise'), isFalse);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Idempotency
-  // ---------------------------------------------------------------------------
-
-  group('Badge award idempotency', () {
-    test(
-      'awarding same badge twice does not error and earnedAt is stable',
-      () async {
-        await awardBadge('first_workout');
-        final firstEarnedAt =
-            (await (db.select(db.badges)
-                      ..where((b) => b.badgeKey.equals('first_workout')))
-                    .getSingle())
-                .earnedAt;
-
-        await Future.delayed(const Duration(milliseconds: 10));
-        await awardBadge('first_workout'); // second call — should be no-op
-
-        final secondEarnedAt =
-            (await (db.select(db.badges)
-                      ..where((b) => b.badgeKey.equals('first_workout')))
-                    .getSingle())
-                .earnedAt;
-
-        // earnedAt must not change on a re-award — the original timestamp
-        // is preserved. If these are equal the idempotency guard worked.
-        expect(secondEarnedAt, equals(firstEarnedAt));
-      },
-    );
   });
 }
 
 // ---------------------------------------------------------------------------
-// Test-local DB helpers — mirror the logic in BadgeService without Riverpod
+// Test-local seed
 // ---------------------------------------------------------------------------
 
 /// Mirrors production's badge seed.
@@ -384,71 +280,16 @@ void main() {
 /// kept its own copy until recently, so a badge added to the definitions had
 /// no row and could never be awarded.
 Future<void> _seedBadges(AppDatabase db) async {
-  final badgeKeys = [for (final badge in kAllBadges) badge.key];
   await db.batch((b) {
-    for (final key in badgeKeys) {
+    for (final badge in kAllBadges) {
       b.insert(
         db.badges,
-        BadgesCompanion.insert(badgeKey: key),
+        BadgesCompanion.insert(badgeKey: badge.key),
         onConflict: DoUpdate(
-          (_) => BadgesCompanion.insert(badgeKey: key),
+          (_) => BadgesCompanion.insert(badgeKey: badge.key),
           target: [db.badges.badgeKey],
         ),
       );
     }
   });
-}
-
-Future<int> _countCompletedSessions(AppDatabase db) async {
-  final expr = db.workoutSessions.id.count();
-  final q = db.selectOnly(db.workoutSessions)
-    ..where(db.workoutSessions.endTime.isNotNull())
-    ..where(db.workoutSessions.deletedAt.isNull())
-    ..addColumns([expr]);
-  return (await q.getSingle()).read(expr) ?? 0;
-}
-
-Future<int> _countSets(AppDatabase db) async {
-  final expr = db.workoutSets.id.count();
-  final q = db.selectOnly(db.workoutSets)
-    ..where(db.workoutSets.deletedAt.isNull())
-    ..addColumns([expr]);
-  return (await q.getSingle()).read(expr) ?? 0;
-}
-
-Future<int> _countCustomExercises(AppDatabase db) async {
-  final expr = db.exercises.id.count();
-  final q = db.selectOnly(db.exercises)
-    ..where(db.exercises.isCustom.equals(true))
-    ..addColumns([expr]);
-  return (await q.getSingle()).read(expr) ?? 0;
-}
-
-Future<int> _calculateStreak(AppDatabase db, int days) async {
-  final sessions =
-      await (db.select(db.workoutSessions)
-            ..where((s) => s.deletedAt.isNull())
-            ..where((s) => s.endTime.isNotNull()))
-          .get();
-
-  final sessionDays = sessions
-      .map(
-        (s) => DateTime(s.startTime.year, s.startTime.month, s.startTime.day),
-      )
-      .toSet();
-
-  final now = DateTime.now();
-  int consecutive = 0;
-  for (int i = 0; i < days; i++) {
-    // Construct each day explicitly rather than subtracting Duration.
-    // Duration subtraction is DST-unsafe — it subtracts wall-clock seconds,
-    // not calendar days, and will land on the wrong date across DST boundaries.
-    final candidate = DateTime(now.year, now.month, now.day - i);
-    if (sessionDays.contains(candidate)) {
-      consecutive++;
-    } else {
-      break;
-    }
-  }
-  return consecutive;
 }

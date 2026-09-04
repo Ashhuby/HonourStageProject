@@ -1076,7 +1076,7 @@ class _WatchRecentExerciseIdsProviderElement
   int get limit => (origin as WatchRecentExerciseIdsProvider).limit;
 }
 
-String _$sessionRepositoryHash() => r'19cd74c7d6d48f1879095d648e627c7d3fb6db80';
+String _$sessionRepositoryHash() => r'ce9b961526e3b83841538d34f7f8d5155ccea494';
 
 /// See also [SessionRepository].
 @ProviderFor(SessionRepository)

@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../../core/sync/sync_provider.dart';
+import '../data/badge_unlock_queue.dart';
 import '../data/session_repository.dart';
 import 'split_list_screen.dart';
 import 'exercise_library_screen.dart';
@@ -22,11 +23,18 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
 
-  static const _screens = [
-    SplitListScreen(),
-    ExerciseLibraryScreen(),
-    ProgressScreen(),
-    BadgesScreen(),
+  /// The badges tab's index, so the screen can be told when it is on show.
+  static const _badgesTab = 3;
+
+  /// Built rather than const because [BadgesScreen] needs to know whether it
+  /// is the visible tab: an `IndexedStack` builds every child at launch and
+  /// only paints one, so a staggered entrance triggered on first build would
+  /// play to nobody and never play again.
+  List<Widget> get _screens => [
+    const SplitListScreen(),
+    const ExerciseLibraryScreen(),
+    const ProgressScreen(),
+    BadgesScreen(isActive: _currentIndex == _badgesTab),
   ];
 
   @override
@@ -221,6 +229,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
     if (confirmed == true) {
+      // Sign-out resets every badge row, so a celebration still waiting to be
+      // shown belongs to an account that no longer has it.
+      ref.read(badgeUnlockQueueProvider.notifier).clear();
       await ref.read(authRepositoryProvider).signOut();
     }
   }

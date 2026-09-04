@@ -18,6 +18,7 @@
 library;
 
 import '../data/personal_best_repository.dart';
+import 'badge_catalogue.dart';
 import 'distance_bucket.dart';
 
 /// One logged set, joined to the context the replay needs.
@@ -47,23 +48,26 @@ typedef SessionWindow = ({
 /// A badge the user has earned, and when.
 typedef EarnedBadge = ({String badgeKey, DateTime earnedAt});
 
+/// Badges earned by curating the app rather than by training.
+///
+/// Both are evaluated the moment the user creates something, which can happen
+/// mid-workout from the exercise picker — so a session would be credited with
+/// them by accident. Excluding them by name is honest; excluding them by
+/// timing would be luck.
+const Set<String> kCurationBadges = {
+  'first_custom_exercise',
+  'first_split',
+};
+
 /// Badges a session can be credited with.
 ///
-/// `first_custom_exercise` is earned by an act of curation rather than of
-/// training — the editor evaluates badges when an exercise is created, which
-/// can happen mid-workout from the picker. Excluding it by name is honest;
-/// excluding it by timing would be luck.
-const Set<String> kSessionAttributableBadges = {
-  'first_workout',
-  'streak_7_day',
-  'streak_30_day',
-  'first_pr',
-  'pr_10',
-  'sets_50',
-  'sets_500',
-  'first_cardio',
-  'first_mobility',
-  'marathon_distance',
+/// Derived from the catalogue rather than listed, so a new badge is
+/// attributable by default. The previous hand-written list was the second
+/// place a badge had to be registered, and a badge missing from it simply
+/// never appeared as a session chip — with no error to notice.
+final Set<String> kSessionAttributableBadges = {
+  for (final badge in kAllBadges)
+    if (!kCurationBadges.contains(badge.key)) badge.key,
 };
 
 /// How long after a session ends a badge may still belong to it.

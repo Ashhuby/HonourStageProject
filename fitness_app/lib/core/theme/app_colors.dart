@@ -32,6 +32,21 @@ class OneRepColors {
   /// 20% gold — used for subtle gold overlays and highlights.
   static const Color goldDim = Color(0x33D4AF37);
 
+  // ---------------------------------------------------------------------------
+  // Badge tiers
+  // ---------------------------------------------------------------------------
+  //
+  // [gold] above is the tier colour for BadgeTier.gold as well as the app's
+  // general achievement accent, so the ladder is built around it rather than
+  // beside it. Bronze and silver are the conventional metals; platinum takes an
+  // icy blue-white rather than a true platinum grey, which on this background
+  // would be indistinguishable from [textPrimary] — it is the rarest tier and
+  // has to read as such.
+
+  static const Color bronze = Color(0xFFCD7F32);
+  static const Color silver = Color(0xFFC8CDD4);
+  static const Color platinum = Color(0xFF9FE8F5);
+
   /// Coral — rest timer warning state.
   static const Color coral = Color(0xFFFF6B6B);
 
