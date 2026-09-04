@@ -47,6 +47,24 @@ class OneRepColors {
   static const Color silver = Color(0xFFC8CDD4);
   static const Color platinum = Color(0xFF9FE8F5);
 
+  // ---------------------------------------------------------------------------
+  // Ranks
+  // ---------------------------------------------------------------------------
+  //
+  // A separate ladder from the badge tiers above, and separated by hue rather
+  // than by shade on purpose: the two appear together in the badges header, so
+  // a rank has to be told apart from a tier at a glance and not only by
+  // reading the label. Each step moves round the wheel — dull grey, warm
+  // copper, cold steel, violet, teal, and finally a near-white that is meant
+  // to be the brightest thing on the screen.
+
+  static const Color iron = Color(0xFF77808C);
+  static const Color copper = Color(0xFFD1603A);
+  static const Color steel = Color(0xFF6E93B8);
+  static const Color obsidian = Color(0xFF9B7EDE);
+  static const Color titanium = Color(0xFF52E0C4);
+  static const Color mithril = Color(0xFFDCE9FF);
+
   /// Coral — rest timer warning state.
   static const Color coral = Color(0xFFFF6B6B);
 

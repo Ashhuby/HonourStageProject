@@ -6,7 +6,7 @@ part of 'badge_unlock_queue.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$badgeUnlockQueueHash() => r'18c2b4ae0ee49aa31d6680cefdd7834c358475d2';
+String _$badgeUnlockQueueHash() => r'8fca5b75548ca2d0ab2536f6f97bb479f716f1c1';
 
 /// The pending celebrations, oldest first.
 ///

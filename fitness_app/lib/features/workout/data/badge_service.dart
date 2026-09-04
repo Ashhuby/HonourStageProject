@@ -134,11 +134,7 @@ class BadgeService extends _$BadgeService {
       only: wanted,
     );
 
-    final awarded = await awardEarnedBadges(db, stats, candidates: unearned);
-    if (awarded.isNotEmpty) {
-      ref.read(badgeUnlockQueueProvider.notifier).enqueue(awarded);
-    }
-    return awarded;
+    return awardAndCelebrate(ref, db, stats, candidates: unearned);
   }
 
   // ---------------------------------------------------------------------------

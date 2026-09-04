@@ -6,6 +6,8 @@ import 'package:fitness_app/core/database/database_provider.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/features/workout/data/badge_service.dart';
 import 'package:fitness_app/features/workout/data/badge_unlock_queue.dart';
+import 'package:fitness_app/features/workout/data/rank_up_queue.dart';
+import 'package:fitness_app/features/workout/domain/rank.dart';
 import 'package:fitness_app/features/workout/data/exercise_repository.dart';
 import 'package:fitness_app/features/workout/domain/activity.dart';
 import 'package:fitness_app/features/workout/domain/muscle.dart';
@@ -254,9 +256,10 @@ void main() {
     });
 
     test('dismissing takes them one at a time, oldest first', () async {
-      container
-          .read(badgeUnlockQueueProvider.notifier)
-          .enqueue(['first_cardio', 'first_mobility']);
+      container.read(badgeUnlockQueueProvider.notifier).enqueue([
+        'first_cardio',
+        'first_mobility',
+      ]);
 
       expect(queuedKeys(), ['first_cardio', 'first_mobility']);
 
@@ -274,11 +277,85 @@ void main() {
     test('an unknown key is skipped rather than throwing', () {
       // A badge row synced from a newer version of the app has no definition
       // here, and that is not worth a crash.
-      container
-          .read(badgeUnlockQueueProvider.notifier)
-          .enqueue(['first_cardio', 'badge_from_the_future']);
+      container.read(badgeUnlockQueueProvider.notifier).enqueue([
+        'first_cardio',
+        'badge_from_the_future',
+      ]);
 
       expect(queuedKeys(), ['first_cardio']);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Rank
+  // ---------------------------------------------------------------------------
+  //
+  // A rank is a sum of the badges held, so it can only move when badges are
+  // awarded. It is worked out on the award path rather than watched, which
+  // means a rank-up that is not announced here is one the user only discovers
+  // by noticing a header reading differently.
+
+  group('rank', () {
+    test('a first badge is not yet a rank-up', () async {
+      // Iron is where everyone starts. Announcing it would celebrate standing
+      // still.
+      final id = await addExercise(
+        name: 'Canal Run',
+        category: ExerciseCategory.cardio,
+        modality: CardioModality.run,
+        metricType: 'distanceTime',
+      );
+      await logSet(id, distanceMetres: 3000);
+
+      await evaluate();
+
+      expect(queuedKeys(), isNotEmpty);
+      expect(container.read(rankUpQueueProvider), isNull);
+    });
+
+    test('crossing a threshold announces the rank reached', () async {
+      // Parked one point below Copper, awarded by hand rather than trained
+      // for: the arithmetic is what is under test, and earning eleven points
+      // through the fixtures would prove nothing extra. The two badges the
+      // fixture is about to award are held back so the twelfth point is the
+      // one that crosses.
+      final filler = [
+        for (final badge in kAllBadges)
+          if (badge.tier == BadgeTier.bronze &&
+              badge.key != 'first_cardio' &&
+              badge.key != 'first_workout')
+            badge.key,
+      ].take(Rank.copper.threshold - 1).toList();
+
+      expect(filler, hasLength(Rank.copper.threshold - 1));
+      await (db.update(db.badges)..where((b) => b.badgeKey.isIn(filler))).write(
+        BadgesCompanion(earnedAt: Value(DateTime(2026, 6, 1))),
+      );
+
+      final id = await addExercise(
+        name: 'Canal Run',
+        category: ExerciseCategory.cardio,
+        modality: CardioModality.run,
+        metricType: 'distanceTime',
+      );
+      await logSet(id, distanceMetres: 3000);
+
+      await evaluate();
+
+      expect(queuedKeys(), contains('first_cardio'));
+      expect(container.read(rankUpQueueProvider), Rank.copper);
+    });
+
+    test('the announcement is cleared once, and stays cleared', () async {
+      container.read(rankUpQueueProvider.notifier).announce(Rank.steel);
+      expect(container.read(rankUpQueueProvider), Rank.steel);
+
+      container.read(rankUpQueueProvider.notifier).clear();
+      expect(container.read(rankUpQueueProvider), isNull);
+
+      // Clearing nothing is a no-op, not a state change.
+      container.read(rankUpQueueProvider.notifier).clear();
+      expect(container.read(rankUpQueueProvider), isNull);
     });
   });
 }

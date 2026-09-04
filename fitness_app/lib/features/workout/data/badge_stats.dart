@@ -22,7 +22,9 @@ import '../../profile/data/profile_provider.dart';
 import '../domain/activity.dart';
 import '../domain/badge_catalogue.dart';
 import '../domain/muscle.dart';
+import '../domain/rank.dart';
 import 'badge_unlock_queue.dart';
+import 'rank_up_queue.dart';
 import 'personal_best_repository.dart';
 import 'strength_standards_data.dart';
 
@@ -454,6 +456,47 @@ Future<bool> _awardIfNotEarned(AppDatabase db, String key) async {
   return true;
 }
 
+/// Awards what [stats] has earned and queues the celebrations for it.
+///
+/// The one entry point both callers use — the service after a set is logged,
+/// and the progress stream when the badges screen reconciles — so awarding,
+/// the unlock celebration and the rank-up cannot come apart from each other.
+Future<List<String>> awardAndCelebrate(
+  Ref ref,
+  AppDatabase db,
+  BadgeStats stats, {
+  List<BadgeDefinition>? candidates,
+}) async {
+  final unearned = candidates ?? await unearnedBadges(db);
+  final awarded = await awardEarnedBadges(db, stats, candidates: unearned);
+  if (awarded.isEmpty) return awarded;
+
+  ref.read(badgeUnlockQueueProvider.notifier).enqueue(awarded);
+
+  // A rank is a summary of the badges held, so it can only ever move when
+  // badges are awarded — worked out here from what just changed rather than
+  // watched, so the user is told about it instead of finding a header reading
+  // differently the next time they look.
+  final stillLocked = {for (final def in unearned) def.key};
+  final heldBefore = [
+    for (final def in kAllBadges)
+      if (!stillLocked.contains(def.key)) def.tier,
+  ];
+  final justEarned = awarded.toSet();
+  final heldAfter = [
+    ...heldBefore,
+    for (final def in unearned)
+      if (justEarned.contains(def.key)) def.tier,
+  ];
+
+  final climbedTo = rankForPoints(rankPointsOf(heldAfter));
+  if (climbedTo != rankForPoints(rankPointsOf(heldBefore))) {
+    ref.read(rankUpQueueProvider.notifier).announce(climbedTo);
+  }
+
+  return awarded;
+}
+
 // ---------------------------------------------------------------------------
 // Providers
 // ---------------------------------------------------------------------------
@@ -501,10 +544,7 @@ Stream<BadgeStats> badgeProgress(Ref ref) {
         // locked while this very snapshot showed it at 100%, which is how the
         // "Next up" list ended up recommending a badge that was already done.
         // Reconciling here means reading progress also settles the awards.
-        final awarded = await awardEarnedBadges(db, stats);
-        if (awarded.isNotEmpty) {
-          ref.read(badgeUnlockQueueProvider.notifier).enqueue(awarded);
-        }
+        await awardAndCelebrate(ref, db, stats);
 
         return stats;
       });

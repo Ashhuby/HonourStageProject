@@ -28,7 +28,7 @@ final watchBadgesProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef WatchBadgesRef = AutoDisposeStreamProviderRef<List<BadgeViewModel>>;
-String _$badgeServiceHash() => r'd630cf01bd1098d195e95276b8926506d58b495e';
+String _$badgeServiceHash() => r'1edd0f22cae3c695ca74ac15f621da8682497335';
 
 /// See also [BadgeService].
 @ProviderFor(BadgeService)

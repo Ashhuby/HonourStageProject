@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/features/workout/data/badge_unlock_queue.dart';
+import 'package:fitness_app/features/workout/data/rank_up_queue.dart';
+import 'package:fitness_app/features/workout/domain/rank.dart';
 import 'package:fitness_app/features/workout/presentation/widgets/badge_unlock_overlay.dart';
 
 /// Tests the unlock celebration.
@@ -34,11 +36,32 @@ void main() {
   void enqueue(List<String> keys) =>
       container.read(badgeUnlockQueueProvider.notifier).enqueue(keys);
 
+  void announce(Rank rank) =>
+      container.read(rankUpQueueProvider.notifier).announce(rank);
+
   /// Runs the reveal to completion. The host adopts the queue in a
   /// post-frame callback, so an extra pump is needed before the animation.
   Future<void> settleReveal(WidgetTester tester) async {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1500));
+  }
+
+  /// Runs the exit fade out and lets whatever is next be adopted.
+  ///
+  /// Spelled out rather than done with `pumpAndSettle`: the countdown under
+  /// the button animates for as long as the hold lasts, so settling would run
+  /// the hold out too and dismiss the very celebration the test is inspecting.
+  Future<void> settleFade(WidgetTester tester) async {
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+  }
+
+  /// Dismisses what is on screen and reveals whatever follows it.
+  Future<void> tapNice(WidgetTester tester) async {
+    await tester.tap(find.text('NICE'));
+    await settleFade(tester);
+    await settleReveal(tester);
   }
 
   /// Waits out the auto-dismiss and the fade that follows it.
@@ -48,7 +71,7 @@ void main() {
   /// is exactly the state the app was getting stuck in.
   Future<void> waitOutHold(WidgetTester tester) async {
     await tester.pump(const Duration(seconds: 6));
-    await tester.pumpAndSettle();
+    await settleFade(tester);
   }
 
   testWidgets('nothing is shown while the queue is empty', (tester) async {
@@ -93,8 +116,7 @@ void main() {
     enqueue(['first_workout']);
     await settleReveal(tester);
 
-    await tester.tap(find.text('NICE'));
-    await tester.pumpAndSettle();
+    await tapNice(tester);
 
     expect(find.text('BADGE UNLOCKED'), findsNothing);
     expect(container.read(badgeUnlockQueueProvider), isEmpty);
@@ -110,16 +132,14 @@ void main() {
     expect(find.text('Off the Rack'), findsNothing);
     expect(find.text('1 more to go'), findsOneWidget);
 
-    await tester.tap(find.text('NICE'));
-    await tester.pumpAndSettle();
+    await tapNice(tester);
 
     expect(find.text('First Rep'), findsNothing);
     expect(find.text('Off the Rack'), findsOneWidget);
     // Nothing behind this one, so no count.
     expect(find.textContaining('more to go'), findsNothing);
 
-    await tester.tap(find.text('NICE'));
-    await tester.pumpAndSettle();
+    await tapNice(tester);
 
     expect(find.text('BADGE UNLOCKED'), findsNothing);
     expect(container.read(badgeUnlockQueueProvider), isEmpty);
@@ -136,8 +156,7 @@ void main() {
     expect(find.text('First Rep'), findsOneWidget);
     expect(find.text('Off the Rack'), findsNothing);
 
-    await tester.tap(find.text('NICE'));
-    await tester.pumpAndSettle();
+    await tapNice(tester);
     expect(find.text('Off the Rack'), findsOneWidget);
 
     await waitOutHold(tester);
@@ -188,8 +207,7 @@ void main() {
       enqueue(pile);
       await settleReveal(tester);
 
-      await tester.tap(find.text('NICE'));
-      await tester.pumpAndSettle();
+      await tapNice(tester);
 
       expect(container.read(badgeUnlockQueueProvider), isEmpty);
       expect(find.textContaining('UNLOCKED'), findsNothing);
@@ -203,7 +221,7 @@ void main() {
 
     // Anywhere outside the button — the whole scrim is the dismiss target.
     await tester.tapAt(const Offset(20, 20));
-    await tester.pumpAndSettle();
+    await settleFade(tester);
 
     expect(find.text('BADGE UNLOCKED'), findsNothing);
   });
@@ -265,6 +283,65 @@ void main() {
     expect(finished, isTrue);
   });
 
+  group('rank up', () {
+    testWidgets('is celebrated on its own', (tester) async {
+      await pumpHost(tester);
+      announce(Rank.steel);
+      await settleReveal(tester);
+
+      expect(find.text('RANK UP'), findsOneWidget);
+      expect(find.text('Steel'), findsOneWidget);
+
+      await waitOutHold(tester);
+      expect(container.read(rankUpQueueProvider), isNull);
+    });
+
+    testWidgets('waits until the badges that caused it are shown', (
+      tester,
+    ) async {
+      // A rank is the sum of the badges just earned, so announcing it first
+      // would give away the ending.
+      await pumpHost(tester);
+      enqueue(['first_workout']);
+      announce(Rank.copper);
+      await settleReveal(tester);
+
+      expect(find.text('BADGE UNLOCKED'), findsOneWidget);
+      expect(find.text('RANK UP'), findsNothing);
+      // The rank counts towards what is still to come.
+      expect(find.text('1 more to go'), findsOneWidget);
+
+      await tapNice(tester);
+
+      expect(find.text('RANK UP'), findsOneWidget);
+      expect(find.text('Copper'), findsOneWidget);
+
+      await waitOutHold(tester);
+      expect(container.read(badgeUnlockQueueProvider), isEmpty);
+      expect(container.read(rankUpQueueProvider), isNull);
+    });
+
+    testWidgets('says what the next rank is, and what the last one means', (
+      tester,
+    ) async {
+      await pumpHost(tester);
+      announce(Rank.values.last);
+      await settleReveal(tester);
+
+      // Nothing above the top, so it must not promise a rank that does not
+      // exist.
+      expect(find.textContaining('counts towards'), findsNothing);
+
+      await waitOutHold(tester);
+
+      announce(Rank.iron);
+      await settleReveal(tester);
+      expect(find.textContaining(Rank.iron.next!.label), findsOneWidget);
+
+      await waitOutHold(tester);
+    });
+  });
+
   testWidgets('the app underneath is not tappable through the scrim', (
     tester,
   ) async {
@@ -290,7 +367,7 @@ void main() {
     await settleReveal(tester);
 
     await tester.tapAt(const Offset(20, 20));
-    await tester.pumpAndSettle();
+    await settleFade(tester);
 
     expect(tapsUnderneath, 0);
   });

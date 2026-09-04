@@ -5,8 +5,10 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../data/badge_service.dart';
 import '../data/badge_stats.dart';
+import '../domain/rank.dart';
 import 'widgets/badge_tile.dart';
 import 'widgets/badge_visuals.dart';
+import 'widgets/rank_visuals.dart';
 
 /// How many badges the "next up" section suggests.
 const int _kNextUpCount = 3;
@@ -124,9 +126,7 @@ class _BadgesBody extends StatelessWidget {
             .toList()
           ..sort((a, b) => b.fraction.compareTo(a.fraction));
 
-    return [
-      for (final entry in candidates.take(_kNextUpCount)) entry.badge,
-    ];
+    return [for (final entry in candidates.take(_kNextUpCount)) entry.badge];
   }
 
   @override
@@ -189,8 +189,7 @@ class _BadgesBody extends StatelessWidget {
               itemBuilder: (context, index) => BadgeNextUpRow(
                 badge: nextUp[index],
                 stats: snapshot,
-                onTap: () =>
-                    showBadgeDetail(context, nextUp[index], snapshot),
+                onTap: () => showBadgeDetail(context, nextUp[index], snapshot),
               ),
             ),
           ),
@@ -282,12 +281,23 @@ class _SummaryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = total == 0 ? 0.0 : earned / total;
-
     final byTier = <BadgeTier, int>{
       for (final tier in BadgeTier.values)
         tier: badges.where((b) => b.isEarned && b.tier == tier).length,
     };
+
+    // The rank is read off the badges already on screen rather than from a
+    // provider of its own. There is no second source of truth to fall out of
+    // step, and the header cannot show a rank the grid below it disagrees
+    // with.
+    final standing = standingFor(
+      rankPointsOf([
+        for (final badge in badges)
+          if (badge.isEarned) badge.tier,
+      ]),
+    );
+    final rank = standing.rank;
+    final tint = rank.color;
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -295,64 +305,87 @@ class _SummaryHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: OneRepColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: const Border(
-          left: BorderSide(color: OneRepColors.gold, width: 3),
-        ),
+        border: Border(left: BorderSide(color: tint, width: 3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                '$earned',
-                style: const TextStyle(
-                  color: OneRepColors.gold,
-                  fontSize: 48,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
+              RankCrest(rank: rank, size: 62, progress: standing.fraction),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      rank.label.toUpperCase(),
+                      style: TextStyle(
+                        color: tint,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.5,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      // Points, not badges: the two differ, and the header is
+                      // the only place that explains why a platinum badge
+                      // moved the bar further than a bronze one.
+                      standing.next == null
+                          ? '${standing.points} pts · top rank'
+                          : '${standing.points} pts · '
+                                '${standing.pointsToNext} to '
+                                '${standing.next!.label}',
+                      style: const TextStyle(
+                        color: OneRepColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6, left: 4),
-                child: Text(
-                  '/ $total',
-                  style: const TextStyle(
-                    color: OneRepColors.textSecondary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w400,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$earned',
+                    style: const TextStyle(
+                      color: OneRepColors.gold,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
                   ),
-                ),
-              ),
-              const Spacer(),
-              const Icon(
-                Icons.emoji_events,
-                color: OneRepColors.gold,
-                size: 32,
+                  const SizedBox(height: 2),
+                  Text(
+                    'of $total',
+                    style: const TextStyle(
+                      color: OneRepColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'ACHIEVEMENTS UNLOCKED',
-            style: TextStyle(
-              color: OneRepColors.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+
+          // Progress through the current rank, not through the catalogue. The
+          // badge count beside the crest already says how much is left
+          // overall, and a bar that only fills once every badge is earned
+          // barely moves.
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
-              value: progress,
+              value: standing.fraction,
               minHeight: 6,
               backgroundColor: OneRepColors.surfaceHighest,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                OneRepColors.gold,
-              ),
+              valueColor: AlwaysStoppedAnimation<Color>(tint),
             ),
           ),
           const SizedBox(height: 12),
@@ -480,7 +513,9 @@ class _Chip extends StatelessWidget {
         onSelected: (_) => onSelected(),
         showCheckmark: false,
         labelStyle: TextStyle(
-          color: selected ? OneRepColors.background : OneRepColors.textSecondary,
+          color: selected
+              ? OneRepColors.background
+              : OneRepColors.textSecondary,
           fontSize: 12,
           fontWeight: FontWeight.w700,
         ),

@@ -4,8 +4,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../../core/sync/sync_provider.dart';
+import '../data/badge_service.dart';
 import '../data/badge_unlock_queue.dart';
+import '../data/rank_up_queue.dart';
 import '../data/session_repository.dart';
+import '../domain/rank.dart';
+import 'widgets/rank_visuals.dart';
 import 'split_list_screen.dart';
 import 'exercise_library_screen.dart';
 import 'active_session_screen.dart';
@@ -230,8 +234,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     if (confirmed == true) {
       // Sign-out resets every badge row, so a celebration still waiting to be
-      // shown belongs to an account that no longer has it.
+      // shown belongs to an account that no longer has it — and a rank is
+      // only ever a sum of those badges.
       ref.read(badgeUnlockQueueProvider.notifier).clear();
+      ref.read(rankUpQueueProvider.notifier).clear();
       await ref.read(authRepositoryProvider).signOut();
     }
   }
@@ -449,17 +455,49 @@ class _OneRepNavBar extends StatelessWidget {
                 active: currentIndex == 2,
                 onTap: () => onTap(2),
               ),
-              _NavItem(
-                icon: Icons.emoji_events_outlined,
-                activeIcon: Icons.emoji_events,
-                label: 'Badges',
-                active: currentIndex == 3,
-                onTap: () => onTap(3),
-              ),
+              _BadgesNavItem(active: currentIndex == 3, onTap: () => onTap(3)),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The Badges tab, wearing the user's rank.
+///
+/// The rank is a summary of a screen the user is not looking at, so it earns
+/// its place here: a crest on the tab means the ladder is visible from
+/// anywhere in the app rather than only from the screen that explains it.
+class _BadgesNavItem extends ConsumerWidget {
+  const _BadgesNavItem({required this.active, required this.onTap});
+
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Falls back to no crest while the badges are loading rather than to Iron,
+    // which would flash the lowest rank at a user who is not on it.
+    final badges = ref.watch(watchBadgesProvider).valueOrNull;
+    final rank = badges == null
+        ? null
+        : rankForPoints(
+            rankPointsOf([
+              for (final badge in badges)
+                if (badge.isEarned) badge.tier,
+            ]),
+          );
+
+    return _NavItem(
+      icon: Icons.emoji_events_outlined,
+      activeIcon: Icons.emoji_events,
+      label: 'Badges',
+      active: active,
+      onTap: onTap,
+      corner: rank == null
+          ? null
+          : RankCrest(rank: rank, size: 16, showNumeral: false),
     );
   }
 }
@@ -471,12 +509,17 @@ class _NavItem extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
 
+  /// A small marker pinned to the icon's top-right, for a tab that has
+  /// something to say while you are elsewhere.
+  final Widget? corner;
+
   const _NavItem({
     required this.icon,
     required this.activeIcon,
     required this.label,
     required this.active,
     required this.onTap,
+    this.corner,
   });
 
   @override
@@ -498,10 +541,19 @@ class _NavItem extends StatelessWidget {
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(
-                active ? activeIcon : icon,
-                size: 22,
-                color: active ? OneRepColors.gold : OneRepColors.textSecondary,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    active ? activeIcon : icon,
+                    size: 22,
+                    color: active
+                        ? OneRepColors.gold
+                        : OneRepColors.textSecondary,
+                  ),
+                  if (corner != null)
+                    Positioned(top: -5, right: -8, child: corner!),
+                ],
               ),
             ),
             const SizedBox(height: 2),
