@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fitness_app/core/database/local_database.dart';
+import 'package:fitness_app/features/workout/domain/attendance.dart';
 import 'package:fitness_app/features/workout/domain/progress_series.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
@@ -140,7 +141,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
               // Without this the section is a heading, a picker and then
               // nothing, which reads as a screen that failed to load rather
               // than as one waiting on a choice.
-              const _PrPlaceholder(
+              const _EmptyPanel(
                 icon: Icons.show_chart,
                 message: 'Pick an exercise above.',
                 detail: 'Its best effort in every session is plotted here.',
@@ -472,7 +473,7 @@ class _SessionRow extends StatelessWidget {
 
 /// How many sessions a day can show before the shading stops deepening.
 ///
-/// Three, because `_attendanceColor` saturates there — a legend offering a
+/// Three, because [_attendanceColour] saturates there — a legend offering a
 /// fourth step would be describing a colour the grid never draws.
 const int _kAttendanceMaxShade = 3;
 
@@ -482,163 +483,285 @@ const int _kAttendanceMaxShade = 3;
 /// `0.25 + count * 0.25` against `0.2 + i * 0.22` — which had no value in
 /// common, so the legend was a key to a scale that appeared nowhere on the
 /// chart it sat under.
-Color _attendanceColor(int sessions) {
+Color _attendanceColour(int sessions) {
   if (sessions <= 0) return OneRepColors.surfaceElevated;
   return OneRepColors.gold.withValues(
     alpha: (0.25 + sessions * 0.25).clamp(0.25, 1.0),
   );
 }
 
+const List<String> _kMonthAbbreviations = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/// Width reserved down the left for month labels.
+const double _kMonthGutter = 30;
+
 class _AttendanceHeatmap extends StatelessWidget {
   final Map<DateTime, int> attendance;
 
   const _AttendanceHeatmap({required this.attendance});
-
-  // Convert attendance map (DateTime keys) to string keys to avoid
-  // any DateTime isUtc equality issues.
-  Map<String, int> _toStringMap(Map<DateTime, int> attendance) {
-    return {
-      for (final e in attendance.entries)
-        '${e.key.year}-${e.key.month.toString().padLeft(2, '0')}-${e.key.day.toString().padLeft(2, '0')}':
-            e.value,
-    };
-  }
 
   @override
   Widget build(BuildContext context) {
     // Without this the grid renders 84 blank cells, which reads as broken
     // rather than as empty. Every other section on this tab says so in words.
     if (attendance.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: Center(
-          child: Text(
-            'No sessions in the last 12 weeks.',
-            style: TextStyle(color: OneRepColors.textSecondary, fontSize: 13),
-          ),
-        ),
+      return const _EmptyPanel(
+        icon: Icons.grid_view,
+        message: 'No sessions in the last 12 weeks.',
+        detail: 'Finish a workout and the day fills in here.',
       );
     }
 
-    final stringMap = _toStringMap(attendance);
-    final today = DateTime.now();
-    final todayNorm = DateTime(today.year, today.month, today.day);
+    final grid = attendanceGrid(attendance);
+    final summary = summariseAttendance(grid);
 
-    // Align grid to start on Monday
-    final daysToLastMonday = (todayNorm.weekday - 1) % 7;
-    final gridStart = todayNorm.subtract(Duration(days: daysToLastMonday + 77));
-
-    // Build exactly 12 weeks (84 days) from that Monday
-    final List<DateTime> days = List.generate(
-      84,
-      (i) => gridStart.add(Duration(days: i)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _AttendanceSummary(summary: summary),
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _WeekdayHeader(),
+              const SizedBox(height: 6),
+              for (var week = 0; week < grid.length; week++)
+                _AttendanceWeek(
+                  days: grid[week],
+                  // A row is labelled when its month differs from the row
+                  // above it. Twelve unlabelled rows are a pattern with no
+                  // anchor — you can see the shape of your training without
+                  // being able to say when any of it happened.
+                  month:
+                      week == 0 ||
+                          grid[week].first.date.month !=
+                              grid[week - 1].first.date.month
+                      ? _kMonthAbbreviations[grid[week].first.date.month - 1]
+                      : null,
+                ),
+              const SizedBox(height: 8),
+              const _AttendanceLegend(),
+            ],
+          ),
+        ),
+      ],
     );
+  }
+}
 
-    final List<List<DateTime>> weeks = [];
-    for (int i = 0; i < days.length; i += 7) {
-      weeks.add(days.sublist(i, (i + 7).clamp(0, days.length)));
-    }
+/// What the twelve weeks add up to.
+///
+/// Deliberately not the streak or the lifetime total — those are the stat
+/// cards at the top of this screen, and repeating them here would fill the
+/// space without adding anything. These describe the window on screen.
+class _AttendanceSummary extends StatelessWidget {
+  const _AttendanceSummary({required this.summary});
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
+  final AttendanceSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: OneRepColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Day labels
-          Row(
-            children: ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d) {
-              return Expanded(
-                child: Center(
-                  child: Text(
-                    d,
-                    style: const TextStyle(
-                      color: OneRepColors.textDisabled,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 6),
-          // Grid
-          ...weeks.map(
-            (week) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                children: [
-                  ...week.map((day) {
-                    final key =
-                        '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-                    final count = stringMap[key] ?? 0;
-                    final isToday =
-                        day.year == todayNorm.year &&
-                        day.month == todayNorm.month &&
-                        day.day == todayNorm.day;
-                    return Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: _attendanceColor(count),
-                          borderRadius: BorderRadius.circular(3),
-                          border: isToday
-                              ? Border.all(color: OneRepColors.gold, width: 1.5)
-                              : null,
-                        ),
-                      ),
-                    );
-                  }),
-                  // Pad incomplete final week
-                  if (week.length < 7)
-                    ...List.generate(
-                      7 - week.length,
-                      (_) => const Expanded(child: SizedBox()),
-                    ),
-                ],
-              ),
+          Expanded(
+            child: _StatCell(
+              label: 'SESSIONS',
+              value: '${summary.sessions}',
+              caption:
+                  '${summary.daysTrained} '
+                  '${summary.daysTrained == 1 ? 'day' : 'days'} trained',
+              emphasis: OneRepColors.gold,
             ),
           ),
-          const SizedBox(height: 6),
-          // Legend
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              const Text(
-                'Less',
-                style: TextStyle(
-                  color: OneRepColors.textDisabled,
-                  fontSize: 10,
-                ),
-              ),
-              const SizedBox(width: 4),
-              // Starts at zero sessions, so the leftmost swatch is the empty
-              // cell the grid actually draws, and stops where the shading
-              // stops deepening rather than inventing a fourth step.
-              ...List.generate(_kAttendanceMaxShade + 1, (sessions) {
-                return Container(
-                  width: 14,
-                  height: 14,
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  decoration: BoxDecoration(
-                    color: _attendanceColor(sessions),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                );
-              }),
-              const SizedBox(width: 4),
-              const Text(
-                'More',
-                style: TextStyle(
-                  color: OneRepColors.textDisabled,
-                  fontSize: 10,
-                ),
-              ),
-            ],
+          const _StatDivider(),
+          Expanded(
+            child: _StatCell(
+              label: 'PER WEEK',
+              value: summary.sessionsPerWeek.toStringAsFixed(1),
+              caption: '${summary.weeksTrained} of $kAttendanceWeeks weeks',
+            ),
+          ),
+          const _StatDivider(),
+          Expanded(
+            child: _StatCell(
+              label: 'BEST WEEK',
+              value: '${summary.bestWeek}',
+              caption: summary.bestWeek == 1 ? 'session' : 'sessions',
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _WeekdayHeader extends StatelessWidget {
+  const _WeekdayHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const SizedBox(width: _kMonthGutter),
+        for (final day in const ['M', 'T', 'W', 'T', 'F', 'S', 'S'])
+          Expanded(
+            child: Center(
+              child: Text(
+                day,
+                style: const TextStyle(
+                  color: OneRepColors.textDisabled,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _AttendanceWeek extends StatelessWidget {
+  const _AttendanceWeek({required this.days, required this.month});
+
+  final List<AttendanceDay> days;
+
+  /// Shown in the gutter when this row opens a new month.
+  final String? month;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: _kMonthGutter,
+            child: Text(
+              month ?? '',
+              style: const TextStyle(
+                color: OneRepColors.textDisabled,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          for (final day in days) Expanded(child: _AttendanceCell(day: day)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceCell extends StatelessWidget {
+  const _AttendanceCell({required this.day});
+
+  final AttendanceDay day;
+
+  @override
+  Widget build(BuildContext context) {
+    final cell = Container(
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      height: 18,
+      decoration: BoxDecoration(
+        // A day that has not happened yet is drawn as an outline rather than
+        // as an empty cell, so the rest of the current week stops reading as
+        // four missed sessions every Monday.
+        color: day.isFuture
+            ? Colors.transparent
+            : _attendanceColour(day.sessions),
+        borderRadius: BorderRadius.circular(3),
+        border: day.isToday
+            ? Border.all(color: OneRepColors.gold, width: 1.5)
+            : day.isFuture
+            ? Border.all(color: OneRepColors.surfaceElevated, width: 1)
+            : null,
+      ),
+    );
+
+    // Future days have nothing to report, and a tooltip promising one is
+    // worse than none.
+    if (day.isFuture) return cell;
+
+    return Tooltip(
+      // The grid shows a shape; the numbers behind it were unreachable. A
+      // tooltip on tap is the whole interaction the heatmap was missing.
+      message:
+          '${day.sessions == 0 ? 'No' : day.sessions} '
+          '${day.sessions == 1 ? 'session' : 'sessions'}\n'
+          '${formatShortDate(day.date)}',
+      triggerMode: TooltipTriggerMode.tap,
+      preferBelow: false,
+      textAlign: TextAlign.center,
+      decoration: BoxDecoration(
+        color: OneRepColors.surfaceHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      textStyle: const TextStyle(
+        color: OneRepColors.textPrimary,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+      child: cell,
+    );
+  }
+}
+
+class _AttendanceLegend extends StatelessWidget {
+  const _AttendanceLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        const Text(
+          'Less',
+          style: TextStyle(color: OneRepColors.textDisabled, fontSize: 10),
+        ),
+        const SizedBox(width: 4),
+        // Starts at zero sessions, so the leftmost swatch is the empty cell
+        // the grid actually draws, and stops where the shading stops
+        // deepening rather than inventing a fourth step.
+        for (var sessions = 0; sessions <= _kAttendanceMaxShade; sessions++)
+          Container(
+            width: 14,
+            height: 14,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            decoration: BoxDecoration(
+              color: _attendanceColour(sessions),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        const SizedBox(width: 4),
+        const Text(
+          'More',
+          style: TextStyle(color: OneRepColors.textDisabled, fontSize: 10),
+        ),
+      ],
     );
   }
 }
@@ -677,14 +800,14 @@ class _PrChart extends ConsumerWidget {
         height: 240,
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (_, _) => const _PrPlaceholder(
+      error: (_, _) => const _EmptyPanel(
         icon: Icons.error_outline,
         message: 'Could not load this history.',
       ),
       data: (series) {
         final summary = summariseSeries(series.points);
         if (summary == null) {
-          return const _PrPlaceholder(
+          return const _EmptyPanel(
             icon: Icons.timeline,
             message: 'No records yet for this exercise.',
             detail: 'Log a set and the first one lands here.',
@@ -741,24 +864,24 @@ class _PrSummary extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: _PrStat(
+            child: _StatCell(
               label: 'BEST',
               value: formatSeriesValue(summary.best.value, metric),
               caption: formatShortDate(summary.best.date),
               emphasis: OneRepColors.gold,
             ),
           ),
-          const _PrDivider(),
+          const _StatDivider(),
           Expanded(
-            child: _PrStat(
+            child: _StatCell(
               label: 'LATEST',
               value: formatSeriesValue(summary.latest.value, metric),
               caption: formatShortDate(summary.latest.date),
             ),
           ),
-          const _PrDivider(),
+          const _StatDivider(),
           Expanded(
-            child: _PrStat(
+            child: _StatCell(
               label: 'TREND',
               value: hasTrend
                   ? '${rising ? '+' : ''}${(change * 100).round()}%'
@@ -776,8 +899,17 @@ class _PrSummary extends StatelessWidget {
   }
 }
 
-class _PrStat extends StatelessWidget {
-  const _PrStat({
+// ---------------------------------------------------------------------------
+// Shared pieces
+// ---------------------------------------------------------------------------
+
+/// One figure with a label above it and a caption below.
+///
+/// Used by both summaries on this screen. The attendance grid and the PR chart
+/// answer different questions but ask them the same way, and two hand-rolled
+/// stat rows would have drifted apart on the first change to either.
+class _StatCell extends StatelessWidget {
+  const _StatCell({
     required this.label,
     required this.value,
     required this.caption,
@@ -837,8 +969,9 @@ class _PrStat extends StatelessWidget {
   }
 }
 
-class _PrDivider extends StatelessWidget {
-  const _PrDivider();
+/// The hairline between two [_StatCell]s.
+class _StatDivider extends StatelessWidget {
+  const _StatDivider();
 
   @override
   Widget build(BuildContext context) {
@@ -1094,17 +1227,13 @@ class _PrGraph extends StatelessWidget {
   }
 }
 
-/// Stands in for the chart when there is nothing to draw.
+/// Stands in for a chart or a grid when there is nothing to draw.
 ///
-/// A panel rather than a bare line of text: the section is a heading, a picker
-/// and then a two-hundred-pixel hole, and an empty state that occupies the
-/// space explains the hole instead of leaving the screen looking broken.
-class _PrPlaceholder extends StatelessWidget {
-  const _PrPlaceholder({
-    required this.icon,
-    required this.message,
-    this.detail,
-  });
+/// A panel rather than a bare line of text: an empty section on this screen is
+/// a heading above a two-hundred-pixel hole, and something that occupies the
+/// space and explains it reads as waiting rather than as broken.
+class _EmptyPanel extends StatelessWidget {
+  const _EmptyPanel({required this.icon, required this.message, this.detail});
 
   final IconData icon;
   final String message;
