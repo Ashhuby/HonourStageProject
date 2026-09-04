@@ -807,6 +807,22 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
     // The screen's navigator reference stays valid for the lifetime
     // of this widget regardless of how many dialogs open and close.
     final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    /// Reports a failure instead of leaving the button looking dead.
+    ///
+    /// Both of these buttons ended in an `await` followed by a pop, so
+    /// anything that threw took the navigation with it and the user was left
+    /// on a screen whose buttons did nothing and said nothing. Whatever else
+    /// goes wrong, a press has to visibly do something.
+    void report(String what, Object error) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not $what: $error'),
+          backgroundColor: OneRepColors.error,
+        ),
+      );
+    }
 
     showDialog(
       context: context,
@@ -849,14 +865,20 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
                   ],
                 ),
               );
-              if (confirmed == true) {
+              if (confirmed != true) return;
+
+              try {
                 await ref
                     .read(sessionRepositoryProvider.notifier)
                     .deleteSession(widget.sessionId);
-                await NotificationService().cancelAll();
-                // Use the pre-captured screen navigator — always valid.
-                navigator.popUntil((route) => route.isFirst);
+              } catch (error) {
+                report('delete the session', error);
+                return;
               }
+
+              await NotificationService().cancelAll();
+              // Use the pre-captured screen navigator — always valid.
+              navigator.popUntil((route) => route.isFirst);
             },
             child: const Text('Cancel Workout'),
           ),
@@ -865,9 +887,20 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen>
           TextButton(
             style: TextButton.styleFrom(foregroundColor: OneRepColors.gold),
             onPressed: () async {
-              await ref
-                  .read(sessionRepositoryProvider.notifier)
-                  .endSession(widget.sessionId);
+              Navigator.pop(dialogContext);
+
+              try {
+                await ref
+                    .read(sessionRepositoryProvider.notifier)
+                    .endSession(widget.sessionId);
+              } catch (error) {
+                // The session is still open, so the user stays on it rather
+                // than being returned to the home screen as though the
+                // workout had been saved.
+                report('finish the workout', error);
+                return;
+              }
+
               await NotificationService().cancelAll();
               navigator.popUntil((route) => route.isFirst);
             },
