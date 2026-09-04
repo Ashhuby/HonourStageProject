@@ -9,6 +9,7 @@
 /// meant for something else.
 library;
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -25,6 +26,25 @@ const Duration _kRevealDuration = Duration(milliseconds: 1400);
 
 /// How long the overlay takes to fade away once dismissed.
 const Duration _kExitDuration = Duration(milliseconds: 200);
+
+/// How many badges are celebrated one after another before they are rolled
+/// into a single card instead.
+///
+/// Three is about as many full-screen celebrations as a good session can
+/// justify. Beyond that the queue stops being a reward and becomes a wall: an
+/// upgrade that adds badges retroactively awards a dozen on the first set, and
+/// every one of them puts a modal barrier over the app that has to be tapped
+/// away before the workout can even be finished.
+const int _kMaxIndividual = 3;
+
+/// How long a celebration stays up on its own.
+///
+/// A [Timer] rather than a listener on the reveal, deliberately: the timer is
+/// what guarantees the overlay comes down. If the animation never runs — a
+/// muted ticker, animations turned off at the OS level — an overlay waiting on
+/// it would sit there fully transparent and swallow every tap in the app.
+const Duration _kSingleHold = Duration(milliseconds: 3200);
+const Duration _kBatchHold = Duration(milliseconds: 5200);
 
 /// Wraps the app and shows a celebration for each badge on the unlock queue.
 class BadgeUnlockHost extends ConsumerStatefulWidget {
@@ -44,10 +64,15 @@ class _BadgeUnlockHostState extends ConsumerState<BadgeUnlockHost>
   // an element that is by then deactivated.
   late final AnimationController _reveal;
 
-  /// The badge on screen. Tracked separately from the queue head so the
-  /// overlay can finish fading out after the queue has already moved on.
-  BadgeDefinition? _showing;
+  /// The badges on screen. Tracked separately from the queue so the overlay
+  /// can finish fading out after the queue has already moved on. Usually one;
+  /// more than one when a pile landed together and is being shown as a single
+  /// card.
+  List<BadgeDefinition> _batch = const [];
   bool _visible = false;
+
+  /// Brings the celebration down without the user having to.
+  Timer? _hold;
 
   @override
   void initState() {
@@ -57,6 +82,7 @@ class _BadgeUnlockHostState extends ConsumerState<BadgeUnlockHost>
 
   @override
   void dispose() {
+    _hold?.cancel();
     _reveal.dispose();
     super.dispose();
   }
@@ -67,34 +93,42 @@ class _BadgeUnlockHostState extends ConsumerState<BadgeUnlockHost>
   /// can land at once, and they are celebrated one after another rather than
   /// replacing each other mid-animation.
   void _adoptQueueHead(List<BadgeDefinition> queue) {
-    if (_showing != null || queue.isEmpty) return;
+    if (_batch.isNotEmpty || queue.isEmpty) return;
 
     // Called from build, so the state change has to wait for the frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _showing != null) return;
-      final head = ref.read(badgeUnlockQueueProvider);
-      if (head.isEmpty) return;
+      if (!mounted || _batch.isNotEmpty) return;
+      final pending = ref.read(badgeUnlockQueueProvider);
+      if (pending.isEmpty) return;
+
+      final batch = pending.length > _kMaxIndividual
+          ? List<BadgeDefinition>.unmodifiable(pending)
+          : [pending.first];
 
       setState(() {
-        _showing = head.first;
+        _batch = batch;
         _visible = true;
       });
       HapticFeedback.heavyImpact();
       _reveal.forward(from: 0);
+
+      _hold?.cancel();
+      _hold = Timer(batch.length > 1 ? _kBatchHold : _kSingleHold, _dismiss);
     });
   }
 
   void _dismiss() {
-    if (!_visible) return;
+    _hold?.cancel();
+    if (!_visible || !mounted) return;
     setState(() => _visible = false);
   }
 
   /// Runs when the exit fade completes — clears the badge and lets the next
   /// one be adopted on the following build.
   void _onFadeEnd() {
-    if (_visible || _showing == null) return;
-    ref.read(badgeUnlockQueueProvider.notifier).dismissCurrent();
-    setState(() => _showing = null);
+    if (_visible || _batch.isEmpty) return;
+    ref.read(badgeUnlockQueueProvider.notifier).dismissFirst(_batch.length);
+    setState(() => _batch = const []);
   }
 
   @override
@@ -102,12 +136,12 @@ class _BadgeUnlockHostState extends ConsumerState<BadgeUnlockHost>
     final queue = ref.watch(badgeUnlockQueueProvider);
     _adoptQueueHead(queue);
 
-    final badge = _showing;
+    final batch = _batch;
 
     return Stack(
       children: [
         widget.child,
-        if (badge != null)
+        if (batch.isNotEmpty)
           Positioned.fill(
             child: IgnorePointer(
               ignoring: !_visible,
@@ -117,10 +151,10 @@ class _BadgeUnlockHostState extends ConsumerState<BadgeUnlockHost>
                 curve: Curves.easeOut,
                 onEnd: _onFadeEnd,
                 child: _BadgeUnlockView(
-                  badge: badge,
+                  batch: batch,
                   reveal: _reveal,
                   onDismiss: _dismiss,
-                  remaining: queue.length - 1,
+                  remaining: queue.length - batch.length,
                 ),
               ),
             ),
@@ -136,18 +170,29 @@ class _BadgeUnlockHostState extends ConsumerState<BadgeUnlockHost>
 
 class _BadgeUnlockView extends StatelessWidget {
   const _BadgeUnlockView({
-    required this.badge,
+    required this.batch,
     required this.reveal,
     required this.onDismiss,
     required this.remaining,
   });
 
-  final BadgeDefinition badge;
+  /// The badges this celebration covers. One normally; several when a pile
+  /// landed together and is being shown as a single card.
+  final List<BadgeDefinition> batch;
+
   final Animation<double> reveal;
   final VoidCallback onDismiss;
 
-  /// How many more badges are queued behind this one.
+  /// How many more badges are queued behind this celebration.
   final int remaining;
+
+  bool get _isBatch => batch.length > 1;
+
+  /// The badge the medallion is drawn as: the best one in the batch, which is
+  /// the one worth putting on screen.
+  BadgeDefinition get badge => _isBatch
+      ? batch.reduce((best, b) => b.tier.index > best.tier.index ? b : best)
+      : batch.first;
 
   /// A stage of the reveal, as a 0..1 value curved over its own window.
   double _stage(double begin, double end, Curve curve) =>
@@ -213,7 +258,9 @@ class _BadgeUnlockView extends StatelessWidget {
                         child: Column(
                           children: [
                             Text(
-                              'BADGE UNLOCKED',
+                              _isBatch
+                                  ? '${batch.length} BADGES UNLOCKED'
+                                  : 'BADGE UNLOCKED',
                               style: TextStyle(
                                 color: tint,
                                 fontSize: 11,
@@ -234,10 +281,21 @@ class _BadgeUnlockView extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            _TierPill(tier: badge.tier),
-                            const SizedBox(height: 14),
+                            if (!_isBatch) ...[
+                              _TierPill(tier: badge.tier),
+                              const SizedBox(height: 14),
+                            ],
                             Text(
-                              badge.description,
+                              // In a batch the other names stand in for the
+                              // description: a dozen descriptions is a wall of
+                              // text, but the user should still see what they
+                              // got rather than only a count.
+                              _isBatch
+                                  ? batch
+                                        .where((b) => b != badge)
+                                        .map((b) => b.name)
+                                        .join('  ·  ')
+                                  : badge.description,
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 color: OneRepColors.textSecondary,

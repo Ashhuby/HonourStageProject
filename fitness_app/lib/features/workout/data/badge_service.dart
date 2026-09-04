@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:riverpod/riverpod.dart';
 import '../../../core/database/database_provider.dart';
@@ -100,6 +101,21 @@ class BadgeService extends _$BadgeService {
   /// site cannot forget to wire it up — the three that existed when the queue
   /// was introduced all discarded the return value.
   Future<List<String>> evaluateAll({required int totalPrCount}) async {
+    // Badge work is never worth failing a workout for. This runs inside
+    // `logSet` and inside `endSession`, and `endSession` is awaited by the
+    // Finish button — an exception thrown from here propagates into that
+    // await, the pops that follow it never run, and the user is left on the
+    // session screen with a button that does nothing and no error to explain
+    // it. A badge that cannot be evaluated is a badge earned later instead.
+    try {
+      return await _evaluate(totalPrCount);
+    } catch (error, stack) {
+      debugPrint('Badge evaluation failed: $error\n$stack');
+      return const [];
+    }
+  }
+
+  Future<List<String>> _evaluate(int totalPrCount) async {
     final db = ref.read(databaseProvider);
 
     // Only unearned badges can be awarded, and only their stats need

@@ -49,9 +49,17 @@ class BadgeUnlockQueue extends _$BadgeUnlockQueue {
   }
 
   /// Drops the badge currently being celebrated, revealing the next.
-  void dismissCurrent() {
-    if (state.isEmpty) return;
-    state = state.sublist(1);
+  void dismissCurrent() => dismissFirst(1);
+
+  /// Drops the first [count] badges.
+  ///
+  /// A celebration does not always cover exactly one badge: when a pile lands
+  /// together — which is what an upgrade that adds badges retroactively looks
+  /// like — they are shown as a single card, and dismissing it has to clear
+  /// all of them.
+  void dismissFirst(int count) {
+    if (state.isEmpty || count < 1) return;
+    state = count >= state.length ? const [] : state.sublist(count);
   }
 
   /// Drops everything pending. Used on sign-out, where the badge rows are
