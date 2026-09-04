@@ -1,6 +1,5 @@
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 import '../database/local_database.dart';
 import '../../features/workout/domain/muscle.dart';
 import 'exercise_muscle_payload.dart';
@@ -12,7 +11,6 @@ import 'set_payload.dart';
 class SyncService {
   final AppDatabase db;
   final SupabaseClient supabase;
-  final _uuid = const Uuid();
 
   SyncService({required this.db, required this.supabase});
 
@@ -139,23 +137,25 @@ class SyncService {
     )..where((s) => s.syncedAt.isNull())).get();
 
     for (final split in dirty) {
-      final remoteId = split.remoteId ?? _uuid.v4();
+      final upserted = await supabase
+          .from('workout_splits')
+          .upsert({
+            'user_id': userId,
+            'local_id': split.id,
+            'name': split.name,
+            'created_at': split.createdAt.toIso8601String(),
+            // The rotation. Without these a split arrived on a second device as
+            // an unscheduled list of routines, and the Today card had nothing to
+            // say on the device that had not built it.
+            'schedule_mode': split.scheduleMode,
+            'cycle_length': split.cycleLength,
+            'is_default': split.isDefault,
+            'deleted_at': split.deletedAt?.toIso8601String(),
+            'synced_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'user_id,local_id')
+          .select('id');
 
-      await supabase.from('workout_splits').upsert({
-        'id': remoteId,
-        'user_id': userId,
-        'local_id': split.id,
-        'name': split.name,
-        'created_at': split.createdAt.toIso8601String(),
-        // The rotation. Without these a split arrived on a second device as
-        // an unscheduled list of routines, and the Today card had nothing to
-        // say on the device that had not built it.
-        'schedule_mode': split.scheduleMode,
-        'cycle_length': split.cycleLength,
-        'is_default': split.isDefault,
-        'deleted_at': split.deletedAt?.toIso8601String(),
-        'synced_at': DateTime.now().toIso8601String(),
-      });
+      final remoteId = upserted.first['id'] as String;
 
       await (db.update(
         db.workoutSplits,
@@ -190,19 +190,21 @@ class SyncService {
 
       if (split == null || split.remoteId == null) continue;
 
-      final remoteId = routine.remoteId ?? _uuid.v4();
+      final upserted = await supabase
+          .from('workout_routines')
+          .upsert({
+            'user_id': userId,
+            'local_id': routine.id,
+            'split_id': split.remoteId,
+            'name': routine.name,
+            'order_index': routine.orderIndex,
+            'schedule_slots': routine.scheduleSlots,
+            'deleted_at': routine.deletedAt?.toIso8601String(),
+            'synced_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'user_id,local_id')
+          .select('id');
 
-      await supabase.from('workout_routines').upsert({
-        'id': remoteId,
-        'user_id': userId,
-        'local_id': routine.id,
-        'split_id': split.remoteId,
-        'name': routine.name,
-        'order_index': routine.orderIndex,
-        'schedule_slots': routine.scheduleSlots,
-        'deleted_at': routine.deletedAt?.toIso8601String(),
-        'synced_at': DateTime.now().toIso8601String(),
-      });
+      final remoteId = upserted.first['id'] as String;
 
       await (db.update(
         db.workoutRoutines,
@@ -236,25 +238,27 @@ class SyncService {
 
       if (routine == null || routine.remoteId == null) continue;
 
-      final remoteId = re.remoteId ?? _uuid.v4();
+      final upserted = await supabase
+          .from('routine_exercises')
+          .upsert({
+            'user_id': userId,
+            'local_id': re.id,
+            'routine_id': routine.remoteId,
+            'exercise_id': re.exerciseId,
+            'order_index': re.orderIndex,
+            'target_sets': re.targetSets,
+            'target_reps': re.targetReps,
+            // A routine has been able to plan a run or a plank since the metric
+            // types arrived, but the payload had nowhere to put the numbers — so
+            // a planned 5 km came back as "3 sets of 10 reps".
+            'target_distance_metres': re.targetDistanceMetres,
+            'target_duration_seconds': re.targetDurationSeconds,
+            'deleted_at': re.deletedAt?.toIso8601String(),
+            'synced_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'user_id,local_id')
+          .select('id');
 
-      await supabase.from('routine_exercises').upsert({
-        'id': remoteId,
-        'user_id': userId,
-        'local_id': re.id,
-        'routine_id': routine.remoteId,
-        'exercise_id': re.exerciseId,
-        'order_index': re.orderIndex,
-        'target_sets': re.targetSets,
-        'target_reps': re.targetReps,
-        // A routine has been able to plan a run or a plank since the metric
-        // types arrived, but the payload had nowhere to put the numbers — so
-        // a planned 5 km came back as "3 sets of 10 reps".
-        'target_distance_metres': re.targetDistanceMetres,
-        'target_duration_seconds': re.targetDurationSeconds,
-        'deleted_at': re.deletedAt?.toIso8601String(),
-        'synced_at': DateTime.now().toIso8601String(),
-      });
+      final remoteId = upserted.first['id'] as String;
 
       await (db.update(
         db.routineExercises,
@@ -308,19 +312,21 @@ class SyncService {
         routineRemoteId = routine?.remoteId;
       }
 
-      final remoteId = session.remoteId ?? _uuid.v4();
+      final upserted = await supabase
+          .from('workout_sessions')
+          .upsert({
+            'user_id': userId,
+            'local_id': session.id,
+            'routine_id': routineRemoteId,
+            'start_time': session.startTime.toIso8601String(),
+            'end_time': session.endTime?.toIso8601String(),
+            'session_note': session.sessionNote,
+            'deleted_at': session.deletedAt?.toIso8601String(),
+            'synced_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'user_id,local_id')
+          .select('id');
 
-      await supabase.from('workout_sessions').upsert({
-        'id': remoteId,
-        'user_id': userId,
-        'local_id': session.id,
-        'routine_id': routineRemoteId,
-        'start_time': session.startTime.toIso8601String(),
-        'end_time': session.endTime?.toIso8601String(),
-        'session_note': session.sessionNote,
-        'deleted_at': session.deletedAt?.toIso8601String(),
-        'synced_at': DateTime.now().toIso8601String(),
-      });
+      final remoteId = upserted.first['id'] as String;
 
       await (db.update(
         db.workoutSessions,
@@ -427,25 +433,27 @@ class SyncService {
 
       if (session == null || session.remoteId == null) continue;
 
-      final remoteId = set.remoteId ?? _uuid.v4();
+      final upserted = await supabase
+          .from('workout_sets')
+          .upsert({
+            'user_id': userId,
+            'local_id': set.id,
+            'session_id': session.remoteId,
+            'exercise_id': set.exerciseId,
+            'weight': set.weight,
+            'reps': set.reps,
+            'timestamp': set.timestamp.toIso8601String(),
+            'deleted_at': set.deletedAt?.toIso8601String(),
+            'synced_at': DateTime.now().toIso8601String(),
+            // Without these a run uploaded as 0 kg x 0 reps.
+            ...setMetricColumns(
+              durationSeconds: set.durationSeconds,
+              distanceMetres: set.distanceMetres,
+            ),
+          }, onConflict: 'user_id,local_id')
+          .select('id');
 
-      await supabase.from('workout_sets').upsert({
-        'id': remoteId,
-        'user_id': userId,
-        'local_id': set.id,
-        'session_id': session.remoteId,
-        'exercise_id': set.exerciseId,
-        'weight': set.weight,
-        'reps': set.reps,
-        'timestamp': set.timestamp.toIso8601String(),
-        'deleted_at': set.deletedAt?.toIso8601String(),
-        'synced_at': DateTime.now().toIso8601String(),
-        // Without these a run uploaded as 0 kg x 0 reps.
-        ...setMetricColumns(
-          durationSeconds: set.durationSeconds,
-          distanceMetres: set.distanceMetres,
-        ),
-      });
+      final remoteId = upserted.first['id'] as String;
 
       await (db.update(
         db.workoutSets,
@@ -484,24 +492,26 @@ class SyncService {
     )..where((pb) => pb.syncedAt.isNull())).get();
 
     for (final pr in dirty) {
-      final remoteId = pr.remoteId ?? _uuid.v4();
+      final upserted = await supabase
+          .from('personal_bests')
+          .upsert({
+            'user_id': userId,
+            'local_id': pr.id,
+            'exercise_id': pr.exerciseId,
+            'reps': pr.reps,
+            'weight': pr.weight,
+            'achieved_at': pr.achievedAt.toIso8601String(),
+            'deleted_at': pr.deletedAt?.toIso8601String(),
+            'synced_at': DateTime.now().toIso8601String(),
+            ...personalBestMetricColumns(
+              metricType: pr.metricType,
+              durationSeconds: pr.durationSeconds,
+              distanceMetres: pr.distanceMetres,
+            ),
+          }, onConflict: 'user_id,exercise_id,metric_type,distance_metres')
+          .select('id');
 
-      await supabase.from('personal_bests').upsert({
-        'id': remoteId,
-        'user_id': userId,
-        'local_id': pr.id,
-        'exercise_id': pr.exerciseId,
-        'reps': pr.reps,
-        'weight': pr.weight,
-        'achieved_at': pr.achievedAt.toIso8601String(),
-        'deleted_at': pr.deletedAt?.toIso8601String(),
-        'synced_at': DateTime.now().toIso8601String(),
-        ...personalBestMetricColumns(
-          metricType: pr.metricType,
-          durationSeconds: pr.durationSeconds,
-          distanceMetres: pr.distanceMetres,
-        ),
-      });
+      final remoteId = upserted.first['id'] as String;
 
       await (db.update(
         db.personalBests,
@@ -548,28 +558,31 @@ class SyncService {
             .get();
 
     for (final exercise in dirty) {
-      final remoteId = exercise.remoteId ?? _uuid.v4();
       final muscles = await _musclesFor(exercise.id);
 
-      await supabase.from('exercises').upsert({
-        'id': remoteId,
-        'user_id': userId,
-        'local_id': exercise.id,
-        'name': exercise.name,
-        // Still sent, and still the primary muscle's group label. Remote
-        // declares it NOT NULL and older clients read nothing else.
-        'body_part': exercise.bodyPart,
-        'equipment_type': exercise.equipmentType,
-        // Absent before, so a custom cardio exercise round-tripped as a lift.
-        'metric_type': exercise.metricType,
-        'notes': exercise.notes,
-        'deleted_at': exercise.deletedAt?.toIso8601String(),
-        'synced_at': DateTime.now().toIso8601String(),
-        ...muscleColumnsFor(
-          primary: muscles.primary,
-          secondary: muscles.secondary,
-        ),
-      });
+      final upserted = await supabase
+          .from('exercises')
+          .upsert({
+            'user_id': userId,
+            'local_id': exercise.id,
+            'name': exercise.name,
+            // Still sent, and still the primary muscle's group label. Remote
+            // declares it NOT NULL and older clients read nothing else.
+            'body_part': exercise.bodyPart,
+            'equipment_type': exercise.equipmentType,
+            // Absent before, so a custom cardio exercise round-tripped as a lift.
+            'metric_type': exercise.metricType,
+            'notes': exercise.notes,
+            'deleted_at': exercise.deletedAt?.toIso8601String(),
+            'synced_at': DateTime.now().toIso8601String(),
+            ...muscleColumnsFor(
+              primary: muscles.primary,
+              secondary: muscles.secondary,
+            ),
+          }, onConflict: 'user_id,name')
+          .select('id');
+
+      final remoteId = upserted.first['id'] as String;
 
       await (db.update(
         db.exercises,
@@ -599,17 +612,19 @@ class SyncService {
             .get();
 
     for (final badge in dirty) {
-      final remoteId = badge.remoteId ?? _uuid.v4();
+      final upserted = await supabase
+          .from('badges')
+          .upsert({
+            'user_id': userId,
+            'local_id': badge.id,
+            'badge_key': badge.badgeKey,
+            'earned_at': badge.earnedAt!.toIso8601String(),
+            'deleted_at': badge.deletedAt?.toIso8601String(),
+            'synced_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'user_id,badge_key')
+          .select('id');
 
-      await supabase.from('badges').upsert({
-        'id': remoteId,
-        'user_id': userId,
-        'local_id': badge.id,
-        'badge_key': badge.badgeKey,
-        'earned_at': badge.earnedAt!.toIso8601String(),
-        'deleted_at': badge.deletedAt?.toIso8601String(),
-        'synced_at': DateTime.now().toIso8601String(),
-      });
+      final remoteId = upserted.first['id'] as String;
 
       await (db.update(db.badges)..where((b) => b.id.equals(badge.id))).write(
         BadgesCompanion(
@@ -690,9 +705,7 @@ class SyncService {
             WorkoutSplitsCompanion.insert(
               name: row['name'] as String,
               createdAt: Value(_parseLocal(row['created_at'] as String)),
-              scheduleMode: Value(
-                (row['schedule_mode'] as String?) ?? 'none',
-              ),
+              scheduleMode: Value((row['schedule_mode'] as String?) ?? 'none'),
               cycleLength: Value((row['cycle_length'] as int?) ?? 7),
               // Deliberately not carried across. Which split a device opens
               // on is a preference of that device, and the unique index on
