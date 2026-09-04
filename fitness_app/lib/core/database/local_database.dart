@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   final bool _isTesting;
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration {
@@ -149,6 +149,21 @@ class AppDatabase extends _$AppDatabase {
           // the version bump an existing install would simply have no rows for
           // them and could never earn them.
           await _seedBadges();
+        }
+        if (from < 13) {
+          // v12 to v13: scheduling. A split gains a rotation — weekly, or a
+          // cycle of any length — and a routine records which slots of it it
+          // occupies. All four columns carry defaults, so an existing split
+          // upgrades to an unscheduled one and behaves exactly as it did.
+          //
+          // Local only for now. The sync payloads are written column by column
+          // against a remote schema this cannot migrate, so sending these
+          // would fail every push rather than carry a schedule to a second
+          // device.
+          await m.addColumn(workoutSplits, workoutSplits.scheduleMode);
+          await m.addColumn(workoutSplits, workoutSplits.cycleLength);
+          await m.addColumn(workoutSplits, workoutSplits.isDefault);
+          await m.addColumn(workoutRoutines, workoutRoutines.scheduleSlots);
         }
       },
       beforeOpen: (details) async {

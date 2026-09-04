@@ -1089,6 +1089,45 @@ class $WorkoutSplitsTable extends WorkoutSplits
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _scheduleModeMeta = const VerificationMeta(
+    'scheduleMode',
+  );
+  @override
+  late final GeneratedColumn<String> scheduleMode = GeneratedColumn<String>(
+    'schedule_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('none'),
+  );
+  static const VerificationMeta _cycleLengthMeta = const VerificationMeta(
+    'cycleLength',
+  );
+  @override
+  late final GeneratedColumn<int> cycleLength = GeneratedColumn<int>(
+    'cycle_length',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(7),
+  );
+  static const VerificationMeta _isDefaultMeta = const VerificationMeta(
+    'isDefault',
+  );
+  @override
+  late final GeneratedColumn<bool> isDefault = GeneratedColumn<bool>(
+    'is_default',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_default" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _remoteIdMeta = const VerificationMeta(
     'remoteId',
   );
@@ -1136,6 +1175,9 @@ class $WorkoutSplitsTable extends WorkoutSplits
     id,
     name,
     createdAt,
+    scheduleMode,
+    cycleLength,
+    isDefault,
     remoteId,
     userId,
     syncedAt,
@@ -1168,6 +1210,30 @@ class $WorkoutSplitsTable extends WorkoutSplits
       context.handle(
         _createdAtMeta,
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('schedule_mode')) {
+      context.handle(
+        _scheduleModeMeta,
+        scheduleMode.isAcceptableOrUnknown(
+          data['schedule_mode']!,
+          _scheduleModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cycle_length')) {
+      context.handle(
+        _cycleLengthMeta,
+        cycleLength.isAcceptableOrUnknown(
+          data['cycle_length']!,
+          _cycleLengthMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_default')) {
+      context.handle(
+        _isDefaultMeta,
+        isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta),
       );
     }
     if (data.containsKey('remote_id')) {
@@ -1215,6 +1281,18 @@ class $WorkoutSplitsTable extends WorkoutSplits
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      scheduleMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}schedule_mode'],
+      )!,
+      cycleLength: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cycle_length'],
+      )!,
+      isDefault: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_default'],
+      )!,
       remoteId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}remote_id'],
@@ -1244,6 +1322,21 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
   final int id;
   final String name;
   final DateTime createdAt;
+
+  /// How this split repeats: `none`, `weekly` or `cycle`. Parsed through
+  /// `ScheduleMode.byNameOrNone` rather than read directly, so a value written
+  /// by a newer version of the app degrades to an unscheduled split instead of
+  /// crashing the list.
+  final String scheduleMode;
+
+  /// How many slots the rotation has. Seven for `weekly`, where slot 0 is
+  /// Monday; anything from two upwards for `cycle`.
+  final int cycleLength;
+
+  /// The split the Splits tab opens on. At most one row is ever true — see
+  /// `SplitRepository.setDefaultSplit`, which clears the others in the same
+  /// transaction.
+  final bool isDefault;
   final String? remoteId;
   final String? userId;
   final DateTime? syncedAt;
@@ -1252,6 +1345,9 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
     required this.id,
     required this.name,
     required this.createdAt,
+    required this.scheduleMode,
+    required this.cycleLength,
+    required this.isDefault,
     this.remoteId,
     this.userId,
     this.syncedAt,
@@ -1263,6 +1359,9 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['schedule_mode'] = Variable<String>(scheduleMode);
+    map['cycle_length'] = Variable<int>(cycleLength);
+    map['is_default'] = Variable<bool>(isDefault);
     if (!nullToAbsent || remoteId != null) {
       map['remote_id'] = Variable<String>(remoteId);
     }
@@ -1283,6 +1382,9 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
       id: Value(id),
       name: Value(name),
       createdAt: Value(createdAt),
+      scheduleMode: Value(scheduleMode),
+      cycleLength: Value(cycleLength),
+      isDefault: Value(isDefault),
       remoteId: remoteId == null && nullToAbsent
           ? const Value.absent()
           : Value(remoteId),
@@ -1307,6 +1409,9 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      scheduleMode: serializer.fromJson<String>(json['scheduleMode']),
+      cycleLength: serializer.fromJson<int>(json['cycleLength']),
+      isDefault: serializer.fromJson<bool>(json['isDefault']),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
       userId: serializer.fromJson<String?>(json['userId']),
       syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
@@ -1320,6 +1425,9 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'scheduleMode': serializer.toJson<String>(scheduleMode),
+      'cycleLength': serializer.toJson<int>(cycleLength),
+      'isDefault': serializer.toJson<bool>(isDefault),
       'remoteId': serializer.toJson<String?>(remoteId),
       'userId': serializer.toJson<String?>(userId),
       'syncedAt': serializer.toJson<DateTime?>(syncedAt),
@@ -1331,6 +1439,9 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
     int? id,
     String? name,
     DateTime? createdAt,
+    String? scheduleMode,
+    int? cycleLength,
+    bool? isDefault,
     Value<String?> remoteId = const Value.absent(),
     Value<String?> userId = const Value.absent(),
     Value<DateTime?> syncedAt = const Value.absent(),
@@ -1339,6 +1450,9 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
     id: id ?? this.id,
     name: name ?? this.name,
     createdAt: createdAt ?? this.createdAt,
+    scheduleMode: scheduleMode ?? this.scheduleMode,
+    cycleLength: cycleLength ?? this.cycleLength,
+    isDefault: isDefault ?? this.isDefault,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
     userId: userId.present ? userId.value : this.userId,
     syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
@@ -1349,6 +1463,13 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      scheduleMode: data.scheduleMode.present
+          ? data.scheduleMode.value
+          : this.scheduleMode,
+      cycleLength: data.cycleLength.present
+          ? data.cycleLength.value
+          : this.cycleLength,
+      isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
       remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       userId: data.userId.present ? data.userId.value : this.userId,
       syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
@@ -1362,6 +1483,9 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('createdAt: $createdAt, ')
+          ..write('scheduleMode: $scheduleMode, ')
+          ..write('cycleLength: $cycleLength, ')
+          ..write('isDefault: $isDefault, ')
           ..write('remoteId: $remoteId, ')
           ..write('userId: $userId, ')
           ..write('syncedAt: $syncedAt, ')
@@ -1371,8 +1495,18 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, createdAt, remoteId, userId, syncedAt, deletedAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    createdAt,
+    scheduleMode,
+    cycleLength,
+    isDefault,
+    remoteId,
+    userId,
+    syncedAt,
+    deletedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1380,6 +1514,9 @@ class WorkoutSplit extends DataClass implements Insertable<WorkoutSplit> {
           other.id == this.id &&
           other.name == this.name &&
           other.createdAt == this.createdAt &&
+          other.scheduleMode == this.scheduleMode &&
+          other.cycleLength == this.cycleLength &&
+          other.isDefault == this.isDefault &&
           other.remoteId == this.remoteId &&
           other.userId == this.userId &&
           other.syncedAt == this.syncedAt &&
@@ -1390,6 +1527,9 @@ class WorkoutSplitsCompanion extends UpdateCompanion<WorkoutSplit> {
   final Value<int> id;
   final Value<String> name;
   final Value<DateTime> createdAt;
+  final Value<String> scheduleMode;
+  final Value<int> cycleLength;
+  final Value<bool> isDefault;
   final Value<String?> remoteId;
   final Value<String?> userId;
   final Value<DateTime?> syncedAt;
@@ -1398,6 +1538,9 @@ class WorkoutSplitsCompanion extends UpdateCompanion<WorkoutSplit> {
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.scheduleMode = const Value.absent(),
+    this.cycleLength = const Value.absent(),
+    this.isDefault = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.userId = const Value.absent(),
     this.syncedAt = const Value.absent(),
@@ -1407,6 +1550,9 @@ class WorkoutSplitsCompanion extends UpdateCompanion<WorkoutSplit> {
     this.id = const Value.absent(),
     required String name,
     this.createdAt = const Value.absent(),
+    this.scheduleMode = const Value.absent(),
+    this.cycleLength = const Value.absent(),
+    this.isDefault = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.userId = const Value.absent(),
     this.syncedAt = const Value.absent(),
@@ -1416,6 +1562,9 @@ class WorkoutSplitsCompanion extends UpdateCompanion<WorkoutSplit> {
     Expression<int>? id,
     Expression<String>? name,
     Expression<DateTime>? createdAt,
+    Expression<String>? scheduleMode,
+    Expression<int>? cycleLength,
+    Expression<bool>? isDefault,
     Expression<String>? remoteId,
     Expression<String>? userId,
     Expression<DateTime>? syncedAt,
@@ -1425,6 +1574,9 @@ class WorkoutSplitsCompanion extends UpdateCompanion<WorkoutSplit> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (createdAt != null) 'created_at': createdAt,
+      if (scheduleMode != null) 'schedule_mode': scheduleMode,
+      if (cycleLength != null) 'cycle_length': cycleLength,
+      if (isDefault != null) 'is_default': isDefault,
       if (remoteId != null) 'remote_id': remoteId,
       if (userId != null) 'user_id': userId,
       if (syncedAt != null) 'synced_at': syncedAt,
@@ -1436,6 +1588,9 @@ class WorkoutSplitsCompanion extends UpdateCompanion<WorkoutSplit> {
     Value<int>? id,
     Value<String>? name,
     Value<DateTime>? createdAt,
+    Value<String>? scheduleMode,
+    Value<int>? cycleLength,
+    Value<bool>? isDefault,
     Value<String?>? remoteId,
     Value<String?>? userId,
     Value<DateTime?>? syncedAt,
@@ -1445,6 +1600,9 @@ class WorkoutSplitsCompanion extends UpdateCompanion<WorkoutSplit> {
       id: id ?? this.id,
       name: name ?? this.name,
       createdAt: createdAt ?? this.createdAt,
+      scheduleMode: scheduleMode ?? this.scheduleMode,
+      cycleLength: cycleLength ?? this.cycleLength,
+      isDefault: isDefault ?? this.isDefault,
       remoteId: remoteId ?? this.remoteId,
       userId: userId ?? this.userId,
       syncedAt: syncedAt ?? this.syncedAt,
@@ -1463,6 +1621,15 @@ class WorkoutSplitsCompanion extends UpdateCompanion<WorkoutSplit> {
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (scheduleMode.present) {
+      map['schedule_mode'] = Variable<String>(scheduleMode.value);
+    }
+    if (cycleLength.present) {
+      map['cycle_length'] = Variable<int>(cycleLength.value);
+    }
+    if (isDefault.present) {
+      map['is_default'] = Variable<bool>(isDefault.value);
     }
     if (remoteId.present) {
       map['remote_id'] = Variable<String>(remoteId.value);
@@ -1485,6 +1652,9 @@ class WorkoutSplitsCompanion extends UpdateCompanion<WorkoutSplit> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('createdAt: $createdAt, ')
+          ..write('scheduleMode: $scheduleMode, ')
+          ..write('cycleLength: $cycleLength, ')
+          ..write('isDefault: $isDefault, ')
           ..write('remoteId: $remoteId, ')
           ..write('userId: $userId, ')
           ..write('syncedAt: $syncedAt, ')
@@ -1547,6 +1717,17 @@ class $WorkoutRoutinesTable extends WorkoutRoutines
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _scheduleSlotsMeta = const VerificationMeta(
+    'scheduleSlots',
+  );
+  @override
+  late final GeneratedColumn<String> scheduleSlots = GeneratedColumn<String>(
+    'schedule_slots',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _remoteIdMeta = const VerificationMeta(
     'remoteId',
   );
@@ -1595,6 +1776,7 @@ class $WorkoutRoutinesTable extends WorkoutRoutines
     splitId,
     name,
     orderIndex,
+    scheduleSlots,
     remoteId,
     userId,
     syncedAt,
@@ -1638,6 +1820,15 @@ class $WorkoutRoutinesTable extends WorkoutRoutines
       );
     } else if (isInserting) {
       context.missing(_orderIndexMeta);
+    }
+    if (data.containsKey('schedule_slots')) {
+      context.handle(
+        _scheduleSlotsMeta,
+        scheduleSlots.isAcceptableOrUnknown(
+          data['schedule_slots']!,
+          _scheduleSlotsMeta,
+        ),
+      );
     }
     if (data.containsKey('remote_id')) {
       context.handle(
@@ -1688,6 +1879,10 @@ class $WorkoutRoutinesTable extends WorkoutRoutines
         DriftSqlType.int,
         data['${effectivePrefix}order_index'],
       )!,
+      scheduleSlots: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}schedule_slots'],
+      ),
       remoteId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}remote_id'],
@@ -1718,6 +1913,17 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
   final int splitId;
   final String name;
   final int orderIndex;
+
+  /// Which slots of the split's rotation this routine occupies, as a
+  /// comma-separated list of positions — `'0,3'` is Monday and Thursday on a
+  /// weekly split.
+  ///
+  /// A list rather than a single slot because a six-day push/pull/legs runs
+  /// each routine twice a week, and a column rather than a join table because
+  /// this is a handful of small integers that are only ever read together with
+  /// the routine. Parsed by `parseSlots`, which is total: anything it cannot
+  /// read becomes an unscheduled routine rather than an error.
+  final String? scheduleSlots;
   final String? remoteId;
   final String? userId;
   final DateTime? syncedAt;
@@ -1727,6 +1933,7 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
     required this.splitId,
     required this.name,
     required this.orderIndex,
+    this.scheduleSlots,
     this.remoteId,
     this.userId,
     this.syncedAt,
@@ -1739,6 +1946,9 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
     map['split_id'] = Variable<int>(splitId);
     map['name'] = Variable<String>(name);
     map['order_index'] = Variable<int>(orderIndex);
+    if (!nullToAbsent || scheduleSlots != null) {
+      map['schedule_slots'] = Variable<String>(scheduleSlots);
+    }
     if (!nullToAbsent || remoteId != null) {
       map['remote_id'] = Variable<String>(remoteId);
     }
@@ -1760,6 +1970,9 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
       splitId: Value(splitId),
       name: Value(name),
       orderIndex: Value(orderIndex),
+      scheduleSlots: scheduleSlots == null && nullToAbsent
+          ? const Value.absent()
+          : Value(scheduleSlots),
       remoteId: remoteId == null && nullToAbsent
           ? const Value.absent()
           : Value(remoteId),
@@ -1785,6 +1998,7 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
       splitId: serializer.fromJson<int>(json['splitId']),
       name: serializer.fromJson<String>(json['name']),
       orderIndex: serializer.fromJson<int>(json['orderIndex']),
+      scheduleSlots: serializer.fromJson<String?>(json['scheduleSlots']),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
       userId: serializer.fromJson<String?>(json['userId']),
       syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
@@ -1799,6 +2013,7 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
       'splitId': serializer.toJson<int>(splitId),
       'name': serializer.toJson<String>(name),
       'orderIndex': serializer.toJson<int>(orderIndex),
+      'scheduleSlots': serializer.toJson<String?>(scheduleSlots),
       'remoteId': serializer.toJson<String?>(remoteId),
       'userId': serializer.toJson<String?>(userId),
       'syncedAt': serializer.toJson<DateTime?>(syncedAt),
@@ -1811,6 +2026,7 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
     int? splitId,
     String? name,
     int? orderIndex,
+    Value<String?> scheduleSlots = const Value.absent(),
     Value<String?> remoteId = const Value.absent(),
     Value<String?> userId = const Value.absent(),
     Value<DateTime?> syncedAt = const Value.absent(),
@@ -1820,6 +2036,9 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
     splitId: splitId ?? this.splitId,
     name: name ?? this.name,
     orderIndex: orderIndex ?? this.orderIndex,
+    scheduleSlots: scheduleSlots.present
+        ? scheduleSlots.value
+        : this.scheduleSlots,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
     userId: userId.present ? userId.value : this.userId,
     syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
@@ -1833,6 +2052,9 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
       orderIndex: data.orderIndex.present
           ? data.orderIndex.value
           : this.orderIndex,
+      scheduleSlots: data.scheduleSlots.present
+          ? data.scheduleSlots.value
+          : this.scheduleSlots,
       remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       userId: data.userId.present ? data.userId.value : this.userId,
       syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
@@ -1847,6 +2069,7 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
           ..write('splitId: $splitId, ')
           ..write('name: $name, ')
           ..write('orderIndex: $orderIndex, ')
+          ..write('scheduleSlots: $scheduleSlots, ')
           ..write('remoteId: $remoteId, ')
           ..write('userId: $userId, ')
           ..write('syncedAt: $syncedAt, ')
@@ -1861,6 +2084,7 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
     splitId,
     name,
     orderIndex,
+    scheduleSlots,
     remoteId,
     userId,
     syncedAt,
@@ -1874,6 +2098,7 @@ class WorkoutRoutine extends DataClass implements Insertable<WorkoutRoutine> {
           other.splitId == this.splitId &&
           other.name == this.name &&
           other.orderIndex == this.orderIndex &&
+          other.scheduleSlots == this.scheduleSlots &&
           other.remoteId == this.remoteId &&
           other.userId == this.userId &&
           other.syncedAt == this.syncedAt &&
@@ -1885,6 +2110,7 @@ class WorkoutRoutinesCompanion extends UpdateCompanion<WorkoutRoutine> {
   final Value<int> splitId;
   final Value<String> name;
   final Value<int> orderIndex;
+  final Value<String?> scheduleSlots;
   final Value<String?> remoteId;
   final Value<String?> userId;
   final Value<DateTime?> syncedAt;
@@ -1894,6 +2120,7 @@ class WorkoutRoutinesCompanion extends UpdateCompanion<WorkoutRoutine> {
     this.splitId = const Value.absent(),
     this.name = const Value.absent(),
     this.orderIndex = const Value.absent(),
+    this.scheduleSlots = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.userId = const Value.absent(),
     this.syncedAt = const Value.absent(),
@@ -1904,6 +2131,7 @@ class WorkoutRoutinesCompanion extends UpdateCompanion<WorkoutRoutine> {
     required int splitId,
     required String name,
     required int orderIndex,
+    this.scheduleSlots = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.userId = const Value.absent(),
     this.syncedAt = const Value.absent(),
@@ -1916,6 +2144,7 @@ class WorkoutRoutinesCompanion extends UpdateCompanion<WorkoutRoutine> {
     Expression<int>? splitId,
     Expression<String>? name,
     Expression<int>? orderIndex,
+    Expression<String>? scheduleSlots,
     Expression<String>? remoteId,
     Expression<String>? userId,
     Expression<DateTime>? syncedAt,
@@ -1926,6 +2155,7 @@ class WorkoutRoutinesCompanion extends UpdateCompanion<WorkoutRoutine> {
       if (splitId != null) 'split_id': splitId,
       if (name != null) 'name': name,
       if (orderIndex != null) 'order_index': orderIndex,
+      if (scheduleSlots != null) 'schedule_slots': scheduleSlots,
       if (remoteId != null) 'remote_id': remoteId,
       if (userId != null) 'user_id': userId,
       if (syncedAt != null) 'synced_at': syncedAt,
@@ -1938,6 +2168,7 @@ class WorkoutRoutinesCompanion extends UpdateCompanion<WorkoutRoutine> {
     Value<int>? splitId,
     Value<String>? name,
     Value<int>? orderIndex,
+    Value<String?>? scheduleSlots,
     Value<String?>? remoteId,
     Value<String?>? userId,
     Value<DateTime?>? syncedAt,
@@ -1948,6 +2179,7 @@ class WorkoutRoutinesCompanion extends UpdateCompanion<WorkoutRoutine> {
       splitId: splitId ?? this.splitId,
       name: name ?? this.name,
       orderIndex: orderIndex ?? this.orderIndex,
+      scheduleSlots: scheduleSlots ?? this.scheduleSlots,
       remoteId: remoteId ?? this.remoteId,
       userId: userId ?? this.userId,
       syncedAt: syncedAt ?? this.syncedAt,
@@ -1969,6 +2201,9 @@ class WorkoutRoutinesCompanion extends UpdateCompanion<WorkoutRoutine> {
     }
     if (orderIndex.present) {
       map['order_index'] = Variable<int>(orderIndex.value);
+    }
+    if (scheduleSlots.present) {
+      map['schedule_slots'] = Variable<String>(scheduleSlots.value);
     }
     if (remoteId.present) {
       map['remote_id'] = Variable<String>(remoteId.value);
@@ -1992,6 +2227,7 @@ class WorkoutRoutinesCompanion extends UpdateCompanion<WorkoutRoutine> {
           ..write('splitId: $splitId, ')
           ..write('name: $name, ')
           ..write('orderIndex: $orderIndex, ')
+          ..write('scheduleSlots: $scheduleSlots, ')
           ..write('remoteId: $remoteId, ')
           ..write('userId: $userId, ')
           ..write('syncedAt: $syncedAt, ')
@@ -6355,6 +6591,9 @@ typedef $$WorkoutSplitsTableCreateCompanionBuilder =
       Value<int> id,
       required String name,
       Value<DateTime> createdAt,
+      Value<String> scheduleMode,
+      Value<int> cycleLength,
+      Value<bool> isDefault,
       Value<String?> remoteId,
       Value<String?> userId,
       Value<DateTime?> syncedAt,
@@ -6365,6 +6604,9 @@ typedef $$WorkoutSplitsTableUpdateCompanionBuilder =
       Value<int> id,
       Value<String> name,
       Value<DateTime> createdAt,
+      Value<String> scheduleMode,
+      Value<int> cycleLength,
+      Value<bool> isDefault,
       Value<String?> remoteId,
       Value<String?> userId,
       Value<DateTime?> syncedAt,
@@ -6424,6 +6666,21 @@ class $$WorkoutSplitsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scheduleMode => $composableBuilder(
+    column: $table.scheduleMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cycleLength => $composableBuilder(
+    column: $table.cycleLength,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6497,6 +6754,21 @@ class $$WorkoutSplitsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get scheduleMode => $composableBuilder(
+    column: $table.scheduleMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cycleLength => $composableBuilder(
+    column: $table.cycleLength,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get remoteId => $composableBuilder(
     column: $table.remoteId,
     builder: (column) => ColumnOrderings(column),
@@ -6535,6 +6807,19 @@ class $$WorkoutSplitsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get scheduleMode => $composableBuilder(
+    column: $table.scheduleMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get cycleLength => $composableBuilder(
+    column: $table.cycleLength,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDefault =>
+      $composableBuilder(column: $table.isDefault, builder: (column) => column);
 
   GeneratedColumn<String> get remoteId =>
       $composableBuilder(column: $table.remoteId, builder: (column) => column);
@@ -6605,6 +6890,9 @@ class $$WorkoutSplitsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> scheduleMode = const Value.absent(),
+                Value<int> cycleLength = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
@@ -6613,6 +6901,9 @@ class $$WorkoutSplitsTableTableManager
                 id: id,
                 name: name,
                 createdAt: createdAt,
+                scheduleMode: scheduleMode,
+                cycleLength: cycleLength,
+                isDefault: isDefault,
                 remoteId: remoteId,
                 userId: userId,
                 syncedAt: syncedAt,
@@ -6623,6 +6914,9 @@ class $$WorkoutSplitsTableTableManager
                 Value<int> id = const Value.absent(),
                 required String name,
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> scheduleMode = const Value.absent(),
+                Value<int> cycleLength = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
@@ -6631,6 +6925,9 @@ class $$WorkoutSplitsTableTableManager
                 id: id,
                 name: name,
                 createdAt: createdAt,
+                scheduleMode: scheduleMode,
+                cycleLength: cycleLength,
+                isDefault: isDefault,
                 remoteId: remoteId,
                 userId: userId,
                 syncedAt: syncedAt,
@@ -6700,6 +6997,7 @@ typedef $$WorkoutRoutinesTableCreateCompanionBuilder =
       required int splitId,
       required String name,
       required int orderIndex,
+      Value<String?> scheduleSlots,
       Value<String?> remoteId,
       Value<String?> userId,
       Value<DateTime?> syncedAt,
@@ -6711,6 +7009,7 @@ typedef $$WorkoutRoutinesTableUpdateCompanionBuilder =
       Value<int> splitId,
       Value<String> name,
       Value<int> orderIndex,
+      Value<String?> scheduleSlots,
       Value<String?> remoteId,
       Value<String?> userId,
       Value<DateTime?> syncedAt,
@@ -6813,6 +7112,11 @@ class $$WorkoutRoutinesTableFilterComposer
 
   ColumnFilters<int> get orderIndex => $composableBuilder(
     column: $table.orderIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scheduleSlots => $composableBuilder(
+    column: $table.scheduleSlots,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6934,6 +7238,11 @@ class $$WorkoutRoutinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get scheduleSlots => $composableBuilder(
+    column: $table.scheduleSlots,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get remoteId => $composableBuilder(
     column: $table.remoteId,
     builder: (column) => ColumnOrderings(column),
@@ -6995,6 +7304,11 @@ class $$WorkoutRoutinesTableAnnotationComposer
 
   GeneratedColumn<int> get orderIndex => $composableBuilder(
     column: $table.orderIndex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get scheduleSlots => $composableBuilder(
+    column: $table.scheduleSlots,
     builder: (column) => column,
   );
 
@@ -7122,6 +7436,7 @@ class $$WorkoutRoutinesTableTableManager
                 Value<int> splitId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<int> orderIndex = const Value.absent(),
+                Value<String?> scheduleSlots = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
@@ -7131,6 +7446,7 @@ class $$WorkoutRoutinesTableTableManager
                 splitId: splitId,
                 name: name,
                 orderIndex: orderIndex,
+                scheduleSlots: scheduleSlots,
                 remoteId: remoteId,
                 userId: userId,
                 syncedAt: syncedAt,
@@ -7142,6 +7458,7 @@ class $$WorkoutRoutinesTableTableManager
                 required int splitId,
                 required String name,
                 required int orderIndex,
+                Value<String?> scheduleSlots = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
@@ -7151,6 +7468,7 @@ class $$WorkoutRoutinesTableTableManager
                 splitId: splitId,
                 name: name,
                 orderIndex: orderIndex,
+                scheduleSlots: scheduleSlots,
                 remoteId: remoteId,
                 userId: userId,
                 syncedAt: syncedAt,

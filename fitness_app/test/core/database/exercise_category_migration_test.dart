@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/core/database/exercise_seed.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 
+import 'schema_fixture.dart';
+
 /// Tests the v9 → v10 move to activity categories.
 ///
 /// Two things here are only observable through a real migration over a real
@@ -55,7 +57,7 @@ void main() {
       'ALTER TABLE routine_exercises DROP COLUMN target_duration_seconds',
     );
     await seed(db);
-    await db.customStatement('PRAGMA user_version = 9');
+    await makeLookLikeVersion(db, 9);
     await db.close();
   }
 

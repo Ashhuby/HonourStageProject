@@ -5,6 +5,8 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 
+import 'schema_fixture.dart';
+
 /// Tests the v6 → v7 rebuild of personal_bests.
 ///
 /// The unique key moves from (exercise_id, reps) to
@@ -75,7 +77,7 @@ void main() {
       )
     ''');
     await seed(db);
-    await db.customStatement('PRAGMA user_version = 6');
+    await makeLookLikeVersion(db, 6);
     await db.close();
   }
 

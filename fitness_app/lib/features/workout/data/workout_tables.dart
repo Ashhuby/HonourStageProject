@@ -91,6 +91,23 @@ class WorkoutSplits extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// How this split repeats: `none`, `weekly` or `cycle`. Parsed through
+  /// `ScheduleMode.byNameOrNone` rather than read directly, so a value written
+  /// by a newer version of the app degrades to an unscheduled split instead of
+  /// crashing the list.
+  TextColumn get scheduleMode =>
+      text().withDefault(const Constant('none'))();
+
+  /// How many slots the rotation has. Seven for `weekly`, where slot 0 is
+  /// Monday; anything from two upwards for `cycle`.
+  IntColumn get cycleLength => integer().withDefault(const Constant(7))();
+
+  /// The split the Splits tab opens on. At most one row is ever true — see
+  /// `SplitRepository.setDefaultSplit`, which clears the others in the same
+  /// transaction.
+  BoolColumn get isDefault =>
+      boolean().withDefault(const Constant(false))();
   TextColumn get remoteId => text().nullable()();
   TextColumn get userId => text().nullable()();
   DateTimeColumn get syncedAt => dateTime().nullable()();
@@ -106,6 +123,17 @@ class WorkoutRoutines extends Table {
       integer().references(WorkoutSplits, #id, onDelete: KeyAction.cascade)();
   TextColumn get name => text()();
   IntColumn get orderIndex => integer()();
+
+  /// Which slots of the split's rotation this routine occupies, as a
+  /// comma-separated list of positions — `'0,3'` is Monday and Thursday on a
+  /// weekly split.
+  ///
+  /// A list rather than a single slot because a six-day push/pull/legs runs
+  /// each routine twice a week, and a column rather than a join table because
+  /// this is a handful of small integers that are only ever read together with
+  /// the routine. Parsed by `parseSlots`, which is total: anything it cannot
+  /// read becomes an unscheduled routine rather than an error.
+  TextColumn get scheduleSlots => text().nullable()();
   TextColumn get remoteId => text().nullable()();
   TextColumn get userId => text().nullable()();
   DateTimeColumn get syncedAt => dateTime().nullable()();

@@ -8,6 +8,8 @@ import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/features/workout/domain/activity.dart';
 import 'package:fitness_app/features/workout/domain/muscle.dart';
 
+import 'schema_fixture.dart';
+
 /// Tests the v8 → v9 move from a single `body_part` string to a primary muscle
 /// plus secondaries in `exercise_muscles`.
 ///
@@ -67,7 +69,7 @@ void main() {
     await db.customStatement('DROP INDEX IF EXISTS idx_exercises_seed_name');
     await db.customStatement('DROP INDEX IF EXISTS idx_exercises_remote_id');
     await seed(db);
-    await db.customStatement('PRAGMA user_version = 8');
+    await makeLookLikeVersion(db, 8);
     await db.close();
   }
 

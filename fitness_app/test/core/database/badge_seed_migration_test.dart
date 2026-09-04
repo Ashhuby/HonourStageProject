@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_app/core/database/local_database.dart';
 import 'package:fitness_app/features/workout/domain/badge_catalogue.dart';
 
+import 'schema_fixture.dart';
+
 /// Tests the v11 → v12 badge re-seed.
 ///
 /// v12 changes no schema at all: a badge is a row keyed on `badge_key`, and
@@ -66,7 +68,7 @@ void main() {
           );
     }
 
-    await db.customStatement('PRAGMA user_version = 11');
+    await makeLookLikeVersion(db, 11);
     await db.close();
   }
 
