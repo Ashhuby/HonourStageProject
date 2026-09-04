@@ -51,3 +51,8 @@ dart_defines.env
 *.jks
 
 .secrets.env
+
+# Dev-only: the Postgres client for tool/sql.mjs
+node_modules/
+package.json
+package-lock.json
